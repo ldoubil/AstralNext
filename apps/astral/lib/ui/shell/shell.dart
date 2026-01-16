@@ -27,7 +27,7 @@ class _ShellState extends State<Shell> {
     return Scaffold(
       body: Column(
         children: [
-          const _TitleBar(height: 44, title: 'Astral 控制台'),
+          const _TitleBar(height: 44, title: '     15：23'),
           Expanded(
             child: Row(
               children: [
