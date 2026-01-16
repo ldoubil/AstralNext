@@ -1,12 +1,8 @@
-// lib/ui/pages/dashboard_page.dart
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -17,15 +13,15 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   final _random = Random();
-  late List<_InstanceSnapshot> _instances;
-  int _selectedInstanceIndex = 0;
-  late final ValueNotifier<int> _trafficTick;
-  Timer? _trafficTimer;
+  late final ValueNotifier<int> _chartTick;
+  late final List<_InstanceSnapshot> _instances;
+  int _selectedIndex = 0;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _trafficTick = ValueNotifier(0);
+    _chartTick = ValueNotifier<int>(0);
     _instances = [
       _InstanceSnapshot(
         name: '实例-1',
@@ -34,7 +30,8 @@ class _DashboardPageState extends State<DashboardPage> {
         nodeCount: 128,
         latencyMs: 24,
         stability: 99.98,
-        trafficData: _buildTrafficSeed(),
+        throughputGbps: 18.4,
+        trafficData: _seedTraffic(),
       ),
       _InstanceSnapshot(
         name: '实例-2',
@@ -43,7 +40,8 @@ class _DashboardPageState extends State<DashboardPage> {
         nodeCount: 96,
         latencyMs: 31,
         stability: 99.87,
-        trafficData: _buildTrafficSeed(),
+        throughputGbps: 14.9,
+        trafficData: _seedTraffic(),
       ),
       _InstanceSnapshot(
         name: '实例-3',
@@ -52,340 +50,144 @@ class _DashboardPageState extends State<DashboardPage> {
         nodeCount: 0,
         latencyMs: 0,
         stability: 0,
-        trafficData: _buildTrafficSeed(),
+        throughputGbps: 0,
+        trafficData: _seedTraffic(),
       ),
     ];
-    _trafficTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        for (final instance in _instances) {
-          instance.trafficData = [
-            ...instance.trafficData.sublist(1),
-            20 + _random.nextDouble() * 40,
-          ];
-        }
-        _trafficTick.value++;
-      });
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      for (final instance in _instances) {
+        instance.trafficData = [
+          ...instance.trafficData.sublist(1),
+          20 + _random.nextDouble() * 40,
+        ];
+      }
+      _chartTick.value++;
     });
   }
 
-  List<double> _buildTrafficSeed() =>
-      List<double>.generate(60, (index) => 20 + _random.nextDouble() * 40);
+  List<double> _seedTraffic() =>
+      List<double>.generate(60, (_) => 20 + _random.nextDouble() * 40);
 
   @override
   void dispose() {
-    _trafficTimer?.cancel();
-    _trafficTick.dispose();
+    _timer?.cancel();
+    _chartTick.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final activeInstance = _instances[_selectedInstanceIndex];
-    final connectedCount = _instances
-        .where((instance) => instance.isConnected)
-        .length;
-    return ClipRRect(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    isDark
-                        ? colorScheme.surfaceVariant
-                        : const Color(0xFFF2F7FB),
-                    isDark
-                        ? colorScheme.surfaceVariant.withOpacity(0.92)
-                        : const Color(0xFFEAF3F8),
-                    isDark ? const Color(0xFF0E1218) : const Color(0xFFFDFBFA),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Opacity(
-              opacity: isDark ? 0.18 : 0.08,
-              child: CustomPaint(painter: _StarfieldPainter()),
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: isDark ? 0.2 : 0.12,
-                child: CustomPaint(painter: _NebulaPainter()),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: isDark ? 0.18 : 0.07,
-                child: CustomPaint(painter: _GridPainter()),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -170,
-            top: -130,
-            child: _GlowOrb(
-              size: 320,
-              colors: isDark
-                  ? [const Color(0xFF6EA8FF), const Color(0x00162838)]
-                  : [const Color(0xFFFFE3C7), const Color(0x00FFFFFF)],
-            ),
-          ),
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-              child: const SizedBox(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(56, 12, 56, 48),
-            child: SingleChildScrollView(
-              child: Column(
+    final active = _instances[_selectedIndex];
+    final connectedCount =
+        _instances.where((instance) => instance.isConnected).length;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      children: [
+        _PageHeader(
+          title: 'Astral 控制台',
+          subtitle: '面向多实例的统一控制与观测，遵循 MD3 无阴影色块分层。',
+        ),
+        const SizedBox(height: 12),
+        _InstanceSelector(
+          instances: _instances,
+          selectedIndex: _selectedIndex,
+          onSelected: (index) => setState(() => _selectedIndex = index),
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 1000;
+            final sideWidth = isWide ? min(420.0, constraints.maxWidth * 0.38) : constraints.maxWidth;
+
+            if (isWide) {
+              return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _HeroTitle(colorScheme: colorScheme)),
-                      const SizedBox(width: 16),
-                      _InstanceSwitcher(
-                        instances: _instances,
-                        selectedIndex: _selectedInstanceIndex,
-                        connectedCount: connectedCount,
-                        totalCount: _instances.length,
-                        onSelected: (index) {
-                          setState(() => _selectedInstanceIndex = index);
-                        },
-                      ),
-                    ],
+                  Expanded(
+                    child: _TrafficCard(
+                      instance: active,
+                      repaint: _chartTick,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                        '故事不是人生指南，你喜欢，可能只是你遇过。',
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant.withOpacity(0.72),
-                          fontSize: 16,
-                          letterSpacing: 0.2,
-                        ),
-                      )
-                      .animate()
-                      .fadeIn(duration: 600.ms, delay: 200.ms)
-                      .move(begin: const Offset(0, 8)),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _InfoPill(title: '实例', value: activeInstance.name),
-                      _InfoPill(title: '虚拟IP', value: activeInstance.virtualIp),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isCompactLayout = constraints.maxWidth < 900;
-
-                      return StaggeredGrid.count(
-                        crossAxisCount: isCompactLayout ? 1 : 5,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        children: [
-                          StaggeredGridTile.fit(
-                            crossAxisCellCount: isCompactLayout ? 1 : 3,
-                            child: _TrafficCard(
-                                  title: '网络折线图',
-                                  subtitle: '近 60 秒',
-                                  data: activeInstance.trafficData,
-                                  repaint: _trafficTick,
-                                )
-                                .animate()
-                                .fadeIn(duration: 700.ms, delay: 260.ms)
-                                .move(begin: const Offset(0, 10)),
-                          ),
-                          StaggeredGridTile.fit(
-                            crossAxisCellCount: isCompactLayout ? 1 : 2,
-                            child: Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: [
-                                    _MetricCard(
-                                      title: '在线实例',
-                                      value: '${activeInstance.nodeCount}',
-                                      accent: Color(0xFF7BD7FF),
-                                    ),
-                                    _MetricCard(
-                                      title: '平均延迟',
-                                      value: '${activeInstance.latencyMs}ms',
-                                      accent: Color(0xFFFFD47B),
-                                    ),
-                                    _MetricCard(
-                                      title: '稳定性',
-                                      value:
-                                          '${activeInstance.stability.toStringAsFixed(2)}%',
-                                      accent: Color(0xFF98FFA7),
-                                    ),
-                                  ],
-                                )
-                                .animate()
-                                .fadeIn(duration: 700.ms, delay: 320.ms)
-                                .move(begin: const Offset(0, 12)),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: _ConnectButton(onPressed: () {})
-                        .animate()
-                        .fadeIn(duration: 600.ms, delay: 420.ms)
-                        .move(begin: const Offset(0, 8)),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: sideWidth,
+                    child: _SideMetrics(
+                      active: active,
+                      connectedCount: connectedCount,
+                      totalCount: _instances.length,
+                    ),
                   ),
                 ],
-              ),
-            ),
-          ),
-        ],
-      ),
+              );
+            }
+
+            return Column(
+              children: [
+                _TrafficCard(
+                  instance: active,
+                  repaint: _chartTick,
+                ),
+                const SizedBox(height: 16),
+                _SideMetrics(
+                  active: active,
+                  connectedCount: connectedCount,
+                  totalCount: _instances.length,
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        _InstancesOverview(instances: _instances),
+        const SizedBox(height: 8),
+        _FootNote(colorScheme: colorScheme),
+      ],
     );
   }
 }
 
-class _InstanceSnapshot {
-  _InstanceSnapshot({
-    required this.name,
-    required this.isConnected,
-    required this.virtualIp,
-    required this.nodeCount,
-    required this.latencyMs,
-    required this.stability,
-    required List<double> trafficData,
-  }) : trafficData = trafficData;
+class _PageHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
 
-  final String name;
-  final bool isConnected;
-  final String virtualIp;
-  final int nodeCount;
-  final int latencyMs;
-  final double stability;
-  List<double> trafficData;
-}
-
-class _InstanceSwitcher extends StatefulWidget {
-  final List<_InstanceSnapshot> instances;
-  final int selectedIndex;
-  final int connectedCount;
-  final int totalCount;
-  final ValueChanged<int> onSelected;
-
-  const _InstanceSwitcher({
-    super.key,
-    required this.instances,
-    required this.selectedIndex,
-    required this.connectedCount,
-    required this.totalCount,
-    required this.onSelected,
+  const _PageHeader({
+    required this.title,
+    required this.subtitle,
   });
-
-  @override
-  State<_InstanceSwitcher> createState() => _InstanceSwitcherState();
-}
-
-class _InstanceSwitcherState extends State<_InstanceSwitcher> {
-  bool _menuOpen = false;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final backgroundColor = isDark
-        ? Colors.white.withOpacity(0.06)
-        : colorScheme.surface;
-    final borderColor = isDark
-        ? Colors.white.withOpacity(0.08)
-        : colorScheme.outlineVariant.withOpacity(0.7);
-    final activeInstance = widget.instances[widget.selectedIndex];
-
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 28),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            PopupMenuButton<int>(
-              onOpened: () => setState(() => _menuOpen = true),
-              onCanceled: () => setState(() => _menuOpen = false),
-              onSelected: (index) {
-                setState(() => _menuOpen = false);
-                widget.onSelected(index);
-              },
-              position: PopupMenuPosition.under,
-              itemBuilder: (context) => [
-                for (var i = 0; i < widget.instances.length; i++)
-                  PopupMenuItem<int>(
-                    value: i,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: widget.instances[i].isConnected
-                                ? const Color(0xFF98FFA7)
-                                : const Color(0xFFFF8A7B),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            widget.instances[i].name,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        Text(
-                          widget.instances[i].isConnected ? '已连接' : '未连接',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: colorScheme.onSurfaceVariant.withOpacity(
-                              0.7,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-              child: _InstanceSelector(
-                name: activeInstance.name,
-                isConnected: activeInstance.isConnected,
-                backgroundColor: backgroundColor,
-                borderColor: borderColor,
-                isExpanded: _menuOpen,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 26,
+                  letterSpacing: -0.2,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${widget.connectedCount}/${widget.totalCount} 已连接',
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant.withOpacity(0.7),
-                fontSize: 11,
-                letterSpacing: 0.2,
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 14,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -393,180 +195,342 @@ class _InstanceSwitcherState extends State<_InstanceSwitcher> {
 }
 
 class _InstanceSelector extends StatelessWidget {
-  final String name;
-  final bool isConnected;
-  final Color backgroundColor;
-  final Color borderColor;
-  final bool isExpanded;
+  final List<_InstanceSnapshot> instances;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
 
   const _InstanceSelector({
-    required this.name,
-    required this.isConnected,
-    required this.backgroundColor,
-    required this.borderColor,
-    required this.isExpanded,
+    required this.instances,
+    required this.selectedIndex,
+    required this.onSelected,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final statusColor = isConnected
-        ? const Color(0xFF98FFA7)
-        : const Color(0xFFFF8A7B);
 
-    return AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: EdgeInsets.symmetric(
-            horizontal: isExpanded ? 16 : 12,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor),
-            boxShadow: [
-              if (isExpanded)
-                BoxShadow(
-                  color: colorScheme.primary.withOpacity(0.18),
-                  blurRadius: 16,
-                  spreadRadius: 0.5,
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (var i = 0; i < instances.length; i++)
+          ChoiceChip(
+            labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            label: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  instances[i].name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: selectedIndex == i
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.onSurface,
+                  ),
                 ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
+                const SizedBox(height: 2),
+                Text(
+                  instances[i].virtualIp,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: selectedIndex == i
+                        ? colorScheme.onPrimaryContainer.withOpacity(0.8)
+                        : colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                name,
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.expand_more,
-                size: 16,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ],
+              ],
+            ),
+            selected: selectedIndex == i,
+            onSelected: (_) => onSelected(i),
+            selectedColor: colorScheme.primaryContainer,
+            backgroundColor: colorScheme.surfaceContainerLow,
+            showCheckmark: false,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
-        )
-        .animate(target: isExpanded ? 1 : 0)
-        .scaleXY(begin: 1, end: 1.02, duration: 180.ms, curve: Curves.easeOut)
-        .then()
-        .shimmer(
-          duration: 600.ms,
-          color: colorScheme.primary.withOpacity(0.25),
-        );
+      ],
+    );
   }
 }
 
-class _InfoPill extends StatelessWidget {
-  final String title;
-  final String value;
+class _TrafficCard extends StatelessWidget {
+  final _InstanceSnapshot instance;
+  final Listenable repaint;
 
-  const _InfoPill({required this.title, required this.value});
+  const _TrafficCard({
+    required this.instance,
+    required this.repaint,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final cardColor = isDark
-        ? Colors.white.withOpacity(0.06)
-        : colorScheme.surface;
-    final borderColor = isDark
-        ? Colors.white.withOpacity(0.08)
-        : colorScheme.outlineVariant.withOpacity(0.7);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+    return _DashboardCard(
+      title: '最近 60 秒流量',
+      subtitle: '实时吞吐与波动',
+      trailing: Text(
+        '${instance.throughputGbps.toStringAsFixed(1)} Gbps',
+        style: TextStyle(
+          color: colorScheme.primary,
+          fontWeight: FontWeight.w700,
+          fontSize: 18,
+        ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant.withOpacity(0.7),
-              fontSize: 10,
-              letterSpacing: 0.3,
-            ),
+      child: SizedBox(
+        height: 220,
+        child: CustomPaint(
+          painter: _TrafficPainter(
+            data: instance.trafficData,
+            strokeColor: colorScheme.primary,
+            fillColor: colorScheme.primary.withOpacity(0.18),
+            repaint: repaint,
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _HeroTitle extends StatelessWidget {
-  final ColorScheme colorScheme;
+class _SideMetrics extends StatelessWidget {
+  final _InstanceSnapshot active;
+  final int connectedCount;
+  final int totalCount;
 
-  const _HeroTitle({required this.colorScheme});
+  const _SideMetrics({
+    required this.active,
+    required this.connectedCount,
+    required this.totalCount,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final title = Text(
-      'Astral',
-      style: TextStyle(
-        color: colorScheme.onSurface,
-        fontSize: 88,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -1.6,
-      ),
-    );
-
-    return Animate(
-      effects: const [
-        FadeEffect(duration: Duration(milliseconds: 500)),
-        MoveEffect(begin: Offset(0, 12)),
-      ],
-      child: Animate(
-        onPlay: (controller) => controller.repeat(),
-        effects: [
-          ShimmerEffect(
-            duration: Duration(milliseconds: 2400),
-            color: Colors.white.withOpacity(0.75),
-            angle: 0.6,
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _DashboardCard(
+          title: '实例状态',
+          subtitle: '整体连通性与 SLA',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MetricRow(
+                label: '在线实例',
+                value: '$connectedCount / $totalCount',
+                accent: colorScheme.primary,
+              ),
+              const SizedBox(height: 12),
+              _MetricRow(
+                label: '当前延迟',
+                value: '${active.latencyMs} ms',
+                accent: colorScheme.secondary,
+              ),
+              const SizedBox(height: 12),
+              _MetricRow(
+                label: '稳定性',
+                value: '${active.stability.toStringAsFixed(2)} %',
+                accent: colorScheme.tertiary,
+              ),
+            ],
           ),
+        ),
+        const SizedBox(height: 16),
+        _DashboardCard(
+          title: '路由摘要',
+          subtitle: '虚拟 IP 与节点规模',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Pill(
+                label: '节点数 ${active.nodeCount}',
+                color: colorScheme.primary.withOpacity(0.15),
+                foreground: colorScheme.primary,
+              ),
+              const SizedBox(height: 10),
+              _Pill(
+                label: '虚拟 IP ${active.virtualIp}',
+                color: colorScheme.secondaryContainer,
+                foreground: colorScheme.onSecondaryContainer,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InstancesOverview extends StatelessWidget {
+  final List<_InstanceSnapshot> instances;
+
+  const _InstancesOverview({required this.instances});
+
+  @override
+  Widget build(BuildContext context) {
+    return _DashboardCard(
+      title: '实例概览',
+      subtitle: '列表视角展示全部实例当前状态',
+      child: Column(
+        children: [
+          for (final instance in instances) ...[
+            _InstanceRow(instance: instance),
+            if (instance != instances.last)
+              const Divider(height: 20),
+          ],
         ],
-        child: title,
       ),
     );
   }
 }
 
-class _MetricCard extends StatelessWidget {
+class _InstanceRow extends StatelessWidget {
+  final _InstanceSnapshot instance;
+
+  const _InstanceRow({required this.instance});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final statusColor = instance.isConnected
+        ? colorScheme.primary
+        : colorScheme.error;
+
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: statusColor,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                instance.name,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${instance.virtualIp} · 节点 ${instance.nodeCount}',
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        _Pill(
+          label: instance.isConnected ? '已连接' : '未连接',
+          color: statusColor.withOpacity(0.15),
+          foreground: statusColor,
+        ),
+      ],
+    );
+  }
+}
+
+class _FootNote extends StatelessWidget {
+  final ColorScheme colorScheme;
+
+  const _FootNote({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(
+          '按 MD3 无阴影、无描边的色块层级进行布局。',
+          style: TextStyle(
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardCard extends StatelessWidget {
   final String title;
+  final String subtitle;
+  final Widget child;
+  final Widget? trailing;
+
+  const _DashboardCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricRow extends StatelessWidget {
+  final String label;
   final String value;
   final Color accent;
 
-  const _MetricCard({
-    required this.title,
+  const _MetricRow({
+    required this.label,
     required this.value,
     required this.accent,
   });
@@ -574,127 +538,55 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final cardColor = isDark
-        ? Colors.white.withOpacity(0.06)
-        : colorScheme.surface;
-    final borderColor = isDark
-        ? Colors.white.withOpacity(0.08)
-        : colorScheme.outlineVariant.withOpacity(0.7);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
             style: TextStyle(
-              color: colorScheme.onSurfaceVariant.withOpacity(0.7),
-              fontSize: 12,
-              letterSpacing: 0.4,
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 13,
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                value,
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: accent,
+            fontWeight: FontWeight.w700,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _TrafficCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final List<double> data;
-  final Listenable repaint;
+class _Pill extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color foreground;
 
-  const _TrafficCard({
-    required this.title,
-    required this.subtitle,
-    required this.data,
-    required this.repaint,
+  const _Pill({
+    required this.label,
+    required this.color,
+    required this.foreground,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final cardColor = isDark
-        ? Colors.white.withOpacity(0.06)
-        : colorScheme.surface;
-    final borderColor = isDark
-        ? Colors.white.withOpacity(0.08)
-        : colorScheme.outlineVariant.withOpacity(0.7);
-
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor),
+        color: color,
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant.withOpacity(0.7),
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 120,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _TrafficPainter(
-                data: data,
-                lineColor: const Color(0xFF79D7FF),
-                glowColor: const Color(0x5579D7FF),
-                repaint: repaint,
-              ),
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -702,51 +594,55 @@ class _TrafficCard extends StatelessWidget {
 
 class _TrafficPainter extends CustomPainter {
   final List<double> data;
-  final Color lineColor;
-  final Color glowColor;
+  final Color strokeColor;
+  final Color fillColor;
 
   _TrafficPainter({
     required this.data,
-    required this.lineColor,
-    required this.glowColor,
+    required this.strokeColor,
+    required this.fillColor,
     required Listenable repaint,
   }) : super(repaint: repaint);
 
   @override
   void paint(Canvas canvas, Size size) {
     if (data.length < 2) return;
-    final maxValue = data.reduce((a, b) => a > b ? a : b);
-    final minValue = data.reduce((a, b) => a < b ? a : b);
-    final range = (maxValue - minValue).abs() < 0.001
-        ? 1.0
-        : maxValue - minValue;
+    final maxValue = data.reduce(max);
+    final minValue = data.reduce(min);
+    final range = (maxValue - minValue).abs() < 0.001 ? 1.0 : maxValue - minValue;
 
-    final path = Path();
+    final linePath = Path();
+    final areaPath = Path();
+
     for (var i = 0; i < data.length; i++) {
       final x = size.width * i / (data.length - 1);
       final normalized = (data[i] - minValue) / range;
-      final y = size.height - (normalized * size.height);
+      final y = size.height - normalized * size.height;
       if (i == 0) {
-        path.moveTo(x, y);
+        linePath.moveTo(x, y);
+        areaPath.moveTo(x, size.height);
+        areaPath.lineTo(x, y);
       } else {
-        path.lineTo(x, y);
+        linePath.lineTo(x, y);
+        areaPath.lineTo(x, y);
+      }
+      if (i == data.length - 1) {
+        areaPath.lineTo(x, size.height);
+        areaPath.close();
       }
     }
 
-    final glowPaint = Paint()
-      ..color = glowColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-    canvas.drawPath(path, glowPaint);
+    final areaPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(areaPath, areaPaint);
 
     final linePaint = Paint()
-      ..color = lineColor
+      ..color = strokeColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(path, linePaint);
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(linePath, linePaint);
   }
 
   @override
@@ -755,137 +651,24 @@ class _TrafficPainter extends CustomPainter {
   }
 }
 
-class _ConnectButton extends StatelessWidget {
-  final VoidCallback onPressed;
+class _InstanceSnapshot {
+  final String name;
+  final bool isConnected;
+  final String virtualIp;
+  final int nodeCount;
+  final int latencyMs;
+  final double stability;
+  final double throughputGbps;
+  List<double> trafficData;
 
-  const _ConnectButton({required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.onSurface.withOpacity(0.12),
-          width: 1,
-        ),
-      ),
-    );
-  }
-}
-
-class _GlowOrb extends StatelessWidget {
-  final double size;
-  final List<Color> colors;
-
-  const _GlowOrb({required this.size, required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: colors),
-        ),
-      ),
-    );
-  }
-}
-
-class _StarfieldPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white.withOpacity(0.55);
-    const stars = [
-      Offset(0.1, 0.2),
-      Offset(0.15, 0.35),
-      Offset(0.22, 0.12),
-      Offset(0.32, 0.28),
-      Offset(0.38, 0.18),
-      Offset(0.45, 0.42),
-      Offset(0.58, 0.26),
-      Offset(0.64, 0.12),
-      Offset(0.72, 0.34),
-      Offset(0.82, 0.18),
-      Offset(0.9, 0.3),
-      Offset(0.12, 0.72),
-      Offset(0.24, 0.62),
-      Offset(0.36, 0.76),
-      Offset(0.52, 0.64),
-      Offset(0.62, 0.78),
-      Offset(0.74, 0.68),
-      Offset(0.86, 0.74),
-      Offset(0.08, 0.48),
-      Offset(0.18, 0.52),
-      Offset(0.28, 0.46),
-      Offset(0.4, 0.56),
-      Offset(0.5, 0.5),
-      Offset(0.66, 0.46),
-      Offset(0.78, 0.52),
-      Offset(0.88, 0.44),
-      Offset(0.2, 0.88),
-      Offset(0.34, 0.9),
-      Offset(0.48, 0.86),
-      Offset(0.66, 0.9),
-    ];
-
-    for (final star in stars) {
-      final center = Offset(size.width * star.dx, size.height * star.dy);
-      canvas.drawCircle(center, 1.2, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _NebulaPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final paint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0x334B78FF),
-          Color(0x00000000),
-          Color(0x338C6BFF),
-          Color(0x00000000),
-        ],
-        stops: [0, 0.4, 0.7, 1],
-      ).createShader(rect);
-
-    canvas.drawRect(rect, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    const spacing = 80.0;
-    for (double x = 0; x <= size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y <= size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  _InstanceSnapshot({
+    required this.name,
+    required this.isConnected,
+    required this.virtualIp,
+    required this.nodeCount,
+    required this.latencyMs,
+    required this.stability,
+    required this.throughputGbps,
+    required this.trafficData,
+  });
 }
