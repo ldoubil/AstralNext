@@ -11,7 +11,7 @@ Future<void> main() async {
   runApp(const AstralApp());
 
   doWhenWindowReady(() {
-    const initialSize = Size(1000, 700);
+    const initialSize = Size(1200, 800);
     appWindow.minSize = initialSize;
     appWindow.size = initialSize;
     appWindow.alignment = Alignment.center;

@@ -76,12 +76,6 @@ class _TitleBar extends StatelessWidget {
                 child: MoveWindow(
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.apps,
-                        size: 18,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
                       Text(
                         title,
                         style: TextStyle(
@@ -195,13 +189,15 @@ class _RailDestination extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final iconColor =
-        selected ? colorScheme.primary : colorScheme.onSurfaceVariant;
+    final iconColor = selected
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
     final textStyle = TextStyle(
       color: iconColor,
       fontSize: 12,
       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
     );
+    final highlightColor = colorScheme.secondaryContainer;
 
     return InkResponse(
       onTap: onTap,
@@ -211,21 +207,32 @@ class _RailDestination extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              decoration: selected
-                  ? BoxDecoration(
-                      color: colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(16),
-                    )
-                  : null,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: selected ? highlightColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Icon(
-                selected ? selectedIcon : icon,
-                color: iconColor,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 160),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: Icon(
+                  selected ? selectedIcon : icon,
+                  key: ValueKey<bool>(selected),
+                  color: iconColor,
+                ),
               ),
             ),
             const SizedBox(height: 4),
-            Text(label, style: textStyle),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              style: textStyle,
+              child: Text(label),
+            ),
           ],
         ),
       ),
