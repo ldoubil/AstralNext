@@ -29,6 +29,7 @@ class _DashboardPageState extends State<DashboardPage> {
       _InstanceSnapshot(
         name: '实例-1',
         isConnected: true,
+        virtualIp: '10.0.8.21',
         nodeCount: 128,
         latencyMs: 24,
         stability: 99.98,
@@ -37,6 +38,7 @@ class _DashboardPageState extends State<DashboardPage> {
       _InstanceSnapshot(
         name: '实例-2',
         isConnected: true,
+        virtualIp: '10.0.8.33',
         nodeCount: 96,
         latencyMs: 31,
         stability: 99.87,
@@ -45,6 +47,7 @@ class _DashboardPageState extends State<DashboardPage> {
       _InstanceSnapshot(
         name: '实例-3',
         isConnected: false,
+        virtualIp: '10.0.8.57',
         nodeCount: 0,
         latencyMs: 0,
         stability: 0,
@@ -123,19 +126,11 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           const Positioned(
-            left: -120,
-            top: -160,
+            left: -170,
+            top: -130,
             child: _GlowOrb(
               size: 320,
               colors: [Color(0xFF6EA8FF), Color(0x00162838)],
-            ),
-          ),
-          const Positioned(
-            right: -60,
-            bottom: -120,
-            child: _GlowOrb(
-              size: 260,
-              colors: [Color(0xFF9B7CFF), Color(0x001E152C)],
             ),
           ),
           Positioned.fill(
@@ -178,6 +173,15 @@ class _DashboardPageState extends State<DashboardPage> {
                       .animate()
                       .fadeIn(duration: 600.ms, delay: 200.ms)
                       .move(begin: const Offset(0, 8)),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _InfoPill(title: '实例', value: activeInstance.name),
+                      _InfoPill(title: '虚拟IP', value: activeInstance.virtualIp),
+                    ],
+                  ),
                   const SizedBox(height: 20),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,6 +253,7 @@ class _InstanceSnapshot {
   _InstanceSnapshot({
     required this.name,
     required this.isConnected,
+    required this.virtualIp,
     required this.nodeCount,
     required this.latencyMs,
     required this.stability,
@@ -257,6 +262,7 @@ class _InstanceSnapshot {
 
   final String name;
   final bool isConnected;
+  final String virtualIp;
   final int nodeCount;
   final int latencyMs;
   final double stability;
@@ -340,7 +346,9 @@ class _InstanceSwitcherState extends State<_InstanceSwitcher> {
                           widget.instances[i].isConnected ? '已连接' : '未连接',
                           style: TextStyle(
                             fontSize: 11,
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                            color: colorScheme.onSurfaceVariant.withOpacity(
+                              0.7,
+                            ),
                           ),
                         ),
                       ],
@@ -394,65 +402,111 @@ class _InstanceSelector extends StatelessWidget {
         : const Color(0xFFFF8A7B);
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: EdgeInsets.symmetric(
-        horizontal: isExpanded ? 16 : 12,
-        vertical: 10,
-      ),
+          duration: const Duration(milliseconds: 180),
+          padding: EdgeInsets.symmetric(
+            horizontal: isExpanded ? 16 : 12,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor),
+            boxShadow: [
+              if (isExpanded)
+                BoxShadow(
+                  color: colorScheme.primary.withOpacity(0.18),
+                  blurRadius: 16,
+                  spreadRadius: 0.5,
+                ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                name,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.expand_more,
+                size: 16,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        )
+        .animate(target: isExpanded ? 1 : 0)
+        .scaleXY(begin: 1, end: 1.02, duration: 180.ms, curve: Curves.easeOut)
+        .then()
+        .shimmer(
+          duration: 600.ms,
+          color: colorScheme.primary.withOpacity(0.25),
+        );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _InfoPill({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final cardColor = isDark
+        ? Colors.white.withOpacity(0.06)
+        : colorScheme.surface;
+    final borderColor = isDark
+        ? Colors.white.withOpacity(0.08)
+        : colorScheme.outlineVariant.withOpacity(0.7);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(14),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
-        boxShadow: [
-          if (isExpanded)
-            BoxShadow(
-              color: colorScheme.primary.withOpacity(0.18),
-              blurRadius: 16,
-              spreadRadius: 0.5,
-            ),
-        ],
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
+          Text(
+            title,
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+              fontSize: 10,
+              letterSpacing: 0.3,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 4),
           Text(
-            name,
+            value,
             style: TextStyle(
               color: colorScheme.onSurface,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.expand_more,
-            size: 16,
-            color: colorScheme.onSurfaceVariant,
-          ),
         ],
       ),
-    )
-        .animate(target: isExpanded ? 1 : 0)
-        .scaleXY(
-          begin: 1,
-          end: 1.02,
-          duration: 180.ms,
-          curve: Curves.easeOut,
-        )
-        .then()
-        .shimmer(
-          duration: 600.ms,
-          color: colorScheme.primary.withOpacity(0.25),
-        );
+    );
   }
 }
 
