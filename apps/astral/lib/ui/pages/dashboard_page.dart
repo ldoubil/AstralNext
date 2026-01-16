@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -80,6 +81,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
     final activeInstance = _instances[_selectedInstanceIndex];
     final connectedCount = _instances
         .where((instance) => instance.isConnected)
@@ -95,9 +97,13 @@ class _DashboardPageState extends State<DashboardPage> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    colorScheme.surfaceVariant,
-                    colorScheme.surfaceVariant.withOpacity(0.92),
-                    const Color(0xFF0E1218),
+                    isDark
+                        ? colorScheme.surfaceVariant
+                        : const Color(0xFFF2F7FB),
+                    isDark
+                        ? colorScheme.surfaceVariant.withOpacity(0.92)
+                        : const Color(0xFFEAF3F8),
+                    isDark ? const Color(0xFF0E1218) : const Color(0xFFFDFBFA),
                   ],
                 ),
               ),
@@ -105,14 +111,14 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           Positioned.fill(
             child: Opacity(
-              opacity: 0.18,
+              opacity: isDark ? 0.18 : 0.08,
               child: CustomPaint(painter: _StarfieldPainter()),
             ),
           ),
           Positioned.fill(
             child: IgnorePointer(
               child: Opacity(
-                opacity: 0.2,
+                opacity: isDark ? 0.2 : 0.12,
                 child: CustomPaint(painter: _NebulaPainter()),
               ),
             ),
@@ -120,17 +126,19 @@ class _DashboardPageState extends State<DashboardPage> {
           Positioned.fill(
             child: IgnorePointer(
               child: Opacity(
-                opacity: 0.18,
+                opacity: isDark ? 0.18 : 0.07,
                 child: CustomPaint(painter: _GridPainter()),
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: -170,
             top: -130,
             child: _GlowOrb(
               size: 320,
-              colors: [Color(0xFF6EA8FF), Color(0x00162838)],
+              colors: isDark
+                  ? [const Color(0xFF6EA8FF), const Color(0x00162838)]
+                  : [const Color(0xFFFFE3C7), const Color(0x00FFFFFF)],
             ),
           ),
           Positioned.fill(
@@ -183,14 +191,19 @@ class _DashboardPageState extends State<DashboardPage> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child:
-                            _TrafficCard(
-                                  title: '流量曲线',
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompactLayout = constraints.maxWidth < 900;
+
+                      return StaggeredGrid.count(
+                        crossAxisCount: isCompactLayout ? 1 : 5,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        children: [
+                          StaggeredGridTile.fit(
+                            crossAxisCellCount: isCompactLayout ? 1 : 3,
+                            child: _TrafficCard(
+                                  title: '网络折线图',
                                   subtitle: '近 60 秒',
                                   data: activeInstance.trafficData,
                                   repaint: _trafficTick,
@@ -198,12 +211,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                 .animate()
                                 .fadeIn(duration: 700.ms, delay: 260.ms)
                                 .move(begin: const Offset(0, 10)),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child:
-                            Wrap(
+                          ),
+                          StaggeredGridTile.fit(
+                            crossAxisCellCount: isCompactLayout ? 1 : 2,
+                            child: Wrap(
                                   spacing: 12,
                                   runSpacing: 12,
                                   children: [
@@ -228,8 +239,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                 .animate()
                                 .fadeIn(duration: 700.ms, delay: 320.ms)
                                 .move(begin: const Offset(0, 12)),
-                      ),
-                    ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
                   Align(

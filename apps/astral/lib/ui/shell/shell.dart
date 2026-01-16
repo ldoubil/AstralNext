@@ -24,23 +24,59 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          const _TitleBar(height: 44, title: '     15：23'),
-          Expanded(
-            child: Row(
-              children: [
-                _ShellNavigationRail(
-                  selectedIndex: _selectedIndex,
-                  onSelected: _handleDestinationSelected,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 900;
+
+        return Scaffold(
+          body: Column(
+            children: [
+              if (!isCompact) const _TitleBar(height: 44, title: '     15：23'),
+              Expanded(
+                child: Row(
+                  children: [
+                    if (!isCompact)
+                      _ShellNavigationRail(
+                        selectedIndex: _selectedIndex,
+                        onSelected: _handleDestinationSelected,
+                      ),
+                    Expanded(child: _ShellContent(selectedIndex: _selectedIndex)),
+                  ],
                 ),
-                Expanded(child: _ShellContent(selectedIndex: _selectedIndex)),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+          bottomNavigationBar: isCompact
+              ? NavigationBar(
+                  selectedIndex: _selectedIndex,
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  onDestinationSelected: _handleDestinationSelected,
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.dashboard_outlined),
+                      selectedIcon: Icon(Icons.dashboard),
+                      label: '面板',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.dns_outlined),
+                      selectedIcon: Icon(Icons.dns),
+                      label: '实例',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.article_outlined),
+                      selectedIcon: Icon(Icons.article),
+                      label: '日志',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings),
+                      label: '设置',
+                    ),
+                  ],
+                )
+              : null,
+        );
+      },
     );
   }
 }
@@ -143,9 +179,9 @@ class _ShellNavigationRail extends StatelessWidget {
             onTap: () => onSelected(0),
           ),
           _RailDestination(
-            label: '节点',
-            icon: Icons.devices_outlined,
-            selectedIcon: Icons.devices,
+            label: '实例',
+            icon: Icons.dns_outlined,
+            selectedIcon: Icons.dns,
             selected: selectedIndex == 1,
             onTap: () => onSelected(1),
           ),
