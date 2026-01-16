@@ -25,9 +25,15 @@ class _ShellState extends State<Shell> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isCompact = MediaQuery.of(context).size.width < 900;
+    const pages = [
+      DashboardPage(key: PageStorageKey('dashboard')),
+      NodesPage(key: PageStorageKey('nodes')),
+      LogsPage(key: PageStorageKey('logs')),
+      SettingsPage(key: PageStorageKey('settings')),
+    ];
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.primaryContainer,
       body: Row(
         children: [
           if (!isCompact)
@@ -40,16 +46,21 @@ class _ShellState extends State<Shell> {
               children: [
                 if (!isCompact) const _TitleBar(height: 44, title: 'Astral'),
                 Expanded(
-                  child: Container(
-                    color: colorScheme.surface,
-                    child: IndexedStack(
-                      index: _selectedIndex,
-                      children: const [
-                        DashboardPage(),
-                        NodesPage(),
-                        LogsPage(),
-                        SettingsPage(),
-                      ],
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                    ),
+                    child: Container(
+                      color: colorScheme.surface,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(opacity: animation, child: child);
+                        },
+                        child: pages[_selectedIndex],
+                      ),
                     ),
                   ),
                 ),

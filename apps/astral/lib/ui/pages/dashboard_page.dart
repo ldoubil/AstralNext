@@ -80,8 +80,9 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final active = _instances[_selectedIndex];
-    final connectedCount =
-        _instances.where((instance) => instance.isConnected).length;
+    final connectedCount = _instances
+        .where((instance) => instance.isConnected)
+        .length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -100,25 +101,41 @@ class _DashboardPageState extends State<DashboardPage> {
         LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth > 1000;
-            final sideWidth = isWide ? min(420.0, constraints.maxWidth * 0.38) : constraints.maxWidth;
+            final sideWidth = isWide
+                ? min(420.0, constraints.maxWidth * 0.38)
+                : constraints.maxWidth;
 
             if (isWide) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _TrafficCard(
-                      instance: active,
-                      repaint: _chartTick,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: _fadeSlide,
+                      child: _TrafficCard(
+                        key: ValueKey(active.name),
+                        instance: active,
+                        repaint: _chartTick,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
                   SizedBox(
                     width: sideWidth,
-                    child: _SideMetrics(
-                      active: active,
-                      connectedCount: connectedCount,
-                      totalCount: _instances.length,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: _fadeSlide,
+                      child: _SideMetrics(
+                        key: ValueKey('${active.name}-metrics'),
+                        active: active,
+                        connectedCount: connectedCount,
+                        totalCount: _instances.length,
+                      ),
                     ),
                   ),
                 ],
@@ -127,15 +144,29 @@ class _DashboardPageState extends State<DashboardPage> {
 
             return Column(
               children: [
-                _TrafficCard(
-                  instance: active,
-                  repaint: _chartTick,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: _fadeSlide,
+                  child: _TrafficCard(
+                    key: ValueKey(active.name),
+                    instance: active,
+                    repaint: _chartTick,
+                  ),
                 ),
                 const SizedBox(height: 16),
-                _SideMetrics(
-                  active: active,
-                  connectedCount: connectedCount,
-                  totalCount: _instances.length,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: _fadeSlide,
+                  child: _SideMetrics(
+                    key: ValueKey('${active.name}-metrics'),
+                    active: active,
+                    connectedCount: connectedCount,
+                    totalCount: _instances.length,
+                  ),
                 ),
               ],
             );
@@ -150,14 +181,25 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
+Widget _fadeSlide(Widget child, Animation<double> animation) {
+  return FadeTransition(
+    opacity: animation,
+    child: SlideTransition(
+      position: animation.drive(
+        Tween(begin: const Offset(0, 0.04), end: Offset.zero).chain(
+          CurveTween(curve: Curves.easeOut),
+        ),
+      ),
+      child: child,
+    ),
+  );
+}
+
 class _PageHeader extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const _PageHeader({
-    required this.title,
-    required this.subtitle,
-  });
+  const _PageHeader({required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +257,10 @@ class _InstanceSelector extends StatelessWidget {
       children: [
         for (var i = 0; i < instances.length; i++)
           ChoiceChip(
-            labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            labelPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 6,
+            ),
             label: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -259,10 +304,7 @@ class _TrafficCard extends StatelessWidget {
   final _InstanceSnapshot instance;
   final Listenable repaint;
 
-  const _TrafficCard({
-    required this.instance,
-    required this.repaint,
-  });
+  const _TrafficCard({super.key, required this.instance, required this.repaint});
 
   @override
   Widget build(BuildContext context) {
@@ -270,16 +312,35 @@ class _TrafficCard extends StatelessWidget {
     return _DashboardCard(
       title: '最近 60 秒流量',
       subtitle: '实时吞吐与波动',
-      trailing: Text(
-        '${instance.throughputGbps.toStringAsFixed(1)} Gbps',
-        style: TextStyle(
-          color: colorScheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 18,
+      trailing: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: animation.drive(
+              Tween(begin: const Offset(0, 0.08), end: Offset.zero).chain(
+                CurveTween(curve: Curves.easeOut),
+              ),
+            ),
+            child: child,
+          ),
+        ),
+        child: Text(
+          '${instance.throughputGbps.toStringAsFixed(1)} Gbps',
+          key: ValueKey(instance.throughputGbps),
+          style: TextStyle(
+            color: colorScheme.primary,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
         ),
       ),
+      contentPadding: EdgeInsets.zero,
       child: SizedBox(
         height: 220,
+        width: double.infinity,
         child: CustomPaint(
           painter: _TrafficPainter(
             data: instance.trafficData,
@@ -298,11 +359,11 @@ class _SideMetrics extends StatelessWidget {
   final int connectedCount;
   final int totalCount;
 
-  const _SideMetrics({
-    required this.active,
-    required this.connectedCount,
-    required this.totalCount,
-  });
+  const _SideMetrics(
+      {super.key,
+      required this.active,
+      required this.connectedCount,
+      required this.totalCount});
 
   @override
   Widget build(BuildContext context) {
@@ -376,8 +437,7 @@ class _InstancesOverview extends StatelessWidget {
         children: [
           for (final instance in instances) ...[
             _InstanceRow(instance: instance),
-            if (instance != instances.last)
-              const Divider(height: 20),
+            if (instance != instances.last) const Divider(height: 20),
           ],
         ],
       ),
@@ -402,10 +462,7 @@ class _InstanceRow extends StatelessWidget {
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(
-            color: statusColor,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -452,10 +509,7 @@ class _FootNote extends StatelessWidget {
       children: [
         Text(
           '按 MD3 无阴影、无描边的色块层级进行布局。',
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
         ),
       ],
     );
@@ -467,58 +521,75 @@ class _DashboardCard extends StatelessWidget {
   final String subtitle;
   final Widget child;
   final Widget? trailing;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry headerPadding;
+  final EdgeInsetsGeometry contentPadding;
+  final double contentSpacing;
 
   const _DashboardCard({
     required this.title,
     required this.subtitle,
     required this.child,
     this.trailing,
+    this.padding = EdgeInsets.zero,
+    this.headerPadding = const EdgeInsets.all(18),
+    this.contentPadding = const EdgeInsets.all(18),
+    this.contentSpacing = 12,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(18),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
+      child: Padding(
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: headerPadding,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  if (trailing != null) trailing!,
+                ],
               ),
-              if (trailing != null) trailing!,
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
+            ),
+            SizedBox(height: contentSpacing),
+            Padding(
+              padding: contentPadding,
+              child: child,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -543,18 +614,12 @@ class _MetricRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
         ),
         Text(
           value,
-          style: TextStyle(
-            color: accent,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: accent, fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -611,36 +676,52 @@ class _TrafficPainter extends CustomPainter {
     final minValue = data.reduce(min);
     final range = (maxValue - minValue).abs() < 0.001 ? 1.0 : maxValue - minValue;
 
-    final linePath = Path();
-    final areaPath = Path();
-
+    final points = <Offset>[];
     for (var i = 0; i < data.length; i++) {
       final x = size.width * i / (data.length - 1);
       final normalized = (data[i] - minValue) / range;
       final y = size.height - normalized * size.height;
-      if (i == 0) {
-        linePath.moveTo(x, y);
-        areaPath.moveTo(x, size.height);
-        areaPath.lineTo(x, y);
-      } else {
-        linePath.lineTo(x, y);
-        areaPath.lineTo(x, y);
-      }
-      if (i == data.length - 1) {
-        areaPath.lineTo(x, size.height);
-        areaPath.close();
-      }
+      points.add(Offset(x, y));
     }
 
+    Path buildSmoothPath(List<Offset> pts, {bool closeToBottom = false}) {
+      final path = Path();
+      if (pts.isEmpty) return path;
+      path.moveTo(pts.first.dx, pts.first.dy);
+      for (var i = 1; i < pts.length; i++) {
+        final prev = pts[i - 1];
+        final curr = pts[i];
+        final mid = Offset((prev.dx + curr.dx) / 2, (prev.dy + curr.dy) / 2);
+        path.quadraticBezierTo(prev.dx, prev.dy, mid.dx, mid.dy);
+      }
+      path.lineTo(pts.last.dx, pts.last.dy);
+      if (closeToBottom) {
+        path.lineTo(pts.last.dx, size.height);
+        path.lineTo(pts.first.dx, size.height);
+        path.close();
+      }
+      return path;
+    }
+
+    final areaPath = buildSmoothPath(points, closeToBottom: true);
+    final linePath = buildSmoothPath(points);
+
     final areaPaint = Paint()
-      ..color = fillColor
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          fillColor.withOpacity(0.42),
+          fillColor.withOpacity(0.0),
+        ],
+      ).createShader(Offset.zero & size)
       ..style = PaintingStyle.fill;
     canvas.drawPath(areaPath, areaPaint);
 
     final linePaint = Paint()
       ..color = strokeColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
+      ..strokeWidth = 2.6
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(linePath, linePaint);
   }
@@ -661,14 +742,13 @@ class _InstanceSnapshot {
   final double throughputGbps;
   List<double> trafficData;
 
-  _InstanceSnapshot({
-    required this.name,
-    required this.isConnected,
-    required this.virtualIp,
-    required this.nodeCount,
-    required this.latencyMs,
-    required this.stability,
-    required this.throughputGbps,
-    required this.trafficData,
-  });
+  _InstanceSnapshot(
+      {required this.name,
+      required this.isConnected,
+      required this.virtualIp,
+      required this.nodeCount,
+      required this.latencyMs,
+      required this.stability,
+      required this.throughputGbps,
+      required this.trafficData});
 }
