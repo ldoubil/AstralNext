@@ -1,0 +1,35 @@
+import 'package:astral_game/data/services/app_settings_service.dart';
+import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/services/webdav_backup_service.dart';
+import 'package:astral_game/ui/shell/shell_content_controller.dart';
+import 'package:astral_rust_core/p2p_service.dart';
+import 'package:astral_rust_core/src/rust/api/p2p.dart' show initApp;
+import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+final getIt = GetIt.instance;
+
+Future<void> setupDI() async {
+  final prefs = await SharedPreferences.getInstance();
+  getIt.registerSingleton<SharedPreferences>(prefs);
+  getIt.registerSingleton<AppSettingsService>(AppSettingsService(prefs));
+  getIt.registerSingleton<ShellContentController>(ShellContentController());
+
+  // P2P 相关服务
+  getIt.registerLazySingleton<P2PService>(() => P2PService());
+  await getIt<P2PService>().ensureInitialized();
+  await initApp();
+  getIt.registerLazySingleton<GlobalP2PStore>(() => GlobalP2PStore());
+
+  // 持久化与备份
+  getIt.registerLazySingleton<RoomPersistenceService>(
+    () => RoomPersistenceService(prefs),
+  );
+  getIt.registerLazySingleton<WebDavBackupService>(
+    () => WebDavBackupService(
+      getIt<AppSettingsService>(),
+      getIt<RoomPersistenceService>(),
+    ),
+  );
+}

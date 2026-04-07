@@ -1,0 +1,295 @@
+name: 🚀 Build Flutter Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Select app to build'
+        required: true
+        type: choice
+        options:
+          - astral
+          - astral_game
+          - all
+        default: 'all'
+  workflow_call:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - '!apps/astral_car/**'
+      - '!apps/astral_tv/**'
+      - '.github/workflows/build-apps.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - '!apps/astral_car/**'
+      - '!apps/astral_tv/**'
+
+jobs:
+  # ========== Build Matrix ==========
+  build:
+    name: 🏗️ ${{ matrix.app }} (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    if: ${{ !cancelled() }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Astral App - All Platforms
+          - app: astral
+            platform: android-arm64
+            os: ubuntu-22.04
+            flutter_platform: android
+            rust_target: aarch64-linux-android
+            build_cmd: flutter build apk --release --target-platform android-arm64
+            artifact_path: build/app/outputs/flutter-apk/app-release.apk
+            artifact_name: astral-android-arm64
+            
+          - app: astral
+            platform: android-universal
+            os: ubuntu-22.04
+            flutter_platform: android
+            rust_target: aarch64-linux-android
+            build_cmd: flutter build apk --release
+            artifact_path: build/app/outputs/flutter-apk/app-release.apk
+            artifact_name: astral-android-universal
+            
+          - app: astral
+            platform: linux-x64
+            os: ubuntu-22.04
+            flutter_platform: linux
+            rust_target: x86_64-unknown-linux-gnu
+            build_cmd: flutter build linux --release
+            artifact_path: build/linux/x64/release/bundle
+            artifact_name: astral-linux-x64
+            package: true
+            
+          - app: astral
+            platform: windows-x64
+            os: windows-2022
+            flutter_platform: windows
+            rust_target: x86_64-pc-windows-msvc
+            build_cmd: flutter build windows --release
+            artifact_path: build/windows/x64/runner/Release
+            artifact_name: astral-windows-x64
+            
+          - app: astral
+            platform: macos-x64
+            os: macos-14
+            flutter_platform: macos
+            rust_target: x86_64-apple-darwin
+            build_cmd: flutter build macos --release
+            artifact_path: build/macos/Build/Products/Release/astral.app
+            artifact_name: astral-macos-x64
+            
+          - app: astral
+            platform: macos-arm64
+            os: macos-14
+            flutter_platform: macos
+            rust_target: aarch64-apple-darwin
+            build_cmd: flutter build macos --release
+            artifact_path: build/macos/Build/Products/Release/astral.app
+            artifact_name: astral-macos-arm64
+            
+          # Astral Game - Windows & Linux (typical game platforms)
+          - app: astral_game
+            platform: windows-x64
+            os: windows-2022
+            flutter_platform: windows
+            rust_target: x86_64-pc-windows-msvc
+            build_cmd: flutter build windows --release
+            artifact_path: build/windows/x64/runner/Release
+            artifact_name: astral-game-windows-x64
+            
+          - app: astral_game
+            platform: linux-x64
+            os: ubuntu-22.04
+            flutter_platform: linux
+            rust_target: x86_64-unknown-linux-gnu
+            build_cmd: flutter build linux --release
+            artifact_path: build/linux/x64/release/bundle
+            artifact_name: astral-game-linux-x64
+            package: true
+
+    env:
+      FLUTTER_VERSION: '3.41.0'
+      RUST_VERSION: '1.89.0'
+      NDK_VERSION: '28.2.13676358'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      # ========== Smart Rust Cache ==========
+      - name: 💾 Restore Rust build cache
+        uses: actions/cache@v4
+        id: rust-cache
+        with:
+          path: |
+            packages/astral_rust_core/rust/target
+            packages/astral_rust_core/android/src/main/jniLibs
+          key: rust-${{ runner.os }}-${{ matrix.rust_target || 'multi' }}-${{ hashFiles('packages/astral_rust_core/rust/**/*.rs', 'packages/astral_rust_core/rust/**/Cargo.toml', 'packages/astral_rust_core/rust/**/*.proto') }}
+          restore-keys: |
+            rust-${{ runner.os }}-${{ matrix.rust_target || 'multi' }}-
+            rust-${{ runner.os }}-
+
+      - name: ℹ️ Cache status
+        run: |
+          if [ "${{ steps.rust-cache.outputs.cache-hit }}" = "true" ]; then
+            echo "✅ Rust cache hit! Skipping compilation for unchanged code."
+          else
+            echo "🔨 Rust cache miss. Will compile from source."
+          fi
+        shell: bash
+
+      # ========== Platform-specific Setup ==========
+      - name: ☕ Setup JDK (Android)
+        if: matrix.flutter_platform == 'android'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: 🤖 Setup Android SDK
+        if: matrix.flutter_platform == 'android'
+        uses: android-actions/setup-android@v3
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          cmake-version: '3.22.1'
+
+      - name: 🔧 Setup bindgen for Android
+        if: matrix.flutter_platform == 'android'
+        run: |
+          # Set up clang args for bindgen to use NDK headers
+          NDK_PATH=$ANDROID_HOME/ndk/${{ env.NDK_VERSION }}
+          SYSROOT=$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+          echo "BINDGEN_EXTRA_CLANG_ARGS=--sysroot=$SYSROOT" >> $GITHUB_ENV
+          echo "✅ Configured bindgen for Android NDK"
+
+      - name: 📦 Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ninja-build \
+            libgtk-3-dev \
+            clang \
+            cmake \
+            pkg-config \
+            libcurl4-openssl-dev \
+            protobuf-compiler \
+            libayatana-appindicator3-dev \
+            libnotify-dev \
+            fonts-noto-cjk \
+            fonts-wqy-zenhei \
+            fontconfig
+
+      - name: 🍺 Install macOS dependencies
+        if: matrix.flutter_platform == 'macos'
+        run: brew install cmake protobuf
+
+      # ========== Flutter Setup ==========
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: 🎯 Enable desktop platform
+        if: matrix.flutter_platform == 'linux' || matrix.flutter_platform == 'windows' || matrix.flutter_platform == 'macos'
+        run: flutter config --enable-${{ matrix.flutter_platform }}-desktop
+
+      # ========== Build App ==========
+      - name: 📚 Get dependencies
+        working-directory: apps/${{ matrix.app }}
+        run: flutter pub get
+
+      - name: 🛠️ Build ${{ matrix.app }} for ${{ matrix.platform }}
+        working-directory: apps/${{ matrix.app }}
+        run: ${{ matrix.build_cmd }}
+        shell: bash
+
+      # ========== Package Linux Apps ==========
+      - name: 📦 Package Linux app
+        if: matrix.flutter_platform == 'linux' && matrix.package
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          mkdir -p release
+          cd ${{ matrix.artifact_path }}
+          tar -czf $GITHUB_WORKSPACE/apps/${{ matrix.app }}/release/${{ matrix.artifact_name }}.tar.gz *
+        shell: bash
+      
+      # ========== Package Windows Apps ==========
+      - name: 📦 Copy required DLLs
+        if: matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $appDir = "apps/${{ matrix.app }}"
+          $releaseDir = Join-Path $appDir "${{ matrix.artifact_path }}"
+          
+          # Create dlls directory if it doesn't exist
+          $dllSourceDir = Join-Path $env:GITHUB_WORKSPACE "dlls"
+          if (Test-Path $dllSourceDir) {
+            Write-Host "📋 Copying DLL files from dlls directory..."
+            Copy-Item -Path "$dllSourceDir\*.dll" -Destination $releaseDir -Force
+            Write-Host "✅ DLL files copied successfully"
+          } else {
+            Write-Host "⚠️ No dlls directory found, skipping DLL copy"
+          }
+      
+      - name: 📦 Compress Windows app
+        if: matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $appDir = "apps/${{ matrix.app }}"
+          $releaseDir = Join-Path $appDir "release"
+          $buildDir = Join-Path $appDir "${{ matrix.artifact_path }}"
+          $zipPath = Join-Path $releaseDir "${{ matrix.artifact_name }}.zip"
+          
+          # Create release directory
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          
+          # Compress the build output
+          Compress-Archive -Path (Join-Path $buildDir "*") `
+                          -DestinationPath $zipPath `
+                          -Force
+          
+          Write-Host "✅ Created package: $zipPath"
+
+      # ========== Upload Artifacts ==========
+      - name: 📤 Upload Android APK
+        if: matrix.flutter_platform == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: apps/${{ matrix.app }}/${{ matrix.artifact_path }}
+          retention-days: 14
+
+      - name: 📤 Upload Linux package
+        if: matrix.flutter_platform == 'linux' && matrix.package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: apps/${{ matrix.app }}/release/*.tar.gz
+          retention-days: 14
+
+      - name: 📤 Upload Windows package
+        if: matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: apps/${{ matrix.app }}/release/*.zip
+          retention-days: 14
+
+      - name: 📤 Upload macOS app
+        if: matrix.flutter_platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: apps/${{ matrix.app }}/${{ matrix.artifact_path }}
+          retention-days: 14
