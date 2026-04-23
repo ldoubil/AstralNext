@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../pages/dashboard_page.dart';
-import '../pages/rooms_page.dart';
 import '../pages/servers_page.dart';
 import '../pages/settings_page.dart';
 import '../widgets/window_button.dart';
@@ -49,7 +48,7 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isCompact = MediaQuery.of(context).size.width < 900;
+    final isCompact = MediaQuery.of(context).size.width < 600;
 
     final hasOverlay = _contentController.hasOverlay;
     final overlayTitle = _contentController.overlayTitle;
@@ -110,7 +109,6 @@ class _ShellState extends State<Shell> {
                               sizing: StackFit.expand,
                               children: const [
                                 DashboardPage(key: PageStorageKey('dashboard')),
-                                RoomsPage(key: PageStorageKey('rooms')),
                                 ServersPage(key: PageStorageKey('servers')),
                                 SettingsPage(key: PageStorageKey('settings')),
                               ],
@@ -135,11 +133,6 @@ class _ShellState extends State<Shell> {
                   icon: Icon(Icons.dashboard_outlined),
                   selectedIcon: Icon(Icons.dashboard),
                   label: '仪表盘',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.meeting_room_outlined),
-                  selectedIcon: Icon(Icons.meeting_room),
-                  label: '房间',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.dns_outlined),
@@ -289,26 +282,19 @@ class _ShellNavigationRail extends StatelessWidget {
             onTap: () => onSelected(0),
           ),
           _RailDestination(
-            label: '房间',
-            icon: Icons.meeting_room_outlined,
-            selectedIcon: Icons.meeting_room,
-            selected: selectedIndex == 1,
-            onTap: () => onSelected(1),
-          ),
-          _RailDestination(
             label: '服务器',
             icon: Icons.dns_outlined,
             selectedIcon: Icons.dns,
-            selected: selectedIndex == 2,
-            onTap: () => onSelected(2),
+            selected: selectedIndex == 1,
+            onTap: () => onSelected(1),
           ),
           const Spacer(),
           _RailDestination(
             label: '设置',
             icon: Icons.settings_outlined,
             selectedIcon: Icons.settings,
-            selected: selectedIndex == 3,
-            onTap: () => onSelected(3),
+            selected: selectedIndex == 2,
+            onTap: () => onSelected(2),
           ),
         ],
       ),

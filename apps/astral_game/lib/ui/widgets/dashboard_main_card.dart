@@ -6,7 +6,6 @@ import 'package:astral_game/data/services/app_settings_service.dart';
 class DashboardMainCard extends StatefulWidget {
   final bool isConnected;
   final String username;
-  final String roomName;
   final String virtualIp;
   final VoidCallback? onSettingsTap;
   final VoidCallback? onCreateRoomTap;
@@ -17,7 +16,6 @@ class DashboardMainCard extends StatefulWidget {
     super.key,
     this.isConnected = false,
     this.username = '玩家',
-    this.roomName = '',
     this.virtualIp = '10.147.18.24',
     this.onSettingsTap,
     this.onCreateRoomTap,
@@ -75,24 +73,11 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            widget.username,
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (widget.roomName.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              '(${widget.roomName})',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ],
+                      Text(
+                        widget.username,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -267,7 +252,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
             ],
             const SizedBox(height: 20),
             const Divider(height: 1),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Icon(Icons.play_circle_outline, color: colorScheme.primary, size: 20),
