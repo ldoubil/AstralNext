@@ -6,6 +6,11 @@
 *.swo
 *~
 
+# Markdown files (except in docs/ and root README)
+**/*.md
+!README.md
+!docs/**/*.md
+
 # Flutter/Dart
 .dart_tool/
 .flutter-plugins
