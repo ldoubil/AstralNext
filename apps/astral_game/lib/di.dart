@@ -3,6 +3,7 @@ import 'package:astral_game/data/services/global_p2p_store.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/webdav_backup_service.dart';
 import 'package:astral_game/ui/shell/shell_content_controller.dart';
+import 'package:astral_game/ui/pages/servers/server_state.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart' show initApp;
 import 'package:get_it/get_it.dart';
@@ -21,6 +22,9 @@ Future<void> setupDI() async {
   await getIt<P2PService>().ensureInitialized();
   await initApp();
   getIt.registerLazySingleton<GlobalP2PStore>(() => GlobalP2PStore());
+  
+  // 服务器状态
+  getIt.registerLazySingleton<ServerState>(() => ServerState());
 
   // 持久化与备份
   getIt.registerLazySingleton<RoomPersistenceService>(

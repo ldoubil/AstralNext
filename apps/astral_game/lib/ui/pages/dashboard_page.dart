@@ -4,7 +4,6 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../widgets/user_info_card.dart';
 import '../widgets/quick_network_config_card.dart';
 import '../widgets/hitokoto_card.dart';
-import '../widgets/banner_carousel.dart';
 import '../widgets/connect_button.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -45,10 +44,6 @@ class _DashboardPageState extends State<DashboardPage> {
                       mainAxisSpacing: 8,
                       crossAxisSpacing: 8,
                       children: [
-                        StaggeredGridTile.fit(
-                          crossAxisCellCount: columnCount,
-                          child: const BannerCarousel(),
-                        ),
                         const UserInfoCard(),
                         const QuickNetworkConfigCard(),
                         const HitokotoCard(),

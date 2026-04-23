@@ -5,6 +5,7 @@ import 'package:astral_game/data/services/global_p2p_store.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import '../pages/rooms/room_state.dart';
+import '../pages/servers/server_state.dart';
 
 enum AppConnectionState {
   idle,
@@ -70,34 +71,42 @@ class _ConnectButtonState extends State<ConnectButton>
     }
   }
 
-  String _escapeString(String s) => s.replaceAll('"', r'\"');
+  String _escapeString(String s) => s.replaceAll('\\', r'\\').replaceAll('"', r'\"');
 
   String _buildTomlConfig(dynamic room, String username) {
     final appSettings = getIt<AppSettingsService>();
+    final serverState = getIt<ServerState>();
     final disableP2p = appSettings.isDisableP2p();
 
-    return '''instance_name = "${_escapeString(room.name)}"
-hostname = "${_escapeString(username)}"
+    final enabledServers = serverState.servers.value.where((s) => s.enable).toList();
+    
+    String peerBlock = '';
+    if (enabledServers.isNotEmpty) {
+      peerBlock = enabledServers.map((server) {
+        final protocol = server.udp ? 'udp' : server.tcp ? 'tcp' : 'tcp';
+        return '[[peer]]\nuri = "${_escapeString("$protocol://${server.url}")}"';
+      }).join('\n\n');
+    }
+
+    return '''
+instance_name = "${_escapeString(room.name)}"
 dhcp = true
 listeners = [
     "tcp://0.0.0.0:11010",
     "udp://0.0.0.0:11010",
-    "ws://0.0.0.0:11011",
-    "wss://0.0.0.0:11012",
-]
+] 
 
 [network_identity]
-network_name = "${_escapeString(room.roomName)}"
-network_secret = "${_escapeString(room.password)}"
+network_name = "${_escapeString(room.roomName)}" 
+network_secret = "${_escapeString(room.password)}" 
 
-[[peer]]
-#uri = "" #公共节点或自建节点
-
-[flags]
+${peerBlock.isNotEmpty ? '\n$peerBlock\n' : ''}[flags]
 default_protocol = "tcp"
 dev_name = "astral"
-enable-lan = false
-${disableP2p ? 'disable-p2p = true #禁用P2P直连，所有流量经中转' : '#disable-p2p = false'}''';
+disable-p2p = $disableP2p
+
+
+''';
   }
 
   Future<void> _startConnecting(dynamic room) async {
@@ -122,33 +131,19 @@ ${disableP2p ? 'disable-p2p = true #禁用P2P直连，所有流量经中转' : '
           });
         }
       } else {
+        debugPrint('连接失败：实例启动异常');
         if (mounted) {
           setState(() {
             _connectionState = AppConnectionState.idle;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('连接失败：实例启动异常'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
         }
       }
     } catch (e) {
+      debugPrint('连接失败: $e');
       if (mounted) {
         setState(() {
           _connectionState = AppConnectionState.idle;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('连接失败: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
       }
     }
   }
