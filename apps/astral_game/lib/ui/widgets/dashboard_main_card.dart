@@ -267,7 +267,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
             ],
             const SizedBox(height: 20),
             const Divider(height: 1),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Icon(Icons.play_circle_outline, color: colorScheme.primary, size: 20),
