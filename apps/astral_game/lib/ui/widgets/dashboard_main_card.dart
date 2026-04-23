@@ -51,6 +51,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -108,8 +109,6 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            const Divider(height: 1),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -165,7 +164,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                           ),
                         ),
                         Text(
-                          '禁用P2P直连，所有流量经服务器中转',
+                          '禁用P2P直连',
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.onSurface.withValues(alpha: 0.6),
@@ -250,8 +249,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                 ),
               ),
             ],
-            const SizedBox(height: 20),
-            const Divider(height: 1),
+
             const SizedBox(height: 16),
             Row(
               children: [
