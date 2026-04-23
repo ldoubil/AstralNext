@@ -1,10 +1,6 @@
-
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import '../widgets/user_info_card.dart';
-import '../widgets/quick_network_config_card.dart';
-import '../widgets/hitokoto_card.dart';
-import '../widgets/connect_button.dart';
+import '../widgets/dashboard_main_card.dart';
+import '../widgets/join_room_dialog.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -14,60 +10,87 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  int _getColumnCount(double width) {
-    if (width >= 1200) {
-      return 5;
-    } else if (width >= 900) {
-      return 4;
-    } else if (width >= 600) {
-      return 3;
-    }
-    return 2;
+  bool _isConnected = false;
+  final String _username = '玩家';
+  final String _virtualIp = '10.147.18.24';
+
+  void _handleCreateRoom() {
+    Navigator.pushNamed(context, '/rooms');
+  }
+
+  void _handleJoinRoom() {
+    JoinRoomDialog.show(context);
+  }
+
+  void _handleConnect() {
+    setState(() {
+      _isConnected = !_isConnected;
+    });
+  }
+
+  void _handleSettings() {
+    Navigator.pushNamed(context, '/settings');
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final columnCount = _getColumnCount(width);
-
     return Scaffold(
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: StaggeredGrid.count(
-                      crossAxisCount: columnCount,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      children: [
-                        const UserInfoCard(),
-                        const QuickNetworkConfigCard(),
-                        const HitokotoCard(),
-                        StaggeredGridTile.fit(
-                          crossAxisCellCount: columnCount,
-                          child: SizedBox(
-                            height: MediaQuery.of(context).padding.bottom + 100,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isWideScreen = screenWidth >= 900;
+
+          if (isWideScreen) {
+            return _buildWideLayout(context);
+          } else {
+            return _buildNarrowLayout(context);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildWideLayout(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(
+          child: Center(
+            child: Text('未加入房间'),
           ),
-          const Positioned(
-            bottom: 0,
-            right: 0,
-            child: ConnectButton(),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: DashboardMainCard(
+              isConnected: _isConnected,
+              username: _username,
+              roomName: _isConnected ? '测试房间' : '',
+              virtualIp: _virtualIp,
+              onSettingsTap: _handleSettings,
+              onCreateRoomTap: _handleCreateRoom,
+              onJoinRoomTap: _handleJoinRoom,
+              onConnectTap: _handleConnect,
+            ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNarrowLayout(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: DashboardMainCard(
+        isConnected: _isConnected,
+        username: _username,
+        roomName: _isConnected ? '测试房间' : '',
+        virtualIp: _virtualIp,
+        onSettingsTap: _handleSettings,
+        onCreateRoomTap: _handleCreateRoom,
+        onJoinRoomTap: _handleJoinRoom,
+        onConnectTap: _handleConnect,
       ),
     );
   }
 }
-
