@@ -7,6 +7,7 @@ import 'package:astral_game/ui/widgets/user_avatar_widget.dart';
 import 'package:astral_game/data/services/global_p2p_store.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/services/user_info_service.dart';
 import 'package:astral_game/data/models/enhanced_node_info.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
@@ -376,176 +377,9 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildUserItem(EnhancedNodeInfo node) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final (platformName, platformIcon) = PlatformVersionParser.parsePlatformInfo(node.baseInfo.version);
-    final versionNumber = PlatformVersionParser.getVersionNumber(node.baseInfo.version);
-    
-    // 使用服务层方法判断是否应该获取头像
-    final shouldFetchAvatar = _p2pStore.isValidIp(node.ipv4);
-    final ipDisplayText = _p2pStore.getNodeIpDisplayText(node.ipv4);
-    
-    bool isHovered = false;
-
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onHover: (hovering) {
-                setState(() => isHovered = hovering);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: isHovered 
-                      ? colorScheme.surfaceContainerHighest
-                      : Colors.transparent,
-                  border: Border.all(
-                    color: isHovered
-                        ? colorScheme.outlineVariant
-                        : Colors.transparent,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    UserAvatarWidget(
-                      nodeInfo: node,
-                      size: 36,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                node.hostname,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                              if (platformName.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 6),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.secondaryContainer,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      platformName,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500,
-                                        color: colorScheme.onSecondaryContainer,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                ipDisplayText,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: shouldFetchAvatar 
-                                      ? colorScheme.onSurfaceVariant
-                                      : colorScheme.onSurfaceVariant.withAlpha(128),
-                                ),
-                              ),
-                              if (versionNumber.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8),
-                                  child: Text(
-                                    versionNumber,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: colorScheme.onSurfaceVariant.withAlpha(128),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.tertiaryContainer,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'ID: ${node.peerId}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                    color: colorScheme.onTertiaryContainer,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${node.baseInfo.latencyMs.round()}ms',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: node.baseInfo.latencyMs < 100 
-                                      ? Colors.green[600] 
-                                      : node.baseInfo.latencyMs < 300 
-                                          ? Colors.yellow[600] 
-                                          : Colors.red[600],
-                                ),
-                              ),
-                              if (node.baseInfo.lossRate > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8),
-                                  child: Text(
-                                    '丢包: ${node.baseInfo.lossRate.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.red[600],
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    AnimatedOpacity(
-                      opacity: isHovered ? 1.0 : 0.6,
-                      duration: const Duration(milliseconds: 200),
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    return _UserItemWidget(
+      node: node,
+      p2pStore: _p2pStore,
     );
   }
 
@@ -677,5 +511,257 @@ class _DashboardPageState extends State<DashboardPage> {
         );
       },
     );
+  }
+}
+
+class _UserItemWidget extends StatefulWidget {
+  final EnhancedNodeInfo node;
+  final GlobalP2PStore p2pStore;
+
+  const _UserItemWidget({
+    required this.node,
+    required this.p2pStore,
+  });
+
+  @override
+  State<_UserItemWidget> createState() => _UserItemWidgetState();
+}
+
+class _UserItemWidgetState extends State<_UserItemWidget> {
+  bool _isHovered = false;
+  bool _isFetchingName = false;
+  bool _hasFetchedName = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserName();
+  }
+
+  Future<void> _fetchUserName() async {
+    if (_hasFetchedName) return;
+    if (!widget.p2pStore.isValidIp(widget.node.ipv4)) return;
+    
+    final currentNode = _getCurrentNode();
+    if (currentNode?.customName != null) {
+      _hasFetchedName = true;
+      return;
+    }
+
+    setState(() {
+      _isFetchingName = true;
+    });
+
+    _hasFetchedName = true;
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      final node = _getCurrentNode();
+      if (node == null) return;
+      
+      int port = int.tryParse(node.hostname) ?? 4924;
+
+      final userInfoService = UserInfoService();
+      final userInfo = await userInfoService.fetchUserInfo(node.ipv4, port: port);
+      if (userInfo != null && userInfo.name.isNotEmpty) {
+        widget.p2pStore.updateNodeCustomName(node.peerId, userInfo.name);
+      }
+    } catch (_) {} finally {
+      setState(() {
+        _isFetchingName = false;
+      });
+    }
+  }
+
+  EnhancedNodeInfo? _getCurrentNode() {
+    try {
+      return widget.p2pStore.enhancedUserNodes.value
+          .firstWhere((n) => n.peerId == widget.node.peerId);
+    } catch (_) {
+      return widget.node;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Watch((context) {
+      final node = _getCurrentNode() ?? widget.node;
+      final colorScheme = Theme.of(context).colorScheme;
+      final (platformName, platformIcon) = PlatformVersionParser.parsePlatformInfo(node.baseInfo.version);
+      final versionNumber = PlatformVersionParser.getVersionNumber(node.baseInfo.version);
+      
+      final shouldFetchAvatar = widget.p2pStore.isValidIp(node.ipv4);
+      final ipDisplayText = widget.p2pStore.getNodeIpDisplayText(node.ipv4);
+
+      return MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          decoration: BoxDecoration(
+            color: _isHovered 
+                ? colorScheme.surfaceContainerHighest.withAlpha(128)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _isHovered 
+                  ? colorScheme.outline.withAlpha(50)
+                  : Colors.transparent,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              UserAvatarWidget(
+                nodeInfo: node,
+                size: 36,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        node.customName != null
+                            ? Text(
+                                node.customName!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.onSurface,
+                                ),
+                              )
+                            : _isFetchingName
+                                ? SizedBox(
+                                    width: 60,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  )
+                                : Text(
+                                    '...',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: colorScheme.onSurfaceVariant.withAlpha(128),
+                                    ),
+                                  ),
+                        if (platformName.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: colorScheme.secondaryContainer,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                platformName,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.onSecondaryContainer,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        ipDisplayText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: shouldFetchAvatar 
+                              ? colorScheme.onSurfaceVariant
+                              : colorScheme.onSurfaceVariant.withAlpha(128),
+                        ),
+                      ),
+                      if (versionNumber.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            versionNumber,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.onSurfaceVariant.withAlpha(128),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'ID: ${node.peerId}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.onTertiaryContainer,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${node.baseInfo.latencyMs.round()}ms',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: node.baseInfo.latencyMs < 100 
+                              ? Colors.green[600] 
+                              : node.baseInfo.latencyMs < 300 
+                                  ? Colors.yellow[600] 
+                                  : Colors.red[600],
+                        ),
+                      ),
+                      if (node.baseInfo.lossRate > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            '丢包: ${node.baseInfo.lossRate.toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.red[600],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    });
   }
 }

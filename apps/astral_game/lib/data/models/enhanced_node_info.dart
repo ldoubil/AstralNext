@@ -6,12 +6,16 @@ class EnhancedNodeInfo {
   final int? avatarPort;
   final DateTime? lastAvatarPortScan;
   final Map<String, dynamic> metadata;
+  final String? customName;
+  final DateTime? lastNameFetch;
 
   EnhancedNodeInfo({
     required this.baseInfo,
     this.avatarPort,
     this.lastAvatarPortScan,
     this.metadata = const {},
+    this.customName,
+    this.lastNameFetch,
   });
 
   factory EnhancedNodeInfo.fromKVNodeInfo(KVNodeInfo info) {
@@ -23,12 +27,16 @@ class EnhancedNodeInfo {
     int? avatarPort,
     DateTime? lastAvatarPortScan,
     Map<String, dynamic>? metadata,
+    String? customName,
+    DateTime? lastNameFetch,
   }) {
     return EnhancedNodeInfo(
       baseInfo: baseInfo ?? this.baseInfo,
       avatarPort: avatarPort ?? this.avatarPort,
       lastAvatarPortScan: lastAvatarPortScan ?? this.lastAvatarPortScan,
       metadata: metadata ?? this.metadata,
+      customName: customName ?? this.customName,
+      lastNameFetch: lastNameFetch ?? this.lastNameFetch,
     );
   }
 
@@ -36,4 +44,5 @@ class EnhancedNodeInfo {
   String get hostname => baseInfo.hostname;
   String get ipv4 => baseInfo.ipv4;
   bool get hasAvatarPort => avatarPort != null && avatarPort! > 0;
+  String get displayName => customName ?? baseInfo.hostname;
 }

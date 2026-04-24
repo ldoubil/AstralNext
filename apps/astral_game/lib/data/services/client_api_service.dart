@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:astral_game/data/services/app_settings_service.dart';
 
 class ClientApiService {
   static const int _minPort = 4924;
@@ -12,12 +14,14 @@ class ClientApiService {
   int _port = 0;
   Uint8List? _customAvatar;
   late SharedPreferences _prefs;
+  late AppSettingsService _appSettings;
 
   int get port => _port;
   bool get isRunning => _server != null;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    _appSettings = GetIt.I<AppSettingsService>();
     final avatarBase64 = _prefs.getString('avatar');
     if (avatarBase64 != null) {
       _customAvatar = base64Decode(avatarBase64);
@@ -84,6 +88,17 @@ class ClientApiService {
         response.add(_generateDefaultAvatar());
       }
       
+      await response.close();
+    } else if (path == '/api/user') {
+      response.statusCode = HttpStatus.ok;
+      response.headers.contentType = ContentType('application', 'json');
+      
+      final username = _appSettings.getUsername();
+      final responseData = json.encode({
+        'name': username,
+      });
+      
+      response.write(responseData);
       await response.close();
     } else {
       response.statusCode = HttpStatus.notFound;

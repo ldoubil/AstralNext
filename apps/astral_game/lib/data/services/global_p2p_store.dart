@@ -100,6 +100,21 @@ class GlobalP2PStore {
     }
   }
 
+  /// 更新节点的自定义名字
+  void updateNodeCustomName(int peerId, String name) {
+    final nodes = List<EnhancedNodeInfo>.from(enhancedUserNodes.value);
+    final index = nodes.indexWhere((n) => n.peerId == peerId);
+    
+    if (index != -1) {
+      nodes[index] = nodes[index].copyWith(
+        customName: name,
+        lastNameFetch: DateTime.now(),
+      );
+      enhancedUserNodes.value = nodes;
+      debugPrint('[P2PStore] Updated custom name for peer $peerId: $name');
+    }
+  }
+
   /// 获取节点的头像端口
   int? getNodeAvatarPort(int peerId) {
     try {

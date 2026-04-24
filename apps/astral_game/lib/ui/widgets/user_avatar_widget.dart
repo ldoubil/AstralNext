@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:astral_game/data/services/global_p2p_store.dart';
-import 'package:astral_game/data/services/avatar_port_scanner.dart';
 import 'package:astral_game/data/models/enhanced_node_info.dart';
 
 class UserAvatarWidget extends StatefulWidget {
@@ -25,20 +24,17 @@ class _UserAvatarWidgetState extends State<UserAvatarWidget> {
   Uint8List? _avatar;
   bool _isFetching = false;
   late GlobalP2PStore _p2pStore;
-  late AvatarPortScanner _portScanner;
 
   @override
   void initState() {
     super.initState();
     _p2pStore = GetIt.I<GlobalP2PStore>();
-    _portScanner = GetIt.I<AvatarPortScanner>();
     _fetchAvatar();
   }
 
   @override
   void didUpdateWidget(covariant UserAvatarWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 当 IP 变化时，重新获取头像
     if (oldWidget.nodeInfo.ipv4 != widget.nodeInfo.ipv4) {
       _avatar = null;
       _fetchAvatar();
@@ -47,9 +43,7 @@ class _UserAvatarWidgetState extends State<UserAvatarWidget> {
 
   Future<void> _fetchAvatar() async {
     final ip = widget.nodeInfo.ipv4;
-    final peerId = widget.nodeInfo.peerId;
     
-    // 检查 IP 是否有效
     if (!_p2pStore.isValidIp(ip)) {
       setState(() {
         _isFetching = true;
@@ -63,24 +57,8 @@ class _UserAvatarWidgetState extends State<UserAvatarWidget> {
     });
 
     try {
-      // 从增强节点信息中获取已缓存的端口
-      int? port = widget.nodeInfo.avatarPort;
-      
-      if (port == null) {
-        // 扫描端口
-        port = await _portScanner.scanPort(ip);
-        if (port != null) {
-          // 更新到 GlobalP2PStore
-          _p2pStore.updateNodeAvatarPort(peerId, port);
-        } else {
-          setState(() {
-            _isFetching = false;
-          });
-          return;
-        }
-      }
+      int port = int.tryParse(widget.nodeInfo.hostname) ?? 4924;
 
-      // 获取头像
       final url = Uri.parse('http://$ip:$port/api/avatar');
       final response = await http.get(url).timeout(const Duration(seconds: 3));
 
@@ -90,10 +68,6 @@ class _UserAvatarWidgetState extends State<UserAvatarWidget> {
           _isFetching = false;
         });
       } else {
-        // 如果端口失效，清除缓存
-        if (response.statusCode == 404 || response.statusCode == 503) {
-          _p2pStore.updateNodeAvatarPort(peerId, 0); // 设置为无效
-        }
         setState(() {
           _isFetching = false;
         });
