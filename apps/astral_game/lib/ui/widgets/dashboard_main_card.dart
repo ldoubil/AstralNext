@@ -7,20 +7,24 @@ class DashboardMainCard extends StatefulWidget {
   final bool isConnected;
   final String username;
   final String virtualIp;
+  final String? roomUuid;
   final VoidCallback? onSettingsTap;
   final VoidCallback? onCreateRoomTap;
   final VoidCallback? onJoinRoomTap;
-  final VoidCallback? onConnectTap;
+  final VoidCallback? onShareRoomTap;
+  final VoidCallback? onDisconnectTap;
 
   const DashboardMainCard({
     super.key,
     this.isConnected = false,
     this.username = '玩家',
     this.virtualIp = '10.147.18.24',
+    this.roomUuid,
     this.onSettingsTap,
     this.onCreateRoomTap,
     this.onJoinRoomTap,
-    this.onConnectTap,
+    this.onShareRoomTap,
+    this.onDisconnectTap,
   });
 
   @override
@@ -265,20 +269,50 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
             ),
             const SizedBox(height: 12),
             if (widget.isConnected)
-              SizedBox(
-                width: double.infinity,
-                height: 44,
-                child: FilledButton(
-                  onPressed: widget.onConnectTap,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colorScheme.errorContainer,
-                    foregroundColor: colorScheme.onErrorContainer,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: FilledButton(
+                      onPressed: widget.onShareRoomTap,
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.share_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('分享房间'),
+                        ],
+                      ),
                     ),
                   ),
-                  child: const Text('断开连接'),
-                ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: widget.onDisconnectTap,
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.link_off_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('断开连接'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               )
             else
               Column(
@@ -293,7 +327,14 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text('创建房间'),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_box_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('创建房间'),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -307,7 +348,14 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text('加入房间'),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.login_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('加入房间'),
+                        ],
+                      ),
                     ),
                   ),
                 ],

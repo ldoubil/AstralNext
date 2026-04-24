@@ -55,6 +55,12 @@ class GlobalP2PStore {
     try {
       final status = await _p2pService.getNetworkStatus(instanceId);
       networkStatus.value = status;
+      if (status != null) {
+        debugPrint('[P2PStore] 轮询网络状态: ${status.nodes.length} 个节点');
+        for (var node in status.nodes) {
+          debugPrint('[P2PStore]   节点: ${node.hostname} - ${node.ipv4}');
+        }
+      }
     } catch (e) {
       debugPrint('[P2PStore] 轮询网络状态失败: $e');
     }

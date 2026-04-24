@@ -1,3 +1,4 @@
+import 'package:get_it/get_it.dart';
 import 'package:signals/signals.dart';
 
 class SettingsState {
@@ -21,4 +22,4 @@ class SettingsState {
   ]);
 }
 
-final settingsState = SettingsState();
+SettingsState get settingsState => GetIt.I<SettingsState>();

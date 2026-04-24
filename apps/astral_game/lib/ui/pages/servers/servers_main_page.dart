@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:signals/signals_flutter.dart';
 
 import 'server_state.dart';
 import 'server_dialog.dart';
@@ -13,18 +14,9 @@ class ServersMainPage extends StatefulWidget {
 }
 
 class _ServersMainPageState extends State<ServersMainPage> {
-  late final dynamic _disposeServers;
-  late final dynamic _disposeStatuses;
-
   @override
   void initState() {
     super.initState();
-    _disposeServers = serverState.servers.subscribe((_) {
-      if (mounted) setState(() {});
-    });
-    _disposeStatuses = serverStatusState.serverStatuses.subscribe((_) {
-      if (mounted) setState(() {});
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       serverStatusState.startPeriodicCheck(
         serverState.servers.value,
@@ -35,8 +27,6 @@ class _ServersMainPageState extends State<ServersMainPage> {
 
   @override
   void dispose() {
-    _disposeServers();
-    _disposeStatuses();
     serverStatusState.stopPeriodicCheck();
     super.dispose();
   }
@@ -55,38 +45,39 @@ class _ServersMainPageState extends State<ServersMainPage> {
   }
 
   Widget _buildBody(BuildContext context) {
-    final servers = serverState.servers.value;
-    final statuses = serverStatusState.serverStatuses.value;
+    return Watch((context) {
+      final servers = serverState.servers.value;
+      final statuses = serverStatusState.serverStatuses.value;
 
-    if (servers.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.dns_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '暂无服务器',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => showAddServerDialog(context),
-              icon: const Icon(Icons.add),
-              label: const Text('添加服务器'),
-            ),
-          ],
-        ),
-      );
-    }
+      if (servers.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.dns_outlined,
+                size: 64,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '暂无服务器',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => showAddServerDialog(context),
+                icon: const Icon(Icons.add),
+                label: const Text('添加服务器'),
+              ),
+            ],
+          ),
+        );
+      }
 
-    return ReorderableListView.builder(
+      return ReorderableListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: servers.length,
       buildDefaultDragHandles: false,
@@ -219,6 +210,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
         );
       },
     );
+      });
   }
 
   @override

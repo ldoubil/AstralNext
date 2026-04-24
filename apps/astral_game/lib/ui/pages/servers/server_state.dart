@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:get_it/get_it.dart';
 import 'package:signals/signals.dart';
 import 'server_mod.dart';
+
+typedef ServerPersistenceCallback = Future<List<ServerMod>> Function();
+typedef ServerSaveCallback = Future<void> Function(List<ServerMod>);
 
 enum ServerStatus {
   online,
@@ -13,20 +17,46 @@ enum ServerStatus {
 
 class ServerState {
   final servers = signal<List<ServerMod>>([]);
+  ServerPersistenceCallback? _loadCallback;
+  ServerSaveCallback? _saveCallback;
+
+  void setPersistenceCallbacks({
+    required ServerPersistenceCallback loadCallback,
+    required ServerSaveCallback saveCallback,
+  }) {
+    _loadCallback = loadCallback;
+    _saveCallback = saveCallback;
+  }
+
+  Future<void> loadFromPersistence() async {
+    if (_loadCallback != null) {
+      final loaded = await _loadCallback!();
+      servers.value = loaded;
+    }
+  }
+
+  Future<void> _saveToPersistence() async {
+    if (_saveCallback != null) {
+      await _saveCallback!(servers.value);
+    }
+  }
 
   void setServers(List<ServerMod> serverList) {
     servers.value = serverList;
+    _saveToPersistence();
   }
 
   void addServer(ServerMod server) {
     final list = List<ServerMod>.from(servers.value);
     list.add(server);
     servers.value = list;
+    _saveToPersistence();
   }
 
   void removeServer(int id) {
     final list = servers.value.where((s) => s.id != id).toList();
     servers.value = list;
+    _saveToPersistence();
   }
 
   void updateServer(ServerMod updatedServer) {
@@ -34,10 +64,12 @@ class ServerState {
       return s.id == updatedServer.id ? updatedServer : s;
     }).toList();
     servers.value = list;
+    _saveToPersistence();
   }
 
   void reorderServers(List<ServerMod> reordered) {
     servers.value = reordered;
+    _saveToPersistence();
   }
 
   void toggleServerEnabled(int id, bool enabled) {
@@ -48,6 +80,7 @@ class ServerState {
       return s;
     }).toList();
     servers.value = list;
+    _saveToPersistence();
   }
 
   ServerMod? getServerById(int id) {
@@ -152,5 +185,5 @@ class PingUtil {
   }
 }
 
-final serverState = ServerState();
-final serverStatusState = ServerStatusState();
+ServerState get serverState => GetIt.I<ServerState>();
+ServerStatusState get serverStatusState => GetIt.I<ServerStatusState>();
