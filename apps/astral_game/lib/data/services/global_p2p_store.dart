@@ -158,7 +158,14 @@ class GlobalP2PStore {
         }
         
         debugPrint('[P2PStore] 准备更新 enhancedUserNodes: ${enhancedNodes.length} 个节点');
-        enhancedUserNodes.value = List.from(enhancedNodes); // 强制创建新列表实例
+        // 强制创建全新的列表实例
+        final newList = enhancedNodes.map((node) => EnhancedNodeInfo(
+          baseInfo: node.baseInfo,
+          avatarPort: node.avatarPort,
+          lastAvatarPortScan: node.lastAvatarPortScan,
+          metadata: Map<String, dynamic>.from(node.metadata),
+        )).toList();
+        enhancedUserNodes.value = newList;
         debugPrint('[P2PStore] enhancedUserNodes 已更新');
       } else {
         networkStatus.value = null;
