@@ -268,7 +268,6 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildUserListInline(BuildContext context) {
     // 注意：外层已经有 Watch，这里不需要再套 Watch
     final enhancedNodes = _p2pStore.enhancedUserNodes.value;
-    debugPrint('[Dashboard] _buildUserListInline called, nodes count: ${enhancedNodes.length}');
 
     if (enhancedNodes.isEmpty) {
       return _buildEmptyUserState(context);

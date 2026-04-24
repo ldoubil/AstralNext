@@ -134,8 +134,6 @@ class GlobalP2PStore {
             .toList();
         userNodes.value = userNodesList;
         
-        debugPrint('[P2PStore] userNodes 数量: ${userNodesList.length}');
-        
         // 构建增强节点信息列表，保留已发现的头像端口
         final enhancedNodes = <EnhancedNodeInfo>[];
         for (final node in userNodesList) {
@@ -147,31 +145,19 @@ class GlobalP2PStore {
             // 找到已存在的节点，保留其 avatarPort
             final existingNode = enhancedUserNodes.value[existingIndex];
             enhancedNode = existingNode.copyWith(baseInfo: node);
-            debugPrint('[P2PStore] 复用节点 ${node.hostname} 的端口: ${existingNode.avatarPort}');
           } else {
             // 新节点，创建新的 EnhancedNodeInfo
             enhancedNode = EnhancedNodeInfo.fromKVNodeInfo(node);
-            debugPrint('[P2PStore] 创建新节点: ${node.hostname}');
           }
           
           enhancedNodes.add(enhancedNode);
         }
         
-        debugPrint('[P2PStore] 准备更新 enhancedUserNodes: ${enhancedNodes.length} 个节点');
-        // 强制创建全新的列表实例
-        final newList = enhancedNodes.map((node) => EnhancedNodeInfo(
-          baseInfo: node.baseInfo,
-          avatarPort: node.avatarPort,
-          lastAvatarPortScan: node.lastAvatarPortScan,
-          metadata: Map<String, dynamic>.from(node.metadata),
-        )).toList();
-        enhancedUserNodes.value = newList;
-        debugPrint('[P2PStore] enhancedUserNodes 已更新');
+        enhancedUserNodes.value = List.from(enhancedNodes);
       } else {
         networkStatus.value = null;
         userNodes.value = [];
         enhancedUserNodes.value = [];
-        debugPrint('[P2PStore] status 为 null，清空所有列表');
       }
       
       if (status != null) {

@@ -38,7 +38,8 @@ class _UserAvatarWidgetState extends State<UserAvatarWidget> {
   @override
   void didUpdateWidget(covariant UserAvatarWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.nodeInfo.peerId != widget.nodeInfo.peerId) {
+    // 当 IP 变化时，重新获取头像
+    if (oldWidget.nodeInfo.ipv4 != widget.nodeInfo.ipv4) {
       _avatar = null;
       _fetchAvatar();
     }
