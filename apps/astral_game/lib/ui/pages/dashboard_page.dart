@@ -268,17 +268,20 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildUserListInline(BuildContext context) {
     return Watch((context) {
       final enhancedNodes = _p2pStore.enhancedUserNodes.value;
+      debugPrint('[Dashboard] Watch triggered, enhancedNodes count: ${enhancedNodes.length}');
 
-      return enhancedNodes.isEmpty
-          ? _buildEmptyUserState(context)
-          : ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: enhancedNodes.length,
-              itemBuilder: (context, index) {
-                return _buildUserItem(enhancedNodes[index]);
-              },
-            );
+      if (enhancedNodes.isEmpty) {
+        return _buildEmptyUserState(context);
+      }
+
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: enhancedNodes.length,
+        itemBuilder: (context, index) {
+          return _buildUserItem(enhancedNodes[index]);
+        },
+      );
     });
   }
 
