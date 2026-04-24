@@ -216,10 +216,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('服务器管理'),
-        centerTitle: true,
-      ),
+      
       body: _buildBody(context),
       floatingActionButton: FloatingActionButton(
         onPressed: () => showAddServerDialog(context),

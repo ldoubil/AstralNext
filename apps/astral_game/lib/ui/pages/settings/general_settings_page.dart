@@ -26,22 +26,6 @@ class GeneralSettingsPage extends StatelessWidget {
                   settingsState.closeMinimize.value = value;
                 },
               ),
-              SwitchListTile(
-                title: const Text('简约用户列表'),
-                subtitle: const Text('使用紧凑的用户列表视图'),
-                value: settingsState.userListSimple.value,
-                onChanged: (value) {
-                  settingsState.userListSimple.value = value;
-                },
-              ),
-              SwitchListTile(
-                title: const Text('启用轮播图'),
-                subtitle: const Text('在首页显示轮播图'),
-                value: settingsState.enableBannerCarousel.value,
-                onChanged: (value) {
-                  settingsState.enableBannerCarousel.value = value;
-                },
-              ),
             ],
           ),
         ],
