@@ -383,131 +383,169 @@ class _DashboardPageState extends State<DashboardPage> {
     // 使用服务层方法判断是否应该获取头像
     final shouldFetchAvatar = _p2pStore.isValidIp(node.ipv4);
     final ipDisplayText = _p2pStore.getNodeIpDisplayText(node.ipv4);
+    
+    bool isHovered = false;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          UserAvatarWidget(
-            nodeInfo: node,
-            size: 36,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onHover: (hovering) {
+                setState(() => isHovered = hovering);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: isHovered 
+                      ? colorScheme.surfaceContainerHighest
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: isHovered
+                        ? colorScheme.outlineVariant
+                        : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
                   children: [
-                    Text(
-                      node.hostname,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    UserAvatarWidget(
+                      nodeInfo: node,
+                      size: 36,
                     ),
-                    if (platformName.isNotEmpty)
-                      Row(
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              platformName,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: colorScheme.onSecondaryContainer,
+                          Row(
+                            children: [
+                              Text(
+                                node.hostname,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.onSurface,
+                                ),
                               ),
-                            ),
+                              if (platformName.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.secondaryContainer,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      platformName,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.onSecondaryContainer,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                ipDisplayText,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: shouldFetchAvatar 
+                                      ? colorScheme.onSurfaceVariant
+                                      : colorScheme.onSurfaceVariant.withAlpha(128),
+                                ),
+                              ),
+                              if (versionNumber.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: Text(
+                                    versionNumber,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: colorScheme.onSurfaceVariant.withAlpha(128),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.tertiaryContainer,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'ID: ${node.peerId}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.onTertiaryContainer,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${node.baseInfo.latencyMs.round()}ms',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: node.baseInfo.latencyMs < 100 
+                                      ? Colors.green[600] 
+                                      : node.baseInfo.latencyMs < 300 
+                                          ? Colors.yellow[600] 
+                                          : Colors.red[600],
+                                ),
+                              ),
+                              if (node.baseInfo.lossRate > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: Text(
+                                    '丢包: ${node.baseInfo.lossRate.toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.red[600],
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
-                      ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Text(
-                      ipDisplayText,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: shouldFetchAvatar 
-                            ? colorScheme.onSurfaceVariant
-                            : colorScheme.onSurfaceVariant.withAlpha(128),
                       ),
                     ),
-                    if (versionNumber.isNotEmpty)
-                      Row(
-                        children: [
-                          const SizedBox(width: 8),
-                          Text(
-                            versionNumber,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.onSurfaceVariant.withAlpha(128),
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: colorScheme.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'ID: ${node.peerId}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: colorScheme.onTertiaryContainer,
+                    AnimatedOpacity(
+                      opacity: isHovered ? 1.0 : 0.6,
+                      duration: const Duration(milliseconds: 200),
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                     ),
-                    
-                    const SizedBox(width: 8),
-                    Text(
-                      '${node.baseInfo.latencyMs.round()}ms',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: node.baseInfo.latencyMs < 100 
-                            ? Colors.green[600] 
-                            : node.baseInfo.latencyMs < 300 
-                                ? Colors.yellow[600] 
-                                : Colors.red[600],
-                      ),
-                    ),
-                    if (node.baseInfo.lossRate > 0)
-                      Row(
-                        children: [
-                          const SizedBox(width: 8),
-                          Text(
-                            '丢包: ${node.baseInfo.lossRate.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.red[600],
-                            ),
-                          ),
-                        ],
-                      ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
