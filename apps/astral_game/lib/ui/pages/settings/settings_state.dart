@@ -20,6 +20,27 @@ class SettingsState {
     'tcp://0.0.0.0:0',
     'udp://0.0.0.0:0',
   ]);
+
+  /// 添加监听项
+  void addListenItem(String item) {
+    final list = List<String>.from(listenList.value);
+    list.add(item);
+    listenList.value = list;
+  }
+
+  /// 更新监听项
+  void updateListenItem(int index, String item) {
+    final list = List<String>.from(listenList.value);
+    list[index] = item;
+    listenList.value = list;
+  }
+
+  /// 删除监听项
+  void removeListenItem(int index) {
+    final list = List<String>.from(listenList.value);
+    list.removeAt(index);
+    listenList.value = list;
+  }
 }
 
 SettingsState get settingsState => GetIt.I<SettingsState>();

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../pages/dashboard_page.dart';
-import '../pages/servers_page.dart';
-import '../pages/settings_page.dart';
+import '../pages/servers/servers_main_page.dart';
+import '../pages/settings/settings_main_page.dart';
 import '../widgets/window_button.dart';
 import 'shell_content_controller.dart';
 
@@ -109,8 +109,8 @@ class _ShellState extends State<Shell> {
                               sizing: StackFit.expand,
                               children: const [
                                 DashboardPage(key: PageStorageKey('dashboard')),
-                                ServersPage(key: PageStorageKey('servers')),
-                                SettingsPage(key: PageStorageKey('settings')),
+                                ServersMainPage(key: PageStorageKey('servers')),
+                                SettingsMainPage(key: PageStorageKey('settings')),
                               ],
                             ),
                     ),

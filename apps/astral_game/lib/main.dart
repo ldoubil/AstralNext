@@ -1,4 +1,5 @@
 import 'package:astral_game/di.dart';
+import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,10 @@ Future<void> main() async {
   );
 
   await setupDI();
+
+  // 启动头像 API 服务器（自动选择 4924-4944 范围内的可用端口）
+  final clientApiService = getIt<ClientApiService>();
+  await clientApiService.start();
 
   // 初始化房间持久化
   final roomPersistence = getIt<RoomPersistenceService>();

@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
@@ -6,14 +5,13 @@ import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
 import 'package:astral_game/ui/widgets/user_avatar_widget.dart';
 import 'package:astral_game/data/services/global_p2p_store.dart';
-import 'package:astral_game/data/services/app_settings_service.dart';
+import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/models/enhanced_node_info.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
-import 'package:astral_game/ui/pages/servers/server_state.dart';
 import 'package:astral_game/utils/platform_version_parser.dart';
 import 'package:astral_rust_core/p2p_service.dart';
-import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNodeInfo;
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -25,7 +23,7 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   final GlobalP2PStore _p2pStore = GetIt.I<GlobalP2PStore>();
   final P2PService _p2pService = GetIt.I<P2PService>();
-  final AppSettingsService _appSettings = GetIt.I<AppSettingsService>();
+  final P2PConfigService _p2pConfig = GetIt.I<P2PConfigService>();
   final RoomPersistenceService _roomPersistence = GetIt.I<RoomPersistenceService>();
   bool _isConnecting = false;
   String? _currentRoomUuid;
@@ -60,58 +58,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  String _generateUuid() {
-    final random = Random();
-    final values = List<int>.generate(16, (_) => random.nextInt(256));
-    values[6] = (values[6] & 0x0F) | 0x40;
-    values[8] = (values[8] & 0x3F) | 0x80;
-    
-    const hex = '0123456789abcdef';
-    final buffer = StringBuffer();
-    for (int i = 0; i < 16; i++) {
-      if (i == 4 || i == 6 || i == 8 || i == 10) {
-        buffer.write('-');
-      }
-      buffer.write(hex[values[i] >> 4]);
-      buffer.write(hex[values[i] & 0x0F]);
-    }
-    return buffer.toString();
-  }
-
-  String _escapeString(String s) => s.replaceAll('\\', r'\\').replaceAll('"', r'\"');
-
-  String _buildTomlConfig(String roomName, String roomPassword) {
-    final disableP2p = _appSettings.isDisableP2p();
-    final serverState = GetIt.I<ServerState>();
-    final enabledServers = serverState.getEnabledServers();
-    
-    String peerBlock = '';
-    if (enabledServers.isNotEmpty) {
-      peerBlock = enabledServers.map((server) {
-        final protocol = server.udp ? 'udp' : server.tcp ? 'tcp' : 'tcp';
-        return '[[peer]]\nuri = "${_escapeString("$protocol://${server.url}")}"';
-      }).join('\n\n');
-    }
-    
-    return '''
-instance_name = "AstralGame"
-dhcp = true
-listeners = [
-    "tcp://0.0.0.0:11010",
-    "udp://0.0.0.0:11010",
-] 
-
-[network_identity]
-network_name = "${_escapeString(roomName)}" 
-network_secret = "${_escapeString(roomPassword)}" 
-
-${peerBlock.isNotEmpty ? '$peerBlock\n\n' : ''}[flags]
-default_protocol = "tcp"
-dev_name = "astral"
-disable-p2p = $disableP2p
-''';
-  }
-
   Future<void> _connectToRoom(String roomName, String roomPassword) async {
     if (_isConnecting) return;
     
@@ -120,7 +66,7 @@ disable-p2p = $disableP2p
     });
 
     try {
-      final configToml = _buildTomlConfig(roomName, roomPassword);
+      final configToml = _p2pConfig.buildTomlConfig(roomName, roomPassword);
       debugPrint('连接房间: $roomName');
 
       final instanceId = await _p2pService.createServer(
@@ -156,7 +102,7 @@ disable-p2p = $disableP2p
   Future<void> _handleCreateRoom() async {
     if (_isConnecting) return;
 
-    final uuid = _generateUuid();
+    final uuid = _p2pConfig.generateUuid();
     final roomName = 'Room_${uuid.substring(0, 8)}';
     final roomPassword = uuid;
 
@@ -309,7 +255,7 @@ disable-p2p = $disableP2p
                 ),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: isRunning ? _buildUserList(context) : _buildJoinHistory(context),
+                  child: isRunning ? _buildUserListInline(context) : _buildJoinHistory(context),
                 ),
               ],
             ),
@@ -319,22 +265,20 @@ disable-p2p = $disableP2p
     });
   }
 
-  Widget _buildUserList(BuildContext context) {
+  Widget _buildUserListInline(BuildContext context) {
     return Watch((context) {
-      final status = _p2pStore.networkStatus.value;
-      final nodes = status?.nodes ?? [];
-      // 只显示有真实 IP 的节点(排除 0.0.0.0)
-      final filteredNodes = nodes.where((node) => node.ipv4 != '0.0.0.0').toList();
+      final enhancedNodes = _p2pStore.enhancedUserNodes.value;
 
-      debugPrint('[UI] _buildUserList - 总节点数: ${nodes.length}');
-      for (var node in nodes) {
-        debugPrint('[UI]   节点: ${node.hostname}, IP: ${node.ipv4}, cost: ${node.cost}');
-      }
-      debugPrint('[UI] _buildUserList - 过滤后节点数: ${filteredNodes.length}');
-
-      return filteredNodes.isEmpty
+      return enhancedNodes.isEmpty
           ? _buildEmptyUserState(context)
-          : _buildNodeList(context, filteredNodes);
+          : ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: enhancedNodes.length,
+              itemBuilder: (context, index) {
+                return _buildUserItem(enhancedNodes[index]);
+              },
+            );
     });
   }
 
@@ -356,14 +300,6 @@ disable-p2p = $disableP2p
                 ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildNodeList(BuildContext context, List<KVNodeInfo> nodes) {
-    return SingleChildScrollView(
-      child: Column(
-        children: nodes.map((node) => _buildUserItem(node)).toList(),
       ),
     );
   }
@@ -434,18 +370,21 @@ disable-p2p = $disableP2p
     });
   }
 
-  Widget _buildUserItem(KVNodeInfo node) {
+  Widget _buildUserItem(EnhancedNodeInfo node) {
     final colorScheme = Theme.of(context).colorScheme;
-    final (platformName, platformIcon) = PlatformVersionParser.parsePlatformInfo(node.version);
-    final versionNumber = PlatformVersionParser.getVersionNumber(node.version);
+    final (platformName, platformIcon) = PlatformVersionParser.parsePlatformInfo(node.baseInfo.version);
+    final versionNumber = PlatformVersionParser.getVersionNumber(node.baseInfo.version);
+    
+    // 使用服务层方法判断是否应该获取头像
+    final shouldFetchAvatar = _p2pStore.isValidIp(node.ipv4);
+    final ipDisplayText = _p2pStore.getNodeIpDisplayText(node.ipv4);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           UserAvatarWidget(
-            ip: node.ipv4,
-            port: 4924,
+            nodeInfo: node,
             size: 36,
           ),
           const SizedBox(width: 10),
@@ -484,10 +423,12 @@ disable-p2p = $disableP2p
                 Row(
                   children: [
                     Text(
-                      node.ipv4,
+                      ipDisplayText,
                       style: TextStyle(
                         fontSize: 12,
-                        color: colorScheme.onSurfaceVariant,
+                        color: shouldFetchAvatar 
+                            ? colorScheme.onSurfaceVariant
+                            : colorScheme.onSurfaceVariant.withAlpha(128),
                       ),
                     ),
                     if (versionNumber.isNotEmpty)
@@ -521,39 +462,25 @@ disable-p2p = $disableP2p
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: colorScheme.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        node.tunnelProto.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: colorScheme.onTertiaryContainer,
-                        ),
-                      ),
-                    ),
+                    
                     const SizedBox(width: 8),
                     Text(
-                      '${node.latencyMs.round()}ms',
+                      '${node.baseInfo.latencyMs.round()}ms',
                       style: TextStyle(
                         fontSize: 11,
-                        color: node.latencyMs < 100 
+                        color: node.baseInfo.latencyMs < 100 
                             ? Colors.green[600] 
-                            : node.latencyMs < 300 
+                            : node.baseInfo.latencyMs < 300 
                                 ? Colors.yellow[600] 
                                 : Colors.red[600],
                       ),
                     ),
-                    if (node.lossRate > 0)
+                    if (node.baseInfo.lossRate > 0)
                       Row(
                         children: [
                           const SizedBox(width: 8),
                           Text(
-                            '丢包: ${node.lossRate.toStringAsFixed(1)}%',
+                            '丢包: ${node.baseInfo.lossRate.toStringAsFixed(1)}%',
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.red[600],

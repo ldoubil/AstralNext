@@ -119,9 +119,7 @@ class ListenListPage extends StatelessWidget {
     );
 
     if (result != null && result.trim().isNotEmpty) {
-      final list = List<String>.from(settingsState.listenList.value);
-      list.add(result.trim());
-      settingsState.listenList.value = list;
+      settingsState.addListenItem(result.trim());
     }
   }
 
@@ -157,9 +155,7 @@ class ListenListPage extends StatelessWidget {
     );
 
     if (result != null && result.trim().isNotEmpty && result != item) {
-      final list = List<String>.from(settingsState.listenList.value);
-      list[index] = result.trim();
-      settingsState.listenList.value = list;
+      settingsState.updateListenItem(index, result.trim());
     }
   }
 
@@ -188,9 +184,7 @@ class ListenListPage extends StatelessWidget {
     );
 
     if (confirm == true) {
-      final list = List<String>.from(settingsState.listenList.value);
-      list.removeAt(index);
-      settingsState.listenList.value = list;
+      settingsState.removeListenItem(index);
     }
   }
 }
