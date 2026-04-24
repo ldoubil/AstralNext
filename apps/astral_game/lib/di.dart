@@ -1,4 +1,5 @@
 import 'package:astral_game/data/services/app_settings_service.dart';
+import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/data/services/global_p2p_store.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/server_persistence_service.dart';
@@ -24,6 +25,9 @@ Future<void> setupDI() async {
   await getIt<P2PService>().ensureInitialized();
   await initApp();
   getIt.registerLazySingleton<GlobalP2PStore>(() => GlobalP2PStore());
+  
+  // 客户端 API 服务
+  getIt.registerLazySingleton<ClientApiService>(() => ClientApiService());
   
   // 服务器状态
   getIt.registerLazySingleton<ServerState>(() => ServerState());
