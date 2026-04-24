@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
@@ -21,6 +22,12 @@ class GlobalP2PStore {
 
   /// 增强的用户节点列表（包含自定义扩展信息）
   final enhancedUserNodes = signal<List<EnhancedNodeInfo>>([]);
+
+  /// 当前用户的头像数据
+  final currentUserAvatar = signal<Uint8List?>(null);
+
+  /// 当前用户的名字
+  final currentUsername = signal<String>('玩家');
 
   Timer? _pollingTimer;
 
@@ -86,6 +93,16 @@ class GlobalP2PStore {
     } catch (e) {
       return null;
     }
+  }
+
+  /// 更新当前用户的头像
+  void updateCurrentUserAvatar(Uint8List? avatar) {
+    currentUserAvatar.value = avatar;
+  }
+
+  /// 更新当前用户的名字
+  void updateCurrentUsername(String username) {
+    currentUsername.value = username;
   }
 
   void _startPolling(String instanceId) {

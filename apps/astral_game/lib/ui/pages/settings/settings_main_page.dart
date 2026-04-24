@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
+import '../../../data/services/global_p2p_store.dart';
 import 'general_settings_page.dart';
 import 'network_settings_page.dart';
 import 'cloud_backup_settings_page.dart';
@@ -126,7 +127,6 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
             ),
           ),
         ),
-        const SizedBox(height: 24),
         _buildSectionHeader(context, '通用设置'),
         const SizedBox(height: 8),
         _buildSettingsCard(
@@ -139,7 +139,6 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
             content: const GeneralSettingsPage(),
           ),
         ),
-        const SizedBox(height: 24),
         _buildSectionHeader(context, '网络设置'),
         const SizedBox(height: 8),
         _buildSettingsCard(
@@ -152,7 +151,6 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
             content: const NetworkSettingsPage(),
           ),
         ),
-        const SizedBox(height: 24),
         _buildSectionHeader(context, '数据管理'),
         const SizedBox(height: 8),
         _buildSettingsCard(
@@ -165,7 +163,6 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
             content: const CloudBackupSettingsPage(),
           ),
         ),
-        const SizedBox(height: 24),
         _buildSectionHeader(context, '其他'),
         const SizedBox(height: 8),
         _buildSettingsCard(
