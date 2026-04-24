@@ -2,6 +2,7 @@ import 'package:astral_game/di.dart';
 import 'package:astral_game/ui/shell/shell_content_controller.dart';
 import 'package:flutter/material.dart';
 import 'general_settings_page.dart';
+import 'avatar_settings_page.dart';
 import 'network_settings_page.dart';
 import 'listen_list_page.dart';
 import 'cloud_backup_settings_page.dart';
@@ -211,6 +212,16 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
         _buildSettingsCard(
           context,
           icon: Icons.person_outline,
+          title: '头像设置',
+          subtitle: '设置您的个人头像',
+          onTap: () => contentController.showOverlay(
+            title: '头像设置',
+            content: const AvatarSettingsPage(),
+          ),
+        ),
+        _buildSettingsCard(
+          context,
+          icon: Icons.settings,
           title: '软件设置',
           subtitle: '权限和界面设置',
           onTap: () => contentController.showOverlay(

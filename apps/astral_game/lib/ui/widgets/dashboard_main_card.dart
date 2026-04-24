@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
+import 'package:astral_game/data/services/client_api_service.dart';
 
 class DashboardMainCard extends StatefulWidget {
   final bool isConnected;
@@ -34,11 +37,22 @@ class DashboardMainCard extends StatefulWidget {
 class _DashboardMainCardState extends State<DashboardMainCard> {
   bool _disableP2p = false;
   bool _firewallStatus = false;
+  late ClientApiService _clientApiService;
+  Uint8List? _avatar;
 
   @override
   void initState() {
     super.initState();
     _disableP2p = getIt<AppSettingsService>().isDisableP2p();
+    _clientApiService = GetIt.I<ClientApiService>();
+    _loadAvatar();
+  }
+
+  Future<void> _loadAvatar() async {
+    await _clientApiService.init();
+    setState(() {
+      _avatar = _clientApiService.getAvatar();
+    });
   }
 
   @override
@@ -62,16 +76,29 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
               children: [
                 Container(
                   width: 48,
-                  height: 64,
+                  height: 48,
                   decoration: BoxDecoration(
+                    shape: BoxShape.circle,
                     color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: colorScheme.outline,
+                      width: 1,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.person_outline,
-                    color: colorScheme.onPrimaryContainer,
-                    size: 24,
-                  ),
+                  child: _avatar != null
+                      ? ClipOval(
+                          child: Image.memory(
+                            _avatar!,
+                            fit: BoxFit.cover,
+                            width: 48,
+                            height: 48,
+                          ),
+                        )
+                      : Icon(
+                          Icons.person_outline,
+                          color: colorScheme.onPrimaryContainer,
+                          size: 24,
+                        ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(

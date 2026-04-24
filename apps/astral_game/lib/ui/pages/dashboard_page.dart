@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
+import 'package:astral_game/ui/widgets/user_avatar_widget.dart';
 import 'package:astral_game/data/services/global_p2p_store.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
@@ -274,7 +275,8 @@ disable-p2p = $disableP2p
     return Watch((context) {
       final colorScheme = Theme.of(context).colorScheme;
       final textTheme = Theme.of(context).textTheme;
-      final isRunning = _p2pStore.isRunning;
+      final instanceId = _p2pStore.currentInstanceId.value;
+      final isRunning = instanceId != null;
 
       return Container(
         height: double.infinity,
@@ -321,7 +323,14 @@ disable-p2p = $disableP2p
     return Watch((context) {
       final status = _p2pStore.networkStatus.value;
       final nodes = status?.nodes ?? [];
+      // 只显示有真实 IP 的节点(排除 0.0.0.0)
       final filteredNodes = nodes.where((node) => node.ipv4 != '0.0.0.0').toList();
+
+      debugPrint('[UI] _buildUserList - 总节点数: ${nodes.length}');
+      for (var node in nodes) {
+        debugPrint('[UI]   节点: ${node.hostname}, IP: ${node.ipv4}, cost: ${node.cost}');
+      }
+      debugPrint('[UI] _buildUserList - 过滤后节点数: ${filteredNodes.length}');
 
       return filteredNodes.isEmpty
           ? _buildEmptyUserState(context)
@@ -434,18 +443,10 @@ disable-p2p = $disableP2p
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              platformIcon,
-              color: colorScheme.onPrimaryContainer,
-              size: 18,
-            ),
+          UserAvatarWidget(
+            ip: node.ipv4,
+            port: 4924,
+            size: 36,
           ),
           const SizedBox(width: 10),
           Expanded(

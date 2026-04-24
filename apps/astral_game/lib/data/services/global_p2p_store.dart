@@ -54,7 +54,21 @@ class GlobalP2PStore {
   Future<void> _pollNetworkStatus(String instanceId) async {
     try {
       final status = await _p2pService.getNetworkStatus(instanceId);
+      
+      debugPrint('[P2PStore] _pollNetworkStatus - 准备更新 networkStatus');
+      debugPrint('[P2PStore]   当前 networkStatus.value: ${networkStatus.value}');
+      debugPrint('[P2PStore]   新 status: $status');
+      if (status != null) {
+        debugPrint('[P2PStore]   新 status.nodes 数量: ${status.nodes.length}');
+        for (var node in status.nodes) {
+          debugPrint('[P2PStore]     节点: ${node.hostname}, IP: ${node.ipv4}');
+        }
+      }
+      
       networkStatus.value = status;
+      
+      debugPrint('[P2PStore]   更新后 networkStatus.value: ${networkStatus.value}');
+      
       if (status != null) {
         debugPrint('[P2PStore] 轮询网络状态: ${status.nodes.length} 个节点');
         for (var node in status.nodes) {

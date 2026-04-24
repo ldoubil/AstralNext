@@ -15,7 +15,10 @@ class ClientApiService {
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
-    _loadAvatar();
+    final avatarBase64 = _prefs.getString('avatar');
+    if (avatarBase64 != null) {
+      _customAvatar = base64Decode(avatarBase64);
+    }
   }
 
   Future<void> start({int port = 4924}) async {
@@ -47,78 +50,29 @@ class ClientApiService {
 
   Future<void> _handleRequest(HttpRequest request) async {
     final path = request.uri.path;
-    final method = request.method;
     final response = request.response;
 
     if (path == '/api/avatar') {
-      if (method == 'GET') {
-        await _handleGetAvatar(response);
-      } else if (method == 'POST') {
-        await _handleSetAvatar(request, response);
+      response.statusCode = HttpStatus.ok;
+      response.headers.contentType = ContentType('image', 'png');
+      
+      if (_customAvatar != null) {
+        response.add(_customAvatar!);
       } else {
-        response.statusCode = HttpStatus.methodNotAllowed;
-        await response.close();
+        response.add(_generateDefaultAvatar());
       }
+      
+      await response.close();
     } else {
       response.statusCode = HttpStatus.notFound;
       await response.close();
     }
   }
 
-  Future<void> _handleGetAvatar(HttpResponse response) async {
-    response.statusCode = HttpStatus.ok;
-    response.headers.contentType = ContentType('image', 'png');
-    
-    if (_customAvatar != null) {
-      response.add(_customAvatar!);
-    } else {
-      response.add(_generateDefaultAvatar());
-    }
-    
-    await response.close();
-  }
-
-  Future<void> _handleSetAvatar(HttpRequest request, HttpResponse response) async {
-    try {
-      final bytes = await request.first;
-      
-      if (bytes.length > 1024 * 1024) {
-        response.statusCode = HttpStatus.badRequest;
-        response.write('Avatar too large (max 1MB)');
-        await response.close();
-        return;
-      }
-
-      _customAvatar = bytes;
-      await _saveAvatar();
-
-      response.statusCode = HttpStatus.ok;
-      response.write('Avatar saved');
-    } catch (e) {
-      response.statusCode = HttpStatus.internalServerError;
-      response.write('Failed to save avatar: $e');
-    } finally {
-      await response.close();
-    }
-  }
-
-  void _loadAvatar() {
-    final avatarBase64 = _prefs.getString('avatar');
-    if (avatarBase64 != null) {
-      _customAvatar = base64Decode(avatarBase64);
-    }
-  }
-
-  Future<void> _saveAvatar() async {
-    if (_customAvatar != null) {
-      final base64 = base64Encode(_customAvatar!);
-      await _prefs.setString('avatar', base64);
-    }
-  }
-
   Future<void> setAvatar(Uint8List avatarData) async {
     _customAvatar = avatarData;
-    await _saveAvatar();
+    final base64 = base64Encode(avatarData);
+    await _prefs.setString('avatar', base64);
   }
 
   Uint8List getAvatar() {
