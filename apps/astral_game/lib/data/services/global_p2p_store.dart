@@ -7,9 +7,11 @@ import 'package:signals/signals_core.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNetworkStatus, KVNodeInfo;
 import '../models/enhanced_node_info.dart';
+import 'app_settings_service.dart';
 
 class GlobalP2PStore {
   final _p2pService = GetIt.I<P2PService>();
+  final _appSettings = GetIt.I<AppSettingsService>();
 
   /// 当前连接的 instanceId（astral_game 同时只运行一个实例）
   final currentInstanceId = signal<String?>(null);
@@ -27,12 +29,26 @@ class GlobalP2PStore {
   final currentUserAvatar = signal<Uint8List?>(null);
 
   /// 当前用户的名字
-  final currentUsername = signal<String>('玩家');
+  final currentUsername = signal<String>('');
 
   Timer? _pollingTimer;
 
   String? get instanceId => currentInstanceId.value;
   bool get isRunning => currentInstanceId.value != null;
+
+  /// 初始化用户信息（从持久化存储加载）
+  void initUserInfo() {
+    // 加载用户名（如果为空，AppSettingsService 会返回系统用户名或默认值）
+    currentUsername.value = _appSettings.getUsername();
+    
+    // 加载头像
+    final avatar = _appSettings.getAvatar();
+    if (avatar != null) {
+      currentUserAvatar.value = avatar;
+    }
+    
+    debugPrint('[P2PStore] User info initialized: username=${currentUsername.value}, hasAvatar=${currentUserAvatar.value != null}');
+  }
 
   /// 标记实例正在启动
   void setStarting() {
@@ -96,13 +112,27 @@ class GlobalP2PStore {
   }
 
   /// 更新当前用户的头像
-  void updateCurrentUserAvatar(Uint8List? avatar) {
+  Future<void> updateCurrentUserAvatar(Uint8List? avatar) async {
     currentUserAvatar.value = avatar;
+    
+    // 持久化保存
+    if (avatar != null) {
+      await _appSettings.setAvatar(avatar);
+    } else {
+      await _appSettings.clearAvatar();
+    }
+    
+    debugPrint('[P2PStore] Avatar updated and saved');
   }
 
   /// 更新当前用户的名字
-  void updateCurrentUsername(String username) {
+  Future<void> updateCurrentUsername(String username) async {
     currentUsername.value = username;
+    
+    // 持久化保存
+    await _appSettings.setUsername(username);
+    
+    debugPrint('[P2PStore] Username updated and saved: $username');
   }
 
   void _startPolling(String instanceId) {
