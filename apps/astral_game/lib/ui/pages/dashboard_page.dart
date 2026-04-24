@@ -587,96 +587,98 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
   Widget build(BuildContext context) {
     return Watch((context) {
       final node = _getCurrentNode() ?? widget.node;
-      final colorScheme = Theme.of(context).colorScheme;
-      final (platformName, platformIcon) = PlatformVersionParser.parsePlatformInfo(node.baseInfo.version);
-      final versionNumber = PlatformVersionParser.getVersionNumber(node.baseInfo.version);
       
-      final shouldFetchAvatar = widget.p2pStore.isValidIp(node.ipv4);
-      final ipDisplayText = widget.p2pStore.getNodeIpDisplayText(node.ipv4);
+      return Builder(builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final (platformName, platformIcon) = PlatformVersionParser.parsePlatformInfo(node.baseInfo.version);
+        final versionNumber = PlatformVersionParser.getVersionNumber(node.baseInfo.version);
+        
+        final shouldFetchAvatar = widget.p2pStore.isValidIp(node.ipv4);
+        final ipDisplayText = widget.p2pStore.getNodeIpDisplayText(node.ipv4);
 
-      return MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.all(12),
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          decoration: BoxDecoration(
-            color: _isHovered 
-                ? colorScheme.surfaceContainerHighest.withAlpha(128)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            decoration: BoxDecoration(
               color: _isHovered 
-                  ? colorScheme.outline.withAlpha(50)
+                  ? colorScheme.surfaceContainerHighest.withAlpha(128)
                   : Colors.transparent,
-              width: 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              UserAvatarWidget(
-                nodeInfo: node,
-                size: 36,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _isHovered 
+                    ? colorScheme.outline.withAlpha(50)
+                    : Colors.transparent,
+                width: 1,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        node.customName != null
-                            ? Text(
-                                node.customName!,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: colorScheme.onSurface,
-                                ),
-                              )
-                            : _isFetchingName
-                                ? SizedBox(
-                                    width: 60,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        colorScheme.onSurfaceVariant,
+            ),
+            child: Row(
+              children: [
+                UserAvatarWidget(
+                  nodeInfo: node,
+                  size: 36,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          node.customName != null
+                              ? Text(
+                                  node.customName!,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                )
+                              : _isFetchingName
+                                  ? SizedBox(
+                                      width: 60,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    )
+                                  : Text(
+                                      '...',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.onSurfaceVariant.withAlpha(128),
                                       ),
                                     ),
-                                  )
-                                : Text(
-                                    '...',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: colorScheme.onSurfaceVariant.withAlpha(128),
-                                    ),
+                          if (platformName.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  platformName,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.onSecondaryContainer,
                                   ),
-                        if (platformName.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: colorScheme.secondaryContainer,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                platformName,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                  color: colorScheme.onSecondaryContainer,
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
+                        ],
+                      ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -762,6 +764,7 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
         ),
       ),
     );
+        });
     });
   }
 }
