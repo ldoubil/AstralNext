@@ -9,6 +9,7 @@ import 'package:astral_game/data/services/client_api_service.dart';
 class DashboardMainCard extends StatefulWidget {
   final bool isConnected;
   final String username;
+  final Uint8List? userAvatar;  // 新增：外部传入的头像
   final String virtualIp;
   final String? roomUuid;
   final VoidCallback? onSettingsTap;
@@ -21,6 +22,7 @@ class DashboardMainCard extends StatefulWidget {
     super.key,
     this.isConnected = false,
     this.username = '玩家',
+    this.userAvatar,  // 新增参数
     this.virtualIp = '10.147.18.24',
     this.roomUuid,
     this.onSettingsTap,
@@ -37,22 +39,20 @@ class DashboardMainCard extends StatefulWidget {
 class _DashboardMainCardState extends State<DashboardMainCard> {
   bool _disableP2p = false;
   bool _firewallStatus = false;
-  late ClientApiService _clientApiService;
-  Uint8List? _avatar;
 
   @override
   void initState() {
     super.initState();
     _disableP2p = getIt<AppSettingsService>().isDisableP2p();
-    _clientApiService = GetIt.I<ClientApiService>();
-    _loadAvatar();
   }
 
-  Future<void> _loadAvatar() async {
-    await _clientApiService.init();
-    setState(() {
-      _avatar = _clientApiService.getAvatar();
-    });
+  @override
+  void didUpdateWidget(covariant DashboardMainCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 当外部传入的头像变化时，触发重建
+    if (oldWidget.userAvatar != widget.userAvatar) {
+      setState(() {});
+    }
   }
 
   @override
@@ -85,10 +85,10 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                       width: 1,
                     ),
                   ),
-                  child: _avatar != null
+                  child: widget.userAvatar != null
                       ? ClipOval(
                           child: Image.memory(
-                            _avatar!,
+                            widget.userAvatar!,
                             fit: BoxFit.cover,
                             width: 48,
                             height: 48,

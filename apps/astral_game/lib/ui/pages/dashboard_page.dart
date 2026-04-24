@@ -353,12 +353,16 @@ class _DashboardPageState extends State<DashboardPage> {
       final isConnected = _p2pStore.isRunning;
       final status = _p2pStore.networkStatus.value;
       final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? '10.147.18.24';
+      // 从 GlobalP2PStore 读取当前用户信息
+      final username = _p2pStore.currentUsername.value;
+      final avatar = _p2pStore.currentUserAvatar.value;
 
       return Container(
         height: double.infinity,
         child: DashboardMainCard(
           isConnected: isConnected,
-          username: '玩家',
+          username: username,
+          userAvatar: avatar,  // 传递头像数据
           virtualIp: virtualIp,
           roomUuid: _currentRoomUuid,
           onSettingsTap: _handleSettings,

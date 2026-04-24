@@ -20,20 +20,16 @@ class SettingsMainPage extends StatefulWidget {
 
 class _SettingsMainPageState extends State<SettingsMainPage> {
   final ClientApiService _apiService = GetIt.I<ClientApiService>();
-  final TextEditingController _usernameController = TextEditingController(text: '玩家');
+  final GlobalP2PStore _p2pStore = GetIt.I<GlobalP2PStore>();
+  final TextEditingController _usernameController = TextEditingController();
   Uint8List? _currentAvatar;
 
   @override
   void initState() {
     super.initState();
-    _loadAvatar();
-  }
-
-  Future<void> _loadAvatar() async {
-    await _apiService.init();
-    setState(() {
-      _currentAvatar = _apiService.getAvatar();
-    });
+    // 从 GlobalP2PStore 加载当前状态
+    _usernameController.text = _p2pStore.currentUsername.value;
+    _currentAvatar = _p2pStore.currentUserAvatar.value;
   }
 
   Future<void> _pickImage() async {
@@ -46,7 +42,10 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
 
     if (image != null) {
       final bytes = await image.readAsBytes();
+      // 更新到 ClientApiService（用于对外服务）
       await _apiService.setAvatar(bytes);
+      // 同时更新到 GlobalP2PStore（用于 UI 状态同步）
+      _p2pStore.updateCurrentUserAvatar(bytes);
       
       setState(() {
         _currentAvatar = bytes;
@@ -117,7 +116,8 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
                           prefixIcon: Icon(Icons.person_outline, color: colorScheme.primary),
                         ),
                         onChanged: (value) {
-                          // TODO: 即时保存用户名
+                          // 即时保存用户名到 GlobalP2PStore
+                          _p2pStore.updateCurrentUsername(value);
                         },
                       ),
                     ),
