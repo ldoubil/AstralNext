@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
@@ -11,17 +13,24 @@ import 'ui/app.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize window_manager
-  await windowManager.ensureInitialized();
-  
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(940, 560),
-    minimumSize: Size(800, 500),
-    center: true,
-    backgroundColor: Colors.transparent,
-    skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden, // 隐藏系统标题栏
-  );
+  // Initialize window_manager only on desktop platforms
+  if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    await windowManager.ensureInitialized();
+    
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(940, 560),
+      minimumSize: Size(800, 500),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.hidden,
+    );
+
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
 
   await setupDI();
 
@@ -40,10 +49,4 @@ Future<void> main() async {
   roomState.restoreSelectedRoom(roomPersistence.loadSelectedRoomId());
 
   runApp(const AstralGameApp());
-  
-  // Show window after app is ready
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-  });
 }

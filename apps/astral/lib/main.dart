@@ -1,4 +1,4 @@
-import 'dart:io' as io;
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:astral/data/services/tray_service.dart';
@@ -14,17 +14,24 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   ui.DartPluginRegistrant.ensureInitialized();
   
-  // Initialize window_manager
-  await windowManager.ensureInitialized();
-  
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(940, 560),
-    minimumSize: Size(800, 500),
-    center: true,
-    backgroundColor: Colors.transparent,
-    skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden, // 隐藏系统标题栏
-  );
+  // Initialize window_manager only on desktop platforms
+  if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    await windowManager.ensureInitialized();
+    
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(940, 560),
+      minimumSize: Size(800, 500),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.hidden, // 隐藏系统标题栏
+    );
+
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
 
   try {
     await localNotifier.setup(
@@ -51,10 +58,4 @@ Future<void> main() async {
   }
 
   runApp(const AstralApp());
-  
-  // Show window after app is ready
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-  });
 }
