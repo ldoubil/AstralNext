@@ -417,10 +417,11 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: ClipRect(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             _buildUserSection(context),
             AnimatedCrossFade(
               firstChild: const SizedBox.shrink(),
@@ -440,6 +441,8 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
+}
+

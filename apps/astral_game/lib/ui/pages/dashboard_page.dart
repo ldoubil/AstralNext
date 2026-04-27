@@ -390,9 +390,10 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: colorScheme.outline.withAlpha(50)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: ClipRect(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -458,8 +459,10 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
             ),
           ],
         ),
-      );
-    });
+      ),
+    );
+  }
+    );
   }
 
   Widget _buildDismissibleHistoryItem(BuildContext context, RoomMod room) {
