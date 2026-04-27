@@ -116,6 +116,9 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
       if (isRunning) {
         _p2pStore.setRunning(instanceId);
         roomState.setConnected(true);
+        setState(() {
+          _isCardCollapsed = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('连接成功')),
         );
@@ -258,10 +261,9 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
         final colorScheme = Theme.of(context).colorScheme;
 
         final currentTopHeight = totalHeight * _dividerPosition;
-        final isCollapsed = _dividerPosition < _collapseThreshold;
-        final topHeightValue = _isDragging ? currentTopHeight : (isCollapsed ? _collapsedHeight : currentTopHeight);
+        final topHeightValue = _isCardCollapsed ? _collapsedHeight : currentTopHeight;
         final bottomHeight = totalHeight - topHeightValue - _dividerHeight;
-        final showBottomCard = bottomHeight > 0;
+        final showBottomCard = !_isCardCollapsed && bottomHeight > 0;
 
         return Column(
           children: [
@@ -296,6 +298,10 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
                   targetPosition = _dividerPosition < _collapseThreshold ? _minHeightRatio : _maxHeightRatio;
                 }
                 
+                setState(() {
+                  _isCardCollapsed = targetPosition == _minHeightRatio;
+                });
+                
                 _animation = Tween<double>(
                   begin: _dividerPosition,
                   end: targetPosition,
@@ -304,7 +310,8 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
                   curve: Curves.elasticOut,
                 ));
                 
-                _animationController.forward(from: 0);
+                _animationController.reset();
+                _animationController.forward();
               },
               child: Container(
                 height: 20,

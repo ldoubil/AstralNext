@@ -417,32 +417,32 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: ClipRect(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             _buildUserSection(context),
-            AnimatedCrossFade(
-              firstChild: const SizedBox.shrink(),
-              secondChild: Column(
-                children: [
-                  _buildNetworkSection(context),
-                  _buildActionSection(context),
-                ],
+            ClipRect(
+              child: AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Column(
+                  children: [
+                    _buildNetworkSection(context),
+                    _buildActionSection(context),
+                  ],
+                ),
+                crossFadeState: widget.isCollapsed
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
+                duration: const Duration(milliseconds: 300),
+                firstCurve: Curves.easeInOut,
+                secondCurve: Curves.easeInOut,
               ),
-              crossFadeState: widget.isCollapsed
-                  ? CrossFadeState.showFirst
-                  : CrossFadeState.showSecond,
-              duration: const Duration(milliseconds: 300),
-              firstCurve: Curves.easeInOut,
-              secondCurve: Curves.easeInOut,
             ),
           ],
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
