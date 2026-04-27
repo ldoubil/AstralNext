@@ -53,9 +53,6 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {
       _currentRoomUuid = null;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已断开连接')),
-    );
   }
 
   Future<void> _connectToRoom(String roomName, String roomPassword) async {
@@ -78,20 +75,11 @@ class _DashboardPageState extends State<DashboardPage> {
       if (isRunning) {
         _p2pStore.setRunning(instanceId);
         roomState.setConnected(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('连接成功')),
-        );
       } else {
         debugPrint('连接失败：实例启动异常');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('连接失败')),
-        );
       }
     } catch (e) {
       debugPrint('连接失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('连接失败: $e')),
-      );
     } finally {
       setState(() {
         _isConnecting = false;

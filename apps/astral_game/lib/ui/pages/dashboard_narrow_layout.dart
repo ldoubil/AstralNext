@@ -7,6 +7,12 @@ import 'package:astral_game/ui/pages/dashboard_user_item.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
 
+enum PanelState {
+  expanded,
+  collapsed,
+  dragging,
+}
+
 class DashboardNarrowLayout extends StatefulWidget {
   final GlobalP2PStore p2pStore;
   final String? currentRoomUuid;
@@ -34,9 +40,8 @@ class DashboardNarrowLayout extends StatefulWidget {
 }
 
 class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with SingleTickerProviderStateMixin {
-  bool _isCardCollapsed = false;
+  PanelState _panelState = PanelState.expanded;
   double _dividerPosition = 0.95;
-  bool _isDragging = false;
   late AnimationController _animationController;
   late Animation<double> _animation;
 
@@ -57,6 +62,40 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
         _dividerPosition = _animation.value;
       });
     });
+
+    effect(() {
+      final isConnected = widget.p2pStore.isRunning;
+      if (isConnected && _panelState == PanelState.expanded) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _collapsePanel();
+          }
+        });
+      }
+    });
+  }
+
+  void _transitionTo(PanelState newState) {
+    setState(() {
+      _panelState = newState;
+    });
+  }
+
+  void _collapsePanel() {
+    if (_panelState == PanelState.collapsed) return;
+
+    _transitionTo(PanelState.collapsed);
+
+    _animation = Tween<double>(
+      begin: _dividerPosition,
+      end: _minHeightRatio,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.elasticOut,
+    ));
+
+    _animationController.reset();
+    _animationController.forward();
   }
 
   @override
@@ -73,9 +112,17 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
         final colorScheme = Theme.of(context).colorScheme;
 
         final currentTopHeight = totalHeight * _dividerPosition;
-        final topHeightValue = _isCardCollapsed ? _collapsedHeight : currentTopHeight;
-        final bottomHeight = totalHeight - topHeightValue - _dividerHeight;
-        final showBottomCard = _isCardCollapsed && bottomHeight > 0;
+        final topHeightValue = _panelState == PanelState.collapsed 
+            ? _collapsedHeight 
+            : currentTopHeight;
+        
+        bool showBottomCard;
+        if (_panelState == PanelState.dragging) {
+          showBottomCard = true;
+        } else {
+          final bottomHeight = totalHeight - topHeightValue - _dividerHeight;
+          showBottomCard = _panelState == PanelState.collapsed && bottomHeight > 0;
+        }
 
         return Column(
           children: [
@@ -91,8 +138,9 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
             GestureDetector(
               onVerticalDragStart: (details) {
                 setState(() {
-                  _isDragging = true;
-                  if (_isCardCollapsed) {
+                  final wasCollapsed = _panelState == PanelState.collapsed;
+                  _transitionTo(PanelState.dragging);
+                  if (wasCollapsed) {
                     _dividerPosition = _collapsedHeight / totalHeight;
                   }
                 });
@@ -101,12 +149,9 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
                 setState(() {
                   final delta = details.delta.dy;
                   _dividerPosition = (_dividerPosition + delta / totalHeight).clamp(_minHeightRatio, _maxHeightRatio);
-                  _isCardCollapsed = false;
                 });
               },
               onVerticalDragEnd: (details) {
-                setState(() => _isDragging = false);
-
                 final velocity = details.velocity.pixelsPerSecond.dy;
                 double targetPosition;
 
@@ -119,7 +164,11 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
                 }
 
                 setState(() {
-                  _isCardCollapsed = targetPosition == _minHeightRatio;
+                  if (targetPosition == _minHeightRatio) {
+                    _transitionTo(PanelState.collapsed);
+                  } else {
+                    _transitionTo(PanelState.expanded);
+                  }
                 });
 
                 _animation = Tween<double>(
@@ -136,7 +185,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
               child: Container(
                 height: _dividerHeight,
                 decoration: BoxDecoration(
-                  color: _isDragging
+                  color: _panelState == PanelState.dragging
                       ? colorScheme.primary.withAlpha(20)
                       : Colors.transparent,
                 ),
@@ -267,7 +316,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
                           room: room,
                           onJoin: () {},
                           onRemove: widget.onRemoveRoom,
-                        )).toList(),
+                        )),
                       ],
                     ],
                   ),
