@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:get_it/get_it.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
+import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/ui/pages/servers/server_state.dart';
 
 class P2PConfigService {
@@ -35,7 +36,8 @@ class P2PConfigService {
     final disableP2p = _appSettings.isDisableP2p();
     final enabledServers = _serverState.getEnabledServers();
     
-    final apiPort = _generateRandomApiPort();
+    final clientApiService = GetIt.I<ClientApiService>();
+    final apiPort = clientApiService.port;
     
     String peerBlock = '';
     if (enabledServers.isNotEmpty) {
@@ -61,32 +63,6 @@ network_secret = "${_escapeString(roomPassword)}"
 ${peerBlock.isNotEmpty ? '$peerBlock\n\n' : ''}[flags]
 disable-p2p = $disableP2p
 ''';
-  }
-
-  /// 生成随机 API 端口（范围：1024-65535），并验证端口未被占用
-  int _generateRandomApiPort() {
-    final random = Random();
-    const maxAttempts = 100;
-    
-    for (int i = 0; i < maxAttempts; i++) {
-      final port = random.nextInt(65535 - 1024) + 1024;
-      if (_isPortAvailable(port)) {
-        return port;
-      }
-    }
-    
-    throw Exception('无法找到可用的随机端口');
-  }
-
-  /// 检查指定端口是否可用
-  bool _isPortAvailable(int port) {
-    try {
-      final socket = ServerSocket.bind(InternetAddress.loopbackIPv4, port);
-      socket.then((server) => server.close());
-      return true;
-    } catch (_) {
-      return false;
-    }
   }
 
   /// 转义字符串中的特殊字符

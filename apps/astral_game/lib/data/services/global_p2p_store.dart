@@ -47,7 +47,6 @@ class GlobalP2PStore {
       currentUserAvatar.value = avatar;
     }
     
-    debugPrint('[P2PStore] User info initialized: username=${currentUsername.value}, hasAvatar=${currentUserAvatar.value != null}');
   }
 
   /// 标记实例正在启动
@@ -96,7 +95,6 @@ class GlobalP2PStore {
         lastAvatarPortScan: DateTime.now(),
       );
       enhancedUserNodes.value = nodes;
-      debugPrint('[P2PStore] Updated avatar port for peer $peerId: $port');
     }
   }
 
@@ -111,7 +109,6 @@ class GlobalP2PStore {
         lastNameFetch: DateTime.now(),
       );
       enhancedUserNodes.value = nodes;
-      debugPrint('[P2PStore] Updated custom name for peer $peerId: $name');
     }
   }
 
@@ -137,7 +134,6 @@ class GlobalP2PStore {
       await _appSettings.clearAvatar();
     }
     
-    debugPrint('[P2PStore] Avatar updated and saved');
   }
 
   /// 更新当前用户的名字
@@ -147,7 +143,6 @@ class GlobalP2PStore {
     // 持久化保存
     await _appSettings.setUsername(username);
     
-    debugPrint('[P2PStore] Username updated and saved: $username');
   }
 
   void _startPolling(String instanceId) {
@@ -167,21 +162,6 @@ class GlobalP2PStore {
     try {
       final status = await _p2pService.getNetworkStatus(instanceId);
       
-      debugPrint('[P2PStore] _pollNetworkStatus - 准备更新 networkStatus');
-      if (networkStatus.value != null) {
-        debugPrint('[P2PStore]   当前 networkStatus.value: ${networkStatus.value!.nodes.length} 个节点');
-      } else {
-        debugPrint('[P2PStore]   当前 networkStatus.value: null');
-      }
-      
-      if (status != null) {
-        debugPrint('[P2PStore]   新 status.nodes 数量: ${status.nodes.length}');
-        for (var node in status.nodes) {
-          debugPrint('[P2PStore]     节点: ${node.hostname}, IP: ${node.ipv4}');
-        }
-      } else {
-        debugPrint('[P2PStore]   新 status: null');
-      }
       
       // 强制创建新的 KVNetworkStatus 实例以确保 signals 检测到变化
       if (status != null) {
@@ -220,16 +200,6 @@ class GlobalP2PStore {
         networkStatus.value = null;
         userNodes.value = [];
         enhancedUserNodes.value = [];
-      }
-      
-      if (status != null) {
-        debugPrint('[P2PStore]   更新后 networkStatus.value: ${status.nodes.length} 个节点');
-        debugPrint('[P2PStore] 轮询网络状态: ${status.nodes.length} 个节点');
-        for (var node in status.nodes) {
-          debugPrint('[P2PStore]   节点: ${node.hostname} - ${node.ipv4}');
-        }
-      } else {
-        debugPrint('[P2PStore]   更新后 networkStatus.value: null');
       }
     } catch (e) {
       debugPrint('[P2PStore] 轮询网络状态失败: $e');

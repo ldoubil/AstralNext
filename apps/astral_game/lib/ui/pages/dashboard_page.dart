@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
+import 'package:http/http.dart' as http;
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
 import 'package:astral_game/ui/widgets/user_avatar_widget.dart';
@@ -535,16 +538,26 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
   @override
   void initState() {
     super.initState();
-    _fetchUserName();
+    print('[UserItemWidget] Created widget for peer ${widget.node.peerId}, IP: ${widget.node.ipv4}, Hostname: ${widget.node.hostname}');
+    _scheduleFetchUserName();
+  }
+
+  void _scheduleFetchUserName() {
+    if (widget.p2pStore.isValidIp(widget.node.ipv4)) {
+      print('[UserItemWidget] IP is valid, fetching username immediately for peer ${widget.node.peerId}');
+      _fetchUserName();
+    } else {
+      print('[UserItemWidget] IP is invalid (${widget.node.ipv4}), scheduling retry for peer ${widget.node.peerId}');
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (!mounted) return;
+        _scheduleFetchUserName();
+      });
+    }
   }
 
   Future<void> _fetchUserName() async {
-    if (_hasFetchedName) return;
-    if (!widget.p2pStore.isValidIp(widget.node.ipv4)) return;
-    
-    final currentNode = _getCurrentNode();
-    if (currentNode?.customName != null) {
-      _hasFetchedName = true;
+    if (_hasFetchedName) {
+      print('[UserItemWidget] User ${widget.node.peerId} already fetched, skipping');
       return;
     }
 
@@ -555,46 +568,50 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
     _hasFetchedName = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+      int port = int.tryParse(widget.node.hostname) ?? 4924;
+      final url = Uri.parse('http://${widget.node.ipv4}:$port/api/user');
       
-      final node = _getCurrentNode();
-      if (node == null) return;
-      
-      int port = int.tryParse(node.hostname) ?? 4924;
+      print('[UserItemWidget] Fetching username for peer ${widget.node.peerId} from $url');
 
-      final userInfoService = UserInfoService();
-      final userInfo = await userInfoService.fetchUserInfo(node.ipv4, port: port);
-      if (userInfo != null && userInfo.name.isNotEmpty) {
-        widget.p2pStore.updateNodeCustomName(node.peerId, userInfo.name);
+      final response = await http.get(url).timeout(const Duration(seconds: 3));
+
+      print('[UserItemWidget] Response status: ${response.statusCode} for peer ${widget.node.peerId}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final name = data['name'] as String?;
+        print('[UserItemWidget] Received username: "$name" for peer ${widget.node.peerId}');
+        
+        if (name != null && name.isNotEmpty) {
+          widget.p2pStore.updateNodeCustomName(widget.node.peerId, name);
+          print('[UserItemWidget] Updated custom name for peer ${widget.node.peerId}: $name');
+        } else {
+          print('[UserItemWidget] Empty or null username for peer ${widget.node.peerId}');
+        }
+      } else {
+        print('[UserItemWidget] API returned status ${response.statusCode} for peer ${widget.node.peerId}');
       }
-    } catch (_) {} finally {
+    } catch (e) {
+      print('[UserItemWidget] Failed to fetch username for peer ${widget.node.peerId}: $e');
+      print('[UserItemWidget] IP: ${widget.node.ipv4}, Hostname: ${widget.node.hostname}');
+    } finally {
       setState(() {
         _isFetchingName = false;
       });
-    }
-  }
-
-  EnhancedNodeInfo? _getCurrentNode() {
-    try {
-      return widget.p2pStore.enhancedUserNodes.value
-          .firstWhere((n) => n.peerId == widget.node.peerId);
-    } catch (_) {
-      return widget.node;
+      print('[UserItemWidget] Finished fetching username for peer ${widget.node.peerId}, isFetching: $_isFetchingName');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Watch((context) {
-      final node = _getCurrentNode() ?? widget.node;
-      
       return Builder(builder: (context) {
         final colorScheme = Theme.of(context).colorScheme;
-        final (platformName, platformIcon) = PlatformVersionParser.parsePlatformInfo(node.baseInfo.version);
-        final versionNumber = PlatformVersionParser.getVersionNumber(node.baseInfo.version);
+        final (platformName, platformIcon) = PlatformVersionParser.parsePlatformInfo(widget.node.baseInfo.version);
+        final versionNumber = PlatformVersionParser.getVersionNumber(widget.node.baseInfo.version);
         
-        final shouldFetchAvatar = widget.p2pStore.isValidIp(node.ipv4);
-        final ipDisplayText = widget.p2pStore.getNodeIpDisplayText(node.ipv4);
+        final shouldFetchAvatar = widget.p2pStore.isValidIp(widget.node.ipv4);
+        final ipDisplayText = widget.p2pStore.getNodeIpDisplayText(widget.node.ipv4);
 
         return MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
@@ -620,7 +637,7 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
             child: Row(
               children: [
                 UserAvatarWidget(
-                  nodeInfo: node,
+                  nodeInfo: widget.node,
                   size: 36,
                 ),
                 const SizedBox(width: 12),
@@ -630,9 +647,9 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
                     children: [
                       Row(
                         children: [
-                          node.customName != null
+                          widget.node.customName != null
                               ? Text(
-                                  node.customName!,
+                                  widget.node.customName!,
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -714,7 +731,7 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'ID: ${node.peerId}',
+                          'ID: ${widget.node.peerId}',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
@@ -724,22 +741,22 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${node.baseInfo.latencyMs.round()}ms',
+                        '${widget.node.baseInfo.latencyMs.round()}ms',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: node.baseInfo.latencyMs < 100 
+                          color: widget.node.baseInfo.latencyMs < 100 
                               ? Colors.green[600] 
-                              : node.baseInfo.latencyMs < 300 
+                              : widget.node.baseInfo.latencyMs < 300 
                                   ? Colors.yellow[600] 
                                   : Colors.red[600],
                         ),
                       ),
-                      if (node.baseInfo.lossRate > 0)
+                      if (widget.node.baseInfo.lossRate > 0)
                         Padding(
                           padding: const EdgeInsets.only(left: 8),
                           child: Text(
-                            '丢包: ${node.baseInfo.lossRate.toStringAsFixed(1)}%',
+                            '丢包: ${widget.node.baseInfo.lossRate.toStringAsFixed(1)}%',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,

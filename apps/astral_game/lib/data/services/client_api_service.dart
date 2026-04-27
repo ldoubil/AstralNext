@@ -91,14 +91,14 @@ class ClientApiService {
       await response.close();
     } else if (path == '/api/user') {
       response.statusCode = HttpStatus.ok;
-      response.headers.contentType = ContentType('application', 'json');
+      response.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
       
       final username = _appSettings.getUsername();
       final responseData = json.encode({
         'name': username,
       });
       
-      response.write(responseData);
+      response.add(utf8.encode(responseData));
       await response.close();
     } else {
       response.statusCode = HttpStatus.notFound;
