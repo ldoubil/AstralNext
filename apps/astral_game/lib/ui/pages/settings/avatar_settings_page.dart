@@ -158,7 +158,7 @@ class _AvatarSettingsPageState extends State<AvatarSettingsPage> {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    '头像将通过端口 4924 暴露给其他玩家',
+                    '头像将通过动态分配的端口暴露给其他玩家',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),

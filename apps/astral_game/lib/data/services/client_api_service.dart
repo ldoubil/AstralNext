@@ -7,9 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
 
 class ClientApiService {
-  static const int _minPort = 4924;
-  static const int _maxPort = 4944;
-  
   HttpServer? _server;
   int _port = 0;
   Uint8List? _customAvatar;
@@ -33,9 +30,9 @@ class ClientApiService {
 
     await init();
     
-    // 在 4924-4944 范围内寻找可用端口
-    _port = await _findAvailablePort();
-    _server = await HttpServer.bind(InternetAddress.anyIPv4, _port);
+    // 使用动态端口分配，让系统自动选择可用端口
+    _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    _port = _server!.port;
 
     _server!.listen((request) async {
       try {
@@ -46,24 +43,6 @@ class ClientApiService {
     });
 
     print('[ClientApi] Server started on port $_port');
-  }
-
-  /// 在指定范围内寻找可用端口
-  Future<int> _findAvailablePort() async {
-    for (int port = _minPort; port <= _maxPort; port++) {
-      try {
-        // 尝试绑定端口
-        final server = await HttpServer.bind(InternetAddress.anyIPv4, port);
-        await server.close(); // 立即关闭，只是测试
-        return port; // 端口可用
-      } catch (e) {
-        // 端口被占用，尝试下一个
-        continue;
-      }
-    }
-    
-    // 如果所有端口都被占用，抛出异常
-    throw Exception('No available port in range $_minPort-$_maxPort');
   }
 
   Future<void> stop() async {

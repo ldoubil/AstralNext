@@ -38,7 +38,7 @@ Future<void> main() async {
   final p2pStore = getIt<GlobalP2PStore>();
   p2pStore.initUserInfo();
 
-  // 启动头像 API 服务器（自动选择 4924-4944 范围内的可用端口）
+  // 启动头像 API 服务器（动态分配可用端口）
   final clientApiService = getIt<ClientApiService>();
   await clientApiService.start();
 
