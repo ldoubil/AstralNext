@@ -31,7 +31,8 @@ class ClientApiService {
     await init();
     
     // 使用动态端口分配，让系统自动选择可用端口
-    _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    // 监听所有接口，允许VPN网络中的其他节点访问
+    _server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
     _port = _server!.port;
 
     _server!.listen((request) async {

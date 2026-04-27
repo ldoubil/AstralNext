@@ -5,15 +5,16 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:signals/signals_flutter.dart';
-import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
-import 'package:astral_game/ui/widgets/user_avatar_widget.dart';
 import 'package:astral_game/data/services/global_p2p_store.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/data/services/user_info_service.dart';
 import 'package:astral_game/data/models/enhanced_node_info.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
+import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
+import 'package:astral_game/ui/widgets/user_avatar_widget.dart';
 import 'package:astral_game/utils/platform_version_parser.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 
@@ -29,8 +30,11 @@ class _DashboardPageState extends State<DashboardPage> {
   final P2PService _p2pService = GetIt.I<P2PService>();
   final P2PConfigService _p2pConfig = GetIt.I<P2PConfigService>();
   final RoomPersistenceService _roomPersistence = GetIt.I<RoomPersistenceService>();
+  final ScreenStateService _screenStateService = GetIt.I<ScreenStateService>();
   bool _isConnecting = false;
   String? _currentRoomUuid;
+  
+  bool _isCardCollapsed = false;
 
   void _handleSettings() {
     Navigator.pushNamed(context, '/settings');
@@ -202,23 +206,87 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 6,
-              child: _buildLeftPanel(context),
-            ),
-            Expanded(
-              flex: 4,
-              child: _buildRightPanel(context),
-            ),
-          ],
+    return Watch((context) {
+      final isNarrow = _screenStateService.isNarrow;
+      
+      return Scaffold(
+        body: isNarrow
+            ? NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification) {
+                    final delta = notification.scrollDelta;
+                    if (delta != null && delta.abs() > 5) {
+                      setState(() => _isCardCollapsed = delta > 0);
+                    }
+                  }
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildRightPanelForNarrow(context),
+                        const SizedBox(height: 16),
+                        AnimatedCrossFade(
+                          firstChild: const SizedBox.shrink(),
+                          secondChild: _buildLeftPanel(context),
+                          crossFadeState: _isCardCollapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                          duration: const Duration(milliseconds: 300),
+                          firstCurve: Curves.easeInOut,
+                          secondCurve: Curves.easeInOut,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(16),
+                child: _buildWideLayout(context),
+              ),
+      );
+    });
+  }
+
+  Widget _buildWideLayout(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 6,
+          child: _buildLeftPanel(context),
         ),
-      ),
+        Expanded(
+          flex: 4,
+          child: _buildRightPanel(context),
+        ),
+      ],
     );
+  }
+
+  Widget _buildRightPanelForNarrow(BuildContext context) {
+    return Watch((context) {
+      final isConnected = _p2pStore.isRunning;
+      final status = _p2pStore.networkStatus.value;
+      final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? '10.147.18.24';
+      final username = _p2pStore.currentUsername.value;
+      final avatar = _p2pStore.currentUserAvatar.value;
+
+      return DashboardMainCard(
+        isConnected: isConnected,
+        username: username,
+        userAvatar: avatar,
+        virtualIp: virtualIp,
+        roomUuid: _currentRoomUuid,
+        onSettingsTap: _handleSettings,
+        onCreateRoomTap: _handleCreateRoom,
+        onJoinRoomTap: _handleJoinRoom,
+        onShareRoomTap: _handleShareRoom,
+        onDisconnectTap: _handleDisconnect,
+        isCollapsed: _isCardCollapsed,
+      );
+    });
   }
 
   Widget _buildLeftPanel(BuildContext context) {
@@ -228,41 +296,36 @@ class _DashboardPageState extends State<DashboardPage> {
       final instanceId = _p2pStore.currentInstanceId.value;
       final isRunning = instanceId != null;
 
-      return Container(
-        height: double.infinity,
-        child: Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: colorScheme.outline.withAlpha(50)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      isRunning ? Icons.people_outlined : Icons.history_outlined,
-                      color: colorScheme.primary,
-                      size: 20,
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colorScheme.outline.withAlpha(50)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isRunning ? Icons.people_outlined : Icons.history_outlined,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isRunning ? '在线用户' : '加入历史',
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isRunning ? '在线用户' : '加入历史',
-                      style: textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: isRunning ? _buildUserListInline(context) : _buildJoinHistory(context),
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (isRunning) _buildUserListInline(context) else _buildJoinHistory(context),
+            ],
           ),
         ),
       );
@@ -270,7 +333,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildUserListInline(BuildContext context) {
-    // 注意：外层已经有 Watch，这里不需要再套 Watch
     final enhancedNodes = _p2pStore.enhancedUserNodes.value;
 
     if (enhancedNodes.isEmpty) {
@@ -342,12 +404,11 @@ class _DashboardPageState extends State<DashboardPage> {
         );
       }
 
-      return SingleChildScrollView(
-        child: Column(
-          children: history
-              .map((room) => _buildHistoryItem(room))
-              .toList(),
-        ),
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: history
+            .map((room) => _buildHistoryItem(room))
+            .toList(),
       );
     });
   }
@@ -357,24 +418,32 @@ class _DashboardPageState extends State<DashboardPage> {
       final isConnected = _p2pStore.isRunning;
       final status = _p2pStore.networkStatus.value;
       final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? '10.147.18.24';
-      // 从 GlobalP2PStore 读取当前用户信息
       final username = _p2pStore.currentUsername.value;
       final avatar = _p2pStore.currentUserAvatar.value;
 
-      return Container(
-        height: double.infinity,
-        child: DashboardMainCard(
-          isConnected: isConnected,
-          username: username,
-          userAvatar: avatar,  // 传递头像数据
-          virtualIp: virtualIp,
-          roomUuid: _currentRoomUuid,
-          onSettingsTap: _handleSettings,
-          onCreateRoomTap: _handleCreateRoom,
-          onJoinRoomTap: _handleJoinRoom,
-          onShareRoomTap: _handleShareRoom,
-          onDisconnectTap: _handleDisconnect,
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return Container(
+            height: constraints.maxHeight,
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: DashboardMainCard(
+                  isConnected: isConnected,
+                  username: username,
+                  userAvatar: avatar,
+                  virtualIp: virtualIp,
+                  roomUuid: _currentRoomUuid,
+                  onSettingsTap: _handleSettings,
+                  onCreateRoomTap: _handleCreateRoom,
+                  onJoinRoomTap: _handleJoinRoom,
+                  onShareRoomTap: _handleShareRoom,
+                  onDisconnectTap: _handleDisconnect,
+                ),
+              ),
+            ),
+          );
+        },
       );
     });
   }
@@ -696,92 +765,92 @@ class _UserItemWidgetState extends State<_UserItemWidget> {
                             ),
                         ],
                       ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        ipDisplayText,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: shouldFetchAvatar 
-                              ? colorScheme.onSurfaceVariant
-                              : colorScheme.onSurfaceVariant.withAlpha(128),
-                        ),
-                      ),
-                      if (versionNumber.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text(
-                            versionNumber,
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            ipDisplayText,
                             style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.onSurfaceVariant.withAlpha(128),
+                              fontSize: 12,
+                              color: shouldFetchAvatar 
+                                  ? colorScheme.onSurfaceVariant
+                                  : colorScheme.onSurfaceVariant.withAlpha(128),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: colorScheme.tertiaryContainer,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'ID: ${widget.node.peerId}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.onTertiaryContainer,
+                          if (versionNumber.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                versionNumber,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colorScheme.onSurfaceVariant.withAlpha(128),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'ID: ${widget.node.peerId}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.onTertiaryContainer,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${widget.node.baseInfo.latencyMs.round()}ms',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: widget.node.baseInfo.latencyMs < 100 
-                              ? Colors.green[600] 
-                              : widget.node.baseInfo.latencyMs < 300 
-                                  ? Colors.yellow[600] 
-                                  : Colors.red[600],
-                        ),
-                      ),
-                      if (widget.node.baseInfo.lossRate > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text(
-                            '丢包: ${widget.node.baseInfo.lossRate.toStringAsFixed(1)}%',
+                          const SizedBox(width: 8),
+                          Text(
+                            '${widget.node.baseInfo.latencyMs.round()}ms',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: Colors.red[600],
+                              color: widget.node.baseInfo.latencyMs < 100 
+                                  ? Colors.green[600] 
+                                  : widget.node.baseInfo.latencyMs < 300 
+                                      ? Colors.yellow[600] 
+                                      : Colors.red[600],
                             ),
                           ),
-                        ),
+                          if (widget.node.baseInfo.lossRate > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                '丢包: ${widget.node.baseInfo.lossRate.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.red[600],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
             ),
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-        });
+          ),
+        );
+      });
     });
   }
 }

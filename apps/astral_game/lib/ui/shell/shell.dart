@@ -1,3 +1,4 @@
+import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/di.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
@@ -17,12 +18,14 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   late final ShellContentController _contentController;
+  late final ScreenStateService _screenStateService;
 
   @override
   void initState() {
     super.initState();
     _contentController = getIt<ShellContentController>();
     _contentController.addListener(_onContentChanged);
+    _screenStateService = getIt<ScreenStateService>();
   }
 
   @override
@@ -48,7 +51,15 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isCompact = MediaQuery.of(context).size.width < 600;
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _screenStateService.updateScreenWidth(screenWidth);
+      }
+    });
+    
+    final isCompact = _screenStateService.isNarrow;
 
     final hasOverlay = _contentController.hasOverlay;
     final overlayTitle = _contentController.overlayTitle;

@@ -4,6 +4,7 @@ import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/data/services/global_p2p_store.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/data/services/server_persistence_service.dart';
 import 'package:astral_game/data/services/webdav_backup_service.dart';
 import 'package:astral_game/ui/shell/shell_content_controller.dart';
@@ -21,6 +22,9 @@ Future<void> setupDI() async {
   getIt.registerSingleton<SharedPreferences>(prefs);
   getIt.registerSingleton<AppSettingsService>(AppSettingsService(prefs));
   getIt.registerSingleton<ShellContentController>(ShellContentController());
+  
+  // 屏幕状态服务
+  getIt.registerSingleton<ScreenStateService>(ScreenStateService());
 
   // P2P 相关服务
   getIt.registerLazySingleton<P2PService>(() => P2PService());
