@@ -141,28 +141,6 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      # ========== Smart Rust Cache ==========
-      - name: 💾 Restore Rust build cache
-        uses: actions/cache@v4
-        id: rust-cache
-        with:
-          path: |
-            packages/astral_rust_core/rust/target
-            packages/astral_rust_core/android/src/main/jniLibs
-          key: rust-${{ runner.os }}-${{ matrix.rust_target || 'multi' }}-${{ hashFiles('packages/astral_rust_core/rust/**/*.rs', 'packages/astral_rust_core/rust/**/Cargo.toml', 'packages/astral_rust_core/rust/**/*.proto') }}
-          restore-keys: |
-            rust-${{ runner.os }}-${{ matrix.rust_target || 'multi' }}-
-            rust-${{ runner.os }}-
-
-      - name: ℹ️ Cache status
-        run: |
-          if [ "${{ steps.rust-cache.outputs.cache-hit }}" = "true" ]; then
-            echo "✅ Rust cache hit! Skipping compilation for unchanged code."
-          else
-            echo "🔨 Rust cache miss. Will compile from source."
-          fi
-        shell: bash
-
       # ========== Platform-specific Setup ==========
       - name: ☕ Setup JDK (Android)
         if: matrix.flutter_platform == 'android'
