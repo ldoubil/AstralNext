@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AvatarService {
@@ -14,7 +13,7 @@ class AvatarService {
         return response.bodyBytes;
       }
     } catch (e) {
-      print('[AvatarService] Failed to fetch avatar from $ip:$port: $e');
+      // [AvatarService] Failed to fetch avatar from $ip:$port: $e
     }
     return null;
   }

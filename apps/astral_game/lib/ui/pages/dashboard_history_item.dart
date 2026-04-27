@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
-import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
@@ -19,10 +18,12 @@ class DashboardDismissibleHistoryItem extends StatefulWidget {
   });
 
   @override
-  State<DashboardDismissibleHistoryItem> createState() => _DashboardDismissibleHistoryItemState();
+  State<DashboardDismissibleHistoryItem> createState() =>
+      _DashboardDismissibleHistoryItemState();
 }
 
-class _DashboardDismissibleHistoryItemState extends State<DashboardDismissibleHistoryItem> {
+class _DashboardDismissibleHistoryItemState
+    extends State<DashboardDismissibleHistoryItem> {
   bool isHovered = false;
 
   @override
@@ -40,11 +41,7 @@ class _DashboardDismissibleHistoryItemState extends State<DashboardDismissibleHi
           color: colorScheme.error,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(
-          Icons.delete_outlined,
-          color: Colors.white,
-          size: 24,
-        ),
+        child: const Icon(Icons.delete_outlined, color: Colors.white, size: 24),
       ),
       onDismissed: (direction) {
         widget.onRemove(widget.room);
@@ -63,7 +60,10 @@ class _DashboardDismissibleHistoryItemState extends State<DashboardDismissibleHi
                   setState(() => isHovered = hovering);
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     color: isHovered
@@ -139,7 +139,8 @@ class DashboardHistoryItem extends StatefulWidget {
 
 class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
   bool isHovered = false;
-  final RoomPersistenceService _roomPersistence = GetIt.I<RoomPersistenceService>();
+  final RoomPersistenceService _roomPersistence =
+      GetIt.I<RoomPersistenceService>();
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +164,10 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
                     setState(() => isHovered = hovering);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       color: isHovered
@@ -199,7 +203,7 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
                               const SizedBox(height: 2),
                               Text(
                                 widget.room.uuid.isNotEmpty
-                                    ? widget.room.uuid.substring(0, 8) + '...'
+                                    ? '${widget.room.uuid.substring(0, 8)}...'
                                     : '本地房间',
                                 style: textTheme.bodySmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
@@ -222,10 +226,18 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
                                 ),
                                 onPressed: widget.room.uuid.isNotEmpty
                                     ? () async {
-                                        await Clipboard.setData(ClipboardData(text: widget.room.uuid));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('房间号已复制')),
+                                        await Clipboard.setData(
+                                          ClipboardData(text: widget.room.uuid),
                                         );
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('房间号已复制'),
+                                            ),
+                                          );
+                                        }
                                       }
                                     : null,
                                 padding: const EdgeInsets.all(6),
@@ -241,7 +253,9 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
                                   final updatedRooms = roomState.rooms
                                       .where((r) => r.id != widget.room.id)
                                       .toList();
-                                  await _roomPersistence.saveRooms(updatedRooms);
+                                  await _roomPersistence.saveRooms(
+                                    updatedRooms,
+                                  );
                                   await roomState.loadFromPersistence();
                                   if (mounted) {
                                     setState(() {});

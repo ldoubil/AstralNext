@@ -696,7 +696,27 @@ pub fn close_server(instance_id: String) -> Result<(), String> {
 pub async fn get_peer_route_pairs(instance_id: String) -> Result<Vec<PeerRoutePair>, String> {
     let info = get_instance_info(&instance_id).await?;
 
-    let mut pairs = info.peer_route_pairs;
+    let mut pairs = if info.peer_route_pairs.is_empty() {
+        use easytier::proto::api::instance::list_peer_route_pair;
+        list_peer_route_pair(info.peers.clone(), info.routes.clone())
+    } else {
+        info.peer_route_pairs
+    };
+
+    let mut route_peer_ids: std::collections::HashSet<u32> = pairs
+        .iter()
+        .filter_map(|p| p.route.as_ref().map(|r| r.peer_id))
+        .collect();
+
+    for peer in &info.peers {
+        if !route_peer_ids.contains(&peer.peer_id) {
+            pairs.push(PeerRoutePair {
+                route: None,
+                peer: Some(peer.clone()),
+            });
+            route_peer_ids.insert(peer.peer_id);
+        }
+    }
 
     if let Some(my_node_info) = &info.my_node_info {
         let my_peer_id = info
@@ -738,7 +758,72 @@ pub async fn get_peer_route_pairs(instance_id: String) -> Result<Vec<PeerRoutePa
 }
 
 pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
-    let pairs = get_peer_route_pairs(instance_id.clone()).await.unwrap_or_default();
+    // 尝试获取 peer_route_pairs
+    let pairs = match get_peer_route_pairs(instance_id.clone()).await {
+        Ok(pairs) => pairs,
+        Err(_) => {
+            if let Ok(info) = get_instance_info(&instance_id).await {
+                use easytier::proto::api::instance::list_peer_route_pair;
+                let mut pairs = list_peer_route_pair(info.peers.clone(), info.routes.clone());
+                
+                let mut route_peer_ids: std::collections::HashSet<u32> = pairs
+                    .iter()
+                    .filter_map(|p| p.route.as_ref().map(|r| r.peer_id))
+                    .collect();
+
+                for peer in &info.peers {
+                    if !route_peer_ids.contains(&peer.peer_id) {
+                        pairs.push(PeerRoutePair {
+                            route: None,
+                            peer: Some(peer.clone()),
+                        });
+                        route_peer_ids.insert(peer.peer_id);
+                    }
+                }
+                
+                if let Some(my_node_info) = &info.my_node_info {
+                    let my_peer_id = info
+                        .peers
+                        .iter()
+                        .find(|p| p.conns.iter().any(|c| !c.is_client))
+                        .map(|p| p.peer_id)
+                        .unwrap_or(0);
+
+                    let my_route = Route {
+                        peer_id: my_peer_id,
+                        ipv4_addr: my_node_info.virtual_ipv4.clone(),
+                        ipv6_addr: None,
+                        next_hop_peer_id: my_peer_id,
+                        cost: 0,
+                        path_latency: 0,
+                        proxy_cidrs: vec![],
+                        hostname: my_node_info.hostname.clone(),
+                        stun_info: my_node_info.stun_info.clone(),
+                        inst_id: "local".to_string(),
+                        version: my_node_info.version.clone(),
+                        feature_flag: None,
+                        next_hop_peer_id_latency_first: None,
+                        cost_latency_first: None,
+                        path_latency_latency_first: None,
+                    };
+
+                    let my_peer_info = info.peers.iter().find(|p| p.peer_id == my_peer_id).cloned();
+
+                    let my_pair = PeerRoutePair {
+                        route: Some(my_route),
+                        peer: my_peer_info,
+                    };
+
+                    pairs.push(my_pair);
+                }
+                
+                pairs
+            } else {
+                // 如果实例不存在，返回空列表
+                vec![]
+            }
+        }
+    };
 
     let running_info = get_instance_info(&instance_id).await.ok();
     let local_peer_id = running_info
@@ -751,9 +836,16 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
         })
         .unwrap_or(0);
 
+    // 使用 HashSet 跟踪已添加的 peer_id，确保每个节点只添加一次
+    let mut added_peer_ids = std::collections::HashSet::new();
     let mut nodes = Vec::new();
     for pair in pairs.iter() {
         if let Some(route) = &pair.route {
+            if added_peer_ids.contains(&route.peer_id) {
+                continue;
+            }
+            added_peer_ids.insert(route.peer_id);
+            
             let cost = route.cost;
             let ipv4 = route
                 .ipv4_addr
@@ -1023,8 +1115,68 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
             }
 
             nodes.push(node_info);
+        } else if let Some(peer) = &pair.peer {
+            if added_peer_ids.contains(&peer.peer_id) {
+                continue;
+            }
+            added_peer_ids.insert(peer.peer_id);
+
+            let (latency, loss) = {
+                let min_latency = peer
+                    .conns
+                    .iter()
+                    .filter_map(|c| c.stats.as_ref().map(|s| s.latency_us))
+                    .min()
+                    .unwrap_or(0) as f64
+                    / 1000.0;
+                let avg_loss = peer.conns.iter().map(|c| c.loss_rate).sum::<f32>()
+                    / peer.conns.len().max(1) as f32;
+                (min_latency, avg_loss as f64)
+            };
+
+            let mut node_info = KVNodeInfo {
+                peer_id: peer.peer_id,
+                hostname: String::new(),
+                ipv4: "0.0.0.0".to_string(),
+                latency_ms: latency,
+                nat: "Unknown".to_string(),
+                hops: vec![],
+                loss_rate: loss as f32,
+                connections: Vec::new(),
+                tunnel_proto: String::new(),
+                conn_type: String::new(),
+                rx_bytes: 0,
+                tx_bytes: 0,
+                version: String::new(),
+                cost: -1,
+            };
+
+            for conn in &peer.conns {
+                if let Some(stats) = &conn.stats {
+                    let conn_type = if let Some(tunnel) = &conn.tunnel {
+                        tunnel.tunnel_type.clone()
+                    } else {
+                        "unknown".to_string()
+                    };
+                    node_info.connections.push(KVNodeConnectionStats {
+                        conn_type,
+                        rx_bytes: stats.rx_bytes,
+                        tx_bytes: stats.tx_bytes,
+                        rx_packets: stats.rx_packets,
+                        tx_packets: stats.tx_packets,
+                    });
+                }
+            }
+
+            nodes.push(node_info);
         }
     }
+
+    // 排序节点列表（参考 CLI 实现）
+    nodes.sort_by(|a, b| {
+        // 首先按 peer_id 排序
+        a.peer_id.cmp(&b.peer_id)
+    });
 
     KVNetworkStatus {
         total_nodes: nodes.len(),

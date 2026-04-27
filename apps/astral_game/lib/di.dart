@@ -11,7 +11,7 @@ import 'package:astral_game/ui/shell/shell_content_controller.dart';
 import 'package:astral_game/ui/pages/servers/server_state.dart';
 import 'package:astral_game/ui/pages/settings/settings_state.dart';
 import 'package:astral_rust_core/p2p_service.dart';
-import 'package:astral_rust_core/src/rust/api/p2p.dart' show initApp;
+import 'package:astral_rust_core/src/rust/api/p2p.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

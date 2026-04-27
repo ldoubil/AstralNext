@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
-import 'package:get_it/get_it.dart';
 import 'package:astral_game/data/services/global_p2p_store.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
-import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
 import 'package:astral_game/ui/pages/dashboard_user_item.dart';
@@ -37,14 +35,8 @@ class DashboardWideLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          flex: 6,
-          child: _buildLeftPanel(context),
-        ),
-        Expanded(
-          flex: 4,
-          child: _buildRightPanel(context),
-        ),
+        Expanded(flex: 6, child: _buildLeftPanel(context)),
+        Expanded(flex: 4, child: _buildRightPanel(context)),
       ],
     );
   }
@@ -87,10 +79,14 @@ class DashboardWideLayout extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               isNarrow
-                  ? (isRunning ? _buildUserListInline(context) : _buildJoinHistory(context))
+                  ? (isRunning
+                        ? _buildUserListInline(context)
+                        : _buildJoinHistory(context))
                   : Expanded(
-                child: isRunning ? _buildUserListScrollable(context) : _buildJoinHistoryScrollable(context),
-              ),
+                      child: isRunning
+                          ? _buildUserListScrollable(context)
+                          : _buildJoinHistoryScrollable(context),
+                    ),
             ],
           ),
         ),
@@ -108,7 +104,7 @@ class DashboardWideLayout extends StatelessWidget {
 
       return LayoutBuilder(
         builder: (context, constraints) {
-          return Container(
+          return SizedBox(
             height: constraints.maxHeight,
             child: SingleChildScrollView(
               child: ConstrainedBox(
@@ -204,10 +200,12 @@ class DashboardWideLayout extends StatelessWidget {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: history
-            .map((room) => DashboardHistoryItem(
-          room: room,
-          onJoin: () => onJoinHistory(room.uuid),
-        ))
+            .map(
+              (room) => DashboardHistoryItem(
+                room: room,
+                onJoin: () => onJoinHistory(room.uuid),
+              ),
+            )
             .toList(),
       );
     });

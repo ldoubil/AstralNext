@@ -1,4 +1,3 @@
-import 'package:flutter/widgets.dart';
 import 'package:signals/signals.dart';
 
 class ScreenStateService {

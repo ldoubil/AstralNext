@@ -23,21 +23,26 @@ class _DashboardPageState extends State<DashboardPage> {
   final GlobalP2PStore _p2pStore = GetIt.I<GlobalP2PStore>();
   final P2PService _p2pService = GetIt.I<P2PService>();
   final P2PConfigService _p2pConfig = GetIt.I<P2PConfigService>();
-  final RoomPersistenceService _roomPersistence = GetIt.I<RoomPersistenceService>();
+  final RoomPersistenceService _roomPersistence =
+      GetIt.I<RoomPersistenceService>();
   final ScreenStateService _screenStateService = GetIt.I<ScreenStateService>();
   bool _isConnecting = false;
   String? _currentRoomUuid;
 
   void _handleSettings() {
-    Navigator.pushNamed(context, '/settings');
+    if (mounted) {
+      Navigator.pushNamed(context, '/settings');
+    }
   }
 
   Future<void> _handleShareRoom() async {
     if (_currentRoomUuid != null) {
       await Clipboard.setData(ClipboardData(text: _currentRoomUuid!));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('房间号已复制到剪贴板')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('房间号已复制到剪贴板')));
+      }
     }
   }
 
@@ -196,29 +201,29 @@ class _DashboardPageState extends State<DashboardPage> {
       return Scaffold(
         body: isNarrow
             ? DashboardNarrowLayout(
-          p2pStore: _p2pStore,
-          currentRoomUuid: _currentRoomUuid,
-          onSettings: _handleSettings,
-          onCreateRoom: _handleCreateRoom,
-          onJoinRoom: _handleJoinRoom,
-          onShareRoom: _handleShareRoom,
-          onDisconnect: _handleDisconnect,
-          onRemoveRoom: _handleRemoveRoom,
-        )
+                p2pStore: _p2pStore,
+                currentRoomUuid: _currentRoomUuid,
+                onSettings: _handleSettings,
+                onCreateRoom: _handleCreateRoom,
+                onJoinRoom: _handleJoinRoom,
+                onShareRoom: _handleShareRoom,
+                onDisconnect: _handleDisconnect,
+                onRemoveRoom: _handleRemoveRoom,
+              )
             : Padding(
-          padding: const EdgeInsets.all(16),
-          child: DashboardWideLayout(
-            p2pStore: _p2pStore,
-            screenStateService: _screenStateService,
-            currentRoomUuid: _currentRoomUuid,
-            onSettings: _handleSettings,
-            onCreateRoom: _handleCreateRoom,
-            onJoinRoom: _handleJoinRoom,
-            onShareRoom: _handleShareRoom,
-            onDisconnect: _handleDisconnect,
-            onJoinHistory: _handleJoinHistory,
-          ),
-        ),
+                padding: const EdgeInsets.all(16),
+                child: DashboardWideLayout(
+                  p2pStore: _p2pStore,
+                  screenStateService: _screenStateService,
+                  currentRoomUuid: _currentRoomUuid,
+                  onSettings: _handleSettings,
+                  onCreateRoom: _handleCreateRoom,
+                  onJoinRoom: _handleJoinRoom,
+                  onShareRoom: _handleShareRoom,
+                  onDisconnect: _handleDisconnect,
+                  onJoinHistory: _handleJoinHistory,
+                ),
+              ),
       );
     });
   }

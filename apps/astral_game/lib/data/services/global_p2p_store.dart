@@ -5,7 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_core.dart';
 import 'package:astral_rust_core/p2p_service.dart';
-import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNetworkStatus, KVNodeInfo;
+import 'package:astral_rust_core/src/rust/api/p2p.dart'
+    show KVNetworkStatus, KVNodeInfo;
 import '../models/enhanced_node_info.dart';
 import 'app_settings_service.dart';
 
@@ -40,13 +41,12 @@ class GlobalP2PStore {
   void initUserInfo() {
     // 加载用户名（如果为空，AppSettingsService 会返回系统用户名或默认值）
     currentUsername.value = _appSettings.getUsername();
-    
+
     // 加载头像
     final avatar = _appSettings.getAvatar();
     if (avatar != null) {
       currentUserAvatar.value = avatar;
     }
-    
   }
 
   /// 标记实例正在启动
@@ -65,13 +65,23 @@ class GlobalP2PStore {
     _stopPolling();
     currentInstanceId.value = null;
     networkStatus.value = null;
-    userNodes.value = [];  // 清空用户列表
-    enhancedUserNodes.value = [];  // 清空增强节点列表
+    userNodes.value = []; // 清空用户列表
+    enhancedUserNodes.value = []; // 清空增强节点列表
   }
 
   /// 检查 IP 是否有效（不是 0.0.0.0）
   bool isValidIp(String ip) {
     return ip != '0.0.0.0';
+  }
+
+  /// 检查节点是否为服务器节点
+  bool isServerNode(String hostname) {
+    return hostname.contains('PublicServer');
+  }
+
+  /// 检查节点是否为有效用户节点（不是服务器节点且 IP 有效）
+  bool isValidUserNode(String ip, String hostname) {
+    return isValidIp(ip) && !isServerNode(hostname);
   }
 
   /// 获取有效的节点列表（排除 IP 为 0.0.0.0 的节点）
@@ -81,14 +91,14 @@ class GlobalP2PStore {
 
   /// 获取节点的 IP 显示文本
   String getNodeIpDisplayText(String ip) {
-    return isValidIp(ip) ? ip : '获取中...';
+    return ip;
   }
 
   /// 更新节点的头像端口
   void updateNodeAvatarPort(int peerId, int port) {
     final nodes = List<EnhancedNodeInfo>.from(enhancedUserNodes.value);
     final index = nodes.indexWhere((n) => n.peerId == peerId);
-    
+
     if (index != -1) {
       nodes[index] = nodes[index].copyWith(
         avatarPort: port,
@@ -102,7 +112,7 @@ class GlobalP2PStore {
   void updateNodeCustomName(int peerId, String name) {
     final nodes = List<EnhancedNodeInfo>.from(enhancedUserNodes.value);
     final index = nodes.indexWhere((n) => n.peerId == peerId);
-    
+
     if (index != -1) {
       nodes[index] = nodes[index].copyWith(
         customName: name,
@@ -115,8 +125,9 @@ class GlobalP2PStore {
   /// 获取节点的头像端口
   int? getNodeAvatarPort(int peerId) {
     try {
-      final node = enhancedUserNodes.value
-          .firstWhere((n) => n.peerId == peerId);
+      final node = enhancedUserNodes.value.firstWhere(
+        (n) => n.peerId == peerId,
+      );
       return node.avatarPort;
     } catch (e) {
       return null;
@@ -126,23 +137,21 @@ class GlobalP2PStore {
   /// 更新当前用户的头像
   Future<void> updateCurrentUserAvatar(Uint8List? avatar) async {
     currentUserAvatar.value = avatar;
-    
+
     // 持久化保存
     if (avatar != null) {
       await _appSettings.setAvatar(avatar);
     } else {
       await _appSettings.clearAvatar();
     }
-    
   }
 
   /// 更新当前用户的名字
   Future<void> updateCurrentUsername(String username) async {
     currentUsername.value = username;
-    
+
     // 持久化保存
     await _appSettings.setUsername(username);
-    
   }
 
   void _startPolling(String instanceId) {
@@ -161,28 +170,45 @@ class GlobalP2PStore {
   Future<void> _pollNetworkStatus(String instanceId) async {
     try {
       final status = await _p2pService.getNetworkStatus(instanceId);
-      
-      
+
+      // 打印原始网络状态数据
+      if (status != null) {
+        debugPrint('[P2PStore] 原始网络状态数据:');
+        debugPrint('[P2PStore] 总节点数: ${status.totalNodes}');
+        debugPrint('[P2PStore] 节点列表:');
+        for (final node in status.nodes) {
+          debugPrint('[P2PStore] 节点: peerId=${node.peerId}, hostname=${node.hostname}, ipv4=${node.ipv4}, cost=${node.cost}, 跳数=${node.hops.length}, 直连=${node.cost <= 1 || node.hops.length <= 1}');
+        }
+      }
+
       // 强制创建新的 KVNetworkStatus 实例以确保 signals 检测到变化
       if (status != null) {
         networkStatus.value = KVNetworkStatus(
           totalNodes: status.totalNodes,
           nodes: List.from(status.nodes), // 创建新的列表副本
         );
-        
-        // 过滤掉公共服务器节点，只保留普通用户节点
-        final userNodesList = status.nodes
-            .where((node) => !node.hostname.contains('PublicServer'))
-            .toList();
+
+        // 过滤掉公共服务器节点，只保留普通用户节点，并去重（基于 peerId）
+        final userNodesMap = <int, KVNodeInfo>{};
+        for (final node in status.nodes) {
+          if (!node.hostname.contains('PublicServer')) {
+            // 使用 peerId 作为键，确保每个 peerId 只保留一个节点
+            // 如果有重复的 peerId，后面的会覆盖前面的，保留最新的节点信息
+            userNodesMap[node.peerId] = node;
+          }
+        }
+        final userNodesList = userNodesMap.values.toList();
         userNodes.value = userNodesList;
-        
+
         // 构建增强节点信息列表，保留已发现的头像端口
         final enhancedNodes = <EnhancedNodeInfo>[];
         for (final node in userNodesList) {
           // 查找是否已有缓存的增强信息
           EnhancedNodeInfo enhancedNode;
-          final existingIndex = enhancedUserNodes.value.indexWhere((n) => n.peerId == node.peerId);
-          
+          final existingIndex = enhancedUserNodes.value.indexWhere(
+            (n) => n.peerId == node.peerId,
+          );
+
           if (existingIndex != -1) {
             // 找到已存在的节点，保留其 avatarPort
             final existingNode = enhancedUserNodes.value[existingIndex];
@@ -191,10 +217,10 @@ class GlobalP2PStore {
             // 新节点，创建新的 EnhancedNodeInfo
             enhancedNode = EnhancedNodeInfo.fromKVNodeInfo(node);
           }
-          
+
           enhancedNodes.add(enhancedNode);
         }
-        
+
         enhancedUserNodes.value = List.from(enhancedNodes);
       } else {
         networkStatus.value = null;
