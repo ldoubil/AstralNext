@@ -49,6 +49,12 @@ class RoomState {
 
   List<RoomMod> get rooms => _rooms.value;
   int? get selectedRoomId => _selectedRoomId;
+
+  void removeRoom(int roomId) {
+    final updated = _rooms.value.where((r) => r.id != roomId).toList();
+    _rooms.value = updated;
+    _persistence?.saveRooms(updated);
+  }
 }
 
 final RoomState roomState = RoomState();

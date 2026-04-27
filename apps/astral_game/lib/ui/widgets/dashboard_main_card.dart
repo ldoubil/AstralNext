@@ -18,6 +18,7 @@ class DashboardMainCard extends StatefulWidget {
   final VoidCallback? onShareRoomTap;
   final VoidCallback? onDisconnectTap;
   final bool isCollapsed;
+  final bool showFirewall;
 
   const DashboardMainCard({
     super.key,
@@ -32,6 +33,7 @@ class DashboardMainCard extends StatefulWidget {
     this.onShareRoomTap,
     this.onDisconnectTap,
     this.isCollapsed = false,
+    this.showFirewall = true,
   });
 
   @override
@@ -218,7 +220,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
             ],
           ),
         ),
-        if (Platform.isWindows) ...[
+        if (widget.showFirewall && Platform.isWindows) ...[
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

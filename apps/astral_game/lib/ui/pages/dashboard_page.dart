@@ -17,6 +17,7 @@ import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
 import 'package:astral_game/ui/widgets/user_avatar_widget.dart';
 import 'package:astral_game/utils/platform_version_parser.dart';
 import 'package:astral_rust_core/p2p_service.dart';
+import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNodeInfo;
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -35,6 +36,8 @@ class _DashboardPageState extends State<DashboardPage> {
   String? _currentRoomUuid;
   
   bool _isCardCollapsed = false;
+  double _dividerPosition = 0.6;
+  bool _isDragging = false;
 
   void _handleSettings() {
     Navigator.pushNamed(context, '/settings');
@@ -211,43 +214,72 @@ class _DashboardPageState extends State<DashboardPage> {
       
       return Scaffold(
         body: isNarrow
-            ? NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification is ScrollUpdateNotification) {
-                    final delta = notification.scrollDelta;
-                    if (delta != null && delta.abs() > 5) {
-                      setState(() => _isCardCollapsed = delta > 0);
-                    }
-                  }
-                  return false;
-                },
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildRightPanelForNarrow(context),
-                        const SizedBox(height: 16),
-                        AnimatedCrossFade(
-                          firstChild: const SizedBox.shrink(),
-                          secondChild: _buildLeftPanel(context),
-                          crossFadeState: _isCardCollapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-                          duration: const Duration(milliseconds: 300),
-                          firstCurve: Curves.easeInOut,
-                          secondCurve: Curves.easeInOut,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
+            ? _buildNarrowLayout(context)
             : Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(0),
                 child: _buildWideLayout(context),
               ),
       );
     });
+  }
+
+  Widget _buildNarrowLayout(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalHeight = constraints.maxHeight;
+        final topHeight = totalHeight * _dividerPosition;
+        final colorScheme = Theme.of(context).colorScheme;
+
+        final bottomHeight = totalHeight * (1 - _dividerPosition);
+        final showBottomCard = bottomHeight > totalHeight * 0.05;
+
+        return Column(
+          children: [
+            Container(
+              height: topHeight,
+              padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+              margin: const EdgeInsets.only(bottom: 5),
+              child: _buildRightPanelForNarrow(context),
+            ),
+            GestureDetector(
+              onVerticalDragStart: (details) => setState(() => _isDragging = true),
+              onVerticalDragUpdate: (details) {
+                setState(() {
+                  final delta = details.delta.dy;
+                  _dividerPosition = (_dividerPosition + delta / totalHeight).clamp(0.05, 0.95);
+                });
+              },
+              onVerticalDragEnd: (details) => setState(() => _isDragging = false),
+              child: Container(
+                height: 20,
+                decoration: BoxDecoration(
+                  color: _isDragging
+                      ? colorScheme.primary.withAlpha(20)
+                      : Colors.transparent,
+                ),
+                child: Center(
+                  child: Container(
+                    width: 48,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: colorScheme.onSurfaceVariant,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (showBottomCard)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, top: 0),
+                  child: _buildHistoryListForNarrow(context),
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildWideLayout(BuildContext context) {
@@ -284,9 +316,385 @@ class _DashboardPageState extends State<DashboardPage> {
         onJoinRoomTap: _handleJoinRoom,
         onShareRoomTap: _handleShareRoom,
         onDisconnectTap: _handleDisconnect,
-        isCollapsed: _isCardCollapsed,
+        showFirewall: false,
       );
     });
+  }
+
+  Widget _buildHistoryListForNarrow(BuildContext context) {
+    return Watch((context) {
+      final isConnected = _p2pStore.isRunning;
+      final history = roomState.rooms;
+      final colorScheme = Theme.of(context).colorScheme;
+      final textTheme = Theme.of(context).textTheme;
+
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colorScheme.outline.withAlpha(50)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(
+                    isConnected ? Icons.people_outlined : Icons.history_outlined,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isConnected ? '在线用户' : '加入历史',
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isConnected) ...[
+                      _buildUserListInline(context),
+                    ] else if (history.isEmpty) ...[
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.history_outlined,
+                              size: 48,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '暂无加入历史',
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '创建或加入房间后会显示在这里',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      ...history.map((room) => _buildDismissibleHistoryItem(context, room)).toList(),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildDismissibleHistoryItem(BuildContext context, RoomMod room) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    bool isHovered = false;
+
+    return Dismissible(
+      key: Key(room.uuid),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: colorScheme.error,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.delete_outlined,
+          color: Colors.white,
+          size: 24,
+        ),
+      ),
+      onDismissed: (direction) {
+        _removeRoomFromHistory(room);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: room.uuid.isNotEmpty ? () => _handleJoinRoomFromHistory(room) : null,
+                onHover: (hovering) {
+                  setState(() => isHovered = hovering);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: isHovered
+                        ? colorScheme.primaryContainer.withAlpha(20)
+                        : Colors.transparent,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.meeting_room_outlined,
+                          color: colorScheme.onPrimaryContainer,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              room.roomName,
+                              style: textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              room.uuid.substring(0, 8),
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios_outlined,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleJoinRoomFromHistory(RoomMod room) {
+    setState(() {
+      _currentRoomUuid = room.uuid;
+    });
+    _connectToRoom(room.roomName, room.password);
+  }
+
+  void _removeRoomFromHistory(RoomMod room) {
+    roomState.removeRoom(room.id);
+  }
+
+  Widget _buildNetworkAndActions(BuildContext context, bool isConnected, String virtualIp) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      children: [
+        const Divider(height: 24),
+        Row(
+          children: [
+            Icon(
+              Icons.network_check_outlined,
+              color: colorScheme.primary,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '网络配置',
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              _buildNetworkRow(
+                context,
+                'IP地址',
+                virtualIp,
+                Icons.router_outlined,
+              ),
+              const SizedBox(height: 8),
+              _buildNetworkRow(
+                context,
+                '房间ID',
+                _currentRoomUuid?.substring(0, 8) ?? '未连接',
+                Icons.room_outlined,
+              ),
+              const SizedBox(height: 8),
+              _buildNetworkRow(
+                context,
+                '连接状态',
+                isConnected ? '已连接' : '未连接',
+                isConnected 
+                    ? Icons.check_circle_outlined 
+                    : Icons.circle_outlined,
+                isConnected ? Colors.green[600] : colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 24),
+        Row(
+          children: [
+            Icon(
+              Icons.settings_outlined,
+              color: colorScheme.primary,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '操作',
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          children: [
+            _buildActionButton(
+              context,
+              Icons.add_box_outlined,
+              '创建房间',
+              _handleCreateRoom,
+              !isConnected && !_isConnecting,
+            ),
+            _buildActionButton(
+              context,
+              Icons.login_outlined,
+              '加入房间',
+              _handleJoinRoom,
+              !isConnected && !_isConnecting,
+            ),
+            _buildActionButton(
+              context,
+              Icons.share_outlined,
+              '分享房间',
+              _handleShareRoom,
+              isConnected && _currentRoomUuid != null,
+            ),
+            _buildActionButton(
+              context,
+              Icons.logout_outlined,
+              '断开连接',
+              _handleDisconnect,
+              isConnected && !_isConnecting,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: _handleSettings,
+            child: const Text('设置'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNetworkRow(BuildContext context, String label, String value, 
+      IconData icon, [Color? iconColor]) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton(BuildContext context, IconData icon, String label, 
+      VoidCallback onPressed, bool enabled) {
+    return ElevatedButton(
+      onPressed: enabled ? onPressed : null,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        foregroundColor: enabled 
+            ? Theme.of(context).colorScheme.onSurface 
+            : Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(128),
+        disabledBackgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        padding: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildLeftPanel(BuildContext context) {
@@ -295,6 +703,7 @@ class _DashboardPageState extends State<DashboardPage> {
       final textTheme = Theme.of(context).textTheme;
       final instanceId = _p2pStore.currentInstanceId.value;
       final isRunning = instanceId != null;
+      final isNarrow = _screenStateService.isNarrow;
 
       return Card(
         elevation: 0,
@@ -306,6 +715,7 @@ class _DashboardPageState extends State<DashboardPage> {
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -324,7 +734,11 @@ class _DashboardPageState extends State<DashboardPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              if (isRunning) _buildUserListInline(context) else _buildJoinHistory(context),
+              isNarrow
+                  ? (isRunning ? _buildUserListInline(context) : _buildJoinHistory(context))
+                  : Expanded(
+                      child: isRunning ? _buildUserListScrollable(context) : _buildJoinHistoryScrollable(context),
+                    ),
             ],
           ),
         ),
@@ -342,6 +756,21 @@ class _DashboardPageState extends State<DashboardPage> {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      itemCount: enhancedNodes.length,
+      itemBuilder: (context, index) {
+        return _buildUserItem(enhancedNodes[index]);
+      },
+    );
+  }
+
+  Widget _buildUserListScrollable(BuildContext context) {
+    final enhancedNodes = _p2pStore.enhancedUserNodes.value;
+
+    if (enhancedNodes.isEmpty) {
+      return _buildEmptyUserState(context);
+    }
+
+    return ListView.builder(
       itemCount: enhancedNodes.length,
       itemBuilder: (context, index) {
         return _buildUserItem(enhancedNodes[index]);
@@ -409,6 +838,46 @@ class _DashboardPageState extends State<DashboardPage> {
         children: history
             .map((room) => _buildHistoryItem(room))
             .toList(),
+      );
+    });
+  }
+
+  Widget _buildJoinHistoryScrollable(BuildContext context) {
+    return Watch((context) {
+      final history = roomState.rooms;
+
+      if (history.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.history_outlined,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '暂无加入历史',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '创建或加入房间后会显示在这里',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return ListView.builder(
+        itemCount: history.length,
+        itemBuilder: (context, index) => _buildHistoryItem(history[index]),
       );
     });
   }
