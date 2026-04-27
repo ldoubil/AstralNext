@@ -41,6 +41,12 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
   late AnimationController _animationController;
   late Animation<double> _animation;
 
+  static const double _collapsedHeight = 100;
+  static const double _collapseThreshold = 0.6;
+  static const double _dividerHeight = 20.0;
+  static const double _minHeightRatio = 0.05;
+  static const double _maxHeightRatio = 0.95;
+
   @override
   void initState() {
     super.initState();
@@ -251,23 +257,29 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
         final topHeight = totalHeight * _dividerPosition;
         final colorScheme = Theme.of(context).colorScheme;
 
-        final bottomHeight = totalHeight * (1 - _dividerPosition);
-        final showBottomCard = bottomHeight > totalHeight * 0.05;
+        final currentTopHeight = totalHeight * _dividerPosition;
+        final isCollapsed = _dividerPosition < _collapseThreshold;
+        final topHeightValue = _isDragging ? currentTopHeight : (isCollapsed ? _collapsedHeight : currentTopHeight);
+        final bottomHeight = totalHeight - topHeightValue - _dividerHeight;
+        final showBottomCard = bottomHeight > 0;
 
         return Column(
           children: [
-            Container(
-              height: topHeight,
-              padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
-              margin: const EdgeInsets.only(bottom: 5),
-              child: _buildRightPanelForNarrow(context),
+            ClipRect(
+              child: SizedBox(
+                height: topHeightValue,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+                  child: _buildRightPanelForNarrow(context),
+                ),
+              ),
             ),
             GestureDetector(
               onVerticalDragStart: (details) => setState(() => _isDragging = true),
               onVerticalDragUpdate: (details) {
                 setState(() {
                   final delta = details.delta.dy;
-                  _dividerPosition = (_dividerPosition + delta / totalHeight).clamp(0.05, 0.95);
+                  _dividerPosition = (_dividerPosition + delta / totalHeight).clamp(_minHeightRatio, _maxHeightRatio);
                 });
               },
               onVerticalDragEnd: (details) {
@@ -277,11 +289,11 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
                 double targetPosition;
                 
                 if (velocity < -800) {
-                  targetPosition = 0.2;
+                  targetPosition = _minHeightRatio;
                 } else if (velocity > 800) {
-                  targetPosition = 0.95;
+                  targetPosition = _maxHeightRatio;
                 } else {
-                  targetPosition = _dividerPosition < 0.6 ? 0.2 : 0.95;
+                  targetPosition = _dividerPosition < _collapseThreshold ? _minHeightRatio : _maxHeightRatio;
                 }
                 
                 _animation = Tween<double>(
