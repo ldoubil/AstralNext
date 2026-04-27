@@ -1,0 +1,320 @@
+import 'package:flutter/material.dart';
+import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
+import 'package:astral_game/ui/pages/dashboard_history_item.dart';
+import 'package:astral_game/ui/pages/dashboard_user_item.dart';
+import 'package:astral_game/ui/pages/rooms/room_mod.dart';
+import 'package:astral_game/ui/pages/rooms/room_state.dart';
+
+class DashboardNarrowLayout extends StatefulWidget {
+  final GlobalP2PStore p2pStore;
+  final String? currentRoomUuid;
+  final VoidCallback onSettings;
+  final VoidCallback onCreateRoom;
+  final VoidCallback onJoinRoom;
+  final VoidCallback onShareRoom;
+  final VoidCallback onDisconnect;
+  final void Function(RoomMod) onRemoveRoom;
+
+  const DashboardNarrowLayout({
+    super.key,
+    required this.p2pStore,
+    required this.currentRoomUuid,
+    required this.onSettings,
+    required this.onCreateRoom,
+    required this.onJoinRoom,
+    required this.onShareRoom,
+    required this.onDisconnect,
+    required this.onRemoveRoom,
+  });
+
+  @override
+  State<DashboardNarrowLayout> createState() => _DashboardNarrowLayoutState();
+}
+
+class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with SingleTickerProviderStateMixin {
+  bool _isCardCollapsed = false;
+  double _dividerPosition = 0.95;
+  bool _isDragging = false;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  static const double _collapsedHeight = 100;
+  static const double _collapseThreshold = 0.6;
+  static const double _dividerHeight = 20.0;
+  static const double _minHeightRatio = 0.05;
+  static const double _maxHeightRatio = 0.95;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    )..addListener(() {
+      setState(() {
+        _dividerPosition = _animation.value;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalHeight = constraints.maxHeight;
+        final colorScheme = Theme.of(context).colorScheme;
+
+        final currentTopHeight = totalHeight * _dividerPosition;
+        final topHeightValue = _isCardCollapsed ? _collapsedHeight : currentTopHeight;
+        final bottomHeight = totalHeight - topHeightValue - _dividerHeight;
+        final showBottomCard = _isCardCollapsed && bottomHeight > 0;
+
+        return Column(
+          children: [
+            ClipRect(
+              child: SizedBox(
+                height: topHeightValue,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+                  child: _buildRightPanelForNarrow(context),
+                ),
+              ),
+            ),
+            GestureDetector(
+              onVerticalDragStart: (details) {
+                setState(() {
+                  _isDragging = true;
+                  if (_isCardCollapsed) {
+                    _dividerPosition = _collapsedHeight / totalHeight;
+                  }
+                });
+              },
+              onVerticalDragUpdate: (details) {
+                setState(() {
+                  final delta = details.delta.dy;
+                  _dividerPosition = (_dividerPosition + delta / totalHeight).clamp(_minHeightRatio, _maxHeightRatio);
+                  _isCardCollapsed = false;
+                });
+              },
+              onVerticalDragEnd: (details) {
+                setState(() => _isDragging = false);
+
+                final velocity = details.velocity.pixelsPerSecond.dy;
+                double targetPosition;
+
+                if (velocity < -800) {
+                  targetPosition = _minHeightRatio;
+                } else if (velocity > 800) {
+                  targetPosition = _maxHeightRatio;
+                } else {
+                  targetPosition = _dividerPosition < _collapseThreshold ? _minHeightRatio : _maxHeightRatio;
+                }
+
+                setState(() {
+                  _isCardCollapsed = targetPosition == _minHeightRatio;
+                });
+
+                _animation = Tween<double>(
+                  begin: _dividerPosition,
+                  end: targetPosition,
+                ).animate(CurvedAnimation(
+                  parent: _animationController,
+                  curve: Curves.elasticOut,
+                ));
+
+                _animationController.reset();
+                _animationController.forward();
+              },
+              child: Container(
+                height: _dividerHeight,
+                decoration: BoxDecoration(
+                  color: _isDragging
+                      ? colorScheme.primary.withAlpha(20)
+                      : Colors.transparent,
+                ),
+                child: Center(
+                  child: Container(
+                    width: 48,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: colorScheme.onSurfaceVariant,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (showBottomCard)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, top: 0),
+                  child: _buildHistoryListForNarrow(context),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRightPanelForNarrow(BuildContext context) {
+    return Watch((context) {
+      final isConnected = widget.p2pStore.isRunning;
+      final status = widget.p2pStore.networkStatus.value;
+      final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? '10.147.18.24';
+      final username = widget.p2pStore.currentUsername.value;
+      final avatar = widget.p2pStore.currentUserAvatar.value;
+
+      return DashboardMainCard(
+        isConnected: isConnected,
+        username: username,
+        userAvatar: avatar,
+        virtualIp: virtualIp,
+        roomUuid: widget.currentRoomUuid,
+        onSettingsTap: widget.onSettings,
+        onCreateRoomTap: widget.onCreateRoom,
+        onJoinRoomTap: widget.onJoinRoom,
+        onShareRoomTap: widget.onShareRoom,
+        onDisconnectTap: widget.onDisconnect,
+        showFirewall: false,
+      );
+    });
+  }
+
+  Widget _buildHistoryListForNarrow(BuildContext context) {
+    return Watch((context) {
+      final isConnected = widget.p2pStore.isRunning;
+      final history = roomState.rooms;
+      final colorScheme = Theme.of(context).colorScheme;
+      final textTheme = Theme.of(context).textTheme;
+
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colorScheme.outline.withAlpha(50)),
+        ),
+        child: ClipRect(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(
+                      isConnected ? Icons.people_outlined : Icons.history_outlined,
+                      color: colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isConnected ? '在线用户' : '加入历史',
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isConnected) ...[
+                        _buildUserListInline(context),
+                      ] else if (history.isEmpty) ...[
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.history_outlined,
+                                size: 48,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '暂无加入历史',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '创建或加入房间后会显示在这里',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        ...history.map((room) => DashboardDismissibleHistoryItem(
+                          room: room,
+                          onJoin: () {},
+                          onRemove: widget.onRemoveRoom,
+                        )).toList(),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildUserListInline(BuildContext context) {
+    final enhancedNodes = widget.p2pStore.enhancedUserNodes.value;
+
+    if (enhancedNodes.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.people_outlined,
+              size: 48,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '暂无在线用户',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: enhancedNodes.length,
+      itemBuilder: (context, index) {
+        return DashboardUserItem(
+          node: enhancedNodes[index],
+          p2pStore: widget.p2pStore,
+        );
+      },
+    );
+  }
+}
