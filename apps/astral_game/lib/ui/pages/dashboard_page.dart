@@ -118,6 +118,7 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
         roomState.setConnected(true);
         setState(() {
           _isCardCollapsed = true;
+          _dividerPosition = _minHeightRatio;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('连接成功')),
@@ -263,7 +264,7 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
         final currentTopHeight = totalHeight * _dividerPosition;
         final topHeightValue = _isCardCollapsed ? _collapsedHeight : currentTopHeight;
         final bottomHeight = totalHeight - topHeightValue - _dividerHeight;
-        final showBottomCard = !_isCardCollapsed && bottomHeight > 0;
+        final showBottomCard = _isCardCollapsed && bottomHeight > 0;
 
         return Column(
           children: [
@@ -277,11 +278,19 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
               ),
             ),
             GestureDetector(
-              onVerticalDragStart: (details) => setState(() => _isDragging = true),
+              onVerticalDragStart: (details) {
+                setState(() {
+                  _isDragging = true;
+                  if (_isCardCollapsed) {
+                    _dividerPosition = _collapsedHeight / totalHeight;
+                  }
+                });
+              },
               onVerticalDragUpdate: (details) {
                 setState(() {
                   final delta = details.delta.dy;
                   _dividerPosition = (_dividerPosition + delta / totalHeight).clamp(_minHeightRatio, _maxHeightRatio);
+                  _isCardCollapsed = false;
                 });
               },
               onVerticalDragEnd: (details) {
