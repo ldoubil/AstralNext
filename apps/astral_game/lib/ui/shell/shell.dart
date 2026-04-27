@@ -6,6 +6,9 @@ import 'package:window_manager/window_manager.dart';
 import '../pages/dashboard_page.dart';
 import '../pages/servers/servers_main_page.dart';
 import '../pages/settings/settings_main_page.dart';
+import '../widgets/navigation/bottom_nav.dart';
+import '../widgets/navigation/left_nav.dart';
+import '../widgets/navigation/navigation_item.dart';
 import '../widgets/window_button.dart';
 import 'shell_content_controller.dart';
 
@@ -26,6 +29,13 @@ class _ShellState extends State<Shell> {
     _contentController = getIt<ShellContentController>();
     _contentController.addListener(_onContentChanged);
     _screenStateService = getIt<ScreenStateService>();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        _screenStateService.updateScreenWidth(screenWidth);
+      }
+    });
   }
 
   @override
@@ -48,17 +58,34 @@ class _ShellState extends State<Shell> {
 
   int _selectedIndex = 0;
 
+  List<NavigationItem> get _navigationItems => [
+        NavigationItem(
+          icon: Icons.home_outlined,
+          activeIcon: Icons.home,
+          label: '主页',
+          page: const DashboardPage(key: PageStorageKey('dashboard')),
+        ),
+        NavigationItem(
+          icon: Icons.dns_outlined,
+          activeIcon: Icons.dns,
+          label: '服务器',
+          page: const ServersMainPage(key: PageStorageKey('servers')),
+        ),
+        NavigationItem(
+          icon: Icons.settings_outlined,
+          activeIcon: Icons.settings,
+          label: '设置',
+          page: const SettingsMainPage(key: PageStorageKey('settings')),
+        ),
+      ];
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final screenWidth = MediaQuery.of(context).size.width;
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _screenStateService.updateScreenWidth(screenWidth);
-      }
-    });
-    
+
+    _screenStateService.updateScreenWidth(screenWidth);
+
     final isCompact = _screenStateService.isNarrow;
 
     final hasOverlay = _contentController.hasOverlay;
@@ -69,7 +96,9 @@ class _ShellState extends State<Shell> {
       body: Row(
         children: [
           if (!isCompact)
-            _ShellNavigationRail(
+            LeftNav(
+              items: _navigationItems,
+              colorScheme: colorScheme,
               selectedIndex: _selectedIndex,
               onSelected: _handleDestinationSelected,
             ),
@@ -118,11 +147,9 @@ class _ShellState extends State<Shell> {
                           : IndexedStack(
                               index: _selectedIndex,
                               sizing: StackFit.expand,
-                              children: const [
-                                DashboardPage(key: PageStorageKey('dashboard')),
-                                ServersMainPage(key: PageStorageKey('servers')),
-                                SettingsMainPage(key: PageStorageKey('settings')),
-                              ],
+                              children: _navigationItems
+                                  .map((item) => item.page)
+                                  .toList(),
                             ),
                     ),
                   ),
@@ -133,29 +160,11 @@ class _ShellState extends State<Shell> {
         ],
       ),
       bottomNavigationBar: isCompact && !hasOverlay
-          ? NavigationBar(
+          ? BottomNav(
+              navigationItems: _navigationItems,
+              colorScheme: colorScheme,
               selectedIndex: _selectedIndex,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              onDestinationSelected: _handleDestinationSelected,
-              backgroundColor: colorScheme.primaryContainer,
-              indicatorColor: colorScheme.primary,
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard),
-                  label: '仪表盘',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.dns_outlined),
-                  selectedIcon: Icon(Icons.dns),
-                  label: '服务器',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings),
-                  label: '设置',
-                ),
-              ],
+              onSelected: _handleDestinationSelected,
             )
           : null,
     );
@@ -263,56 +272,6 @@ class _TitleBarState extends State<_TitleBar> {
   }
 }
 
-class _ShellNavigationRail extends StatelessWidget {
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
-
-  const _ShellNavigationRail({
-    required this.selectedIndex,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    const railWidth = 92.0;
-
-    return Container(
-      width: railWidth,
-      color: colorScheme.primaryContainer,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        children: [
-          const _BrandBadge(),
-          const SizedBox(height: 12),
-          _RailDestination(
-            label: '仪表盘',
-            icon: Icons.dashboard_outlined,
-            selectedIcon: Icons.dashboard,
-            selected: selectedIndex == 0,
-            onTap: () => onSelected(0),
-          ),
-          _RailDestination(
-            label: '服务器',
-            icon: Icons.dns_outlined,
-            selectedIcon: Icons.dns,
-            selected: selectedIndex == 1,
-            onTap: () => onSelected(1),
-          ),
-          const Spacer(),
-          _RailDestination(
-            label: '设置',
-            icon: Icons.settings_outlined,
-            selectedIcon: Icons.settings,
-            selected: selectedIndex == 2,
-            onTap: () => onSelected(2),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _CompactOverlayAppBar extends StatelessWidget {
   final String title;
   final VoidCallback onBack;
@@ -348,81 +307,6 @@ class _CompactOverlayAppBar extends StatelessWidget {
           ),
           const SizedBox(width: 16),
         ],
-      ),
-    );
-  }
-}
-
-class _BrandBadge extends StatelessWidget {
-  const _BrandBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Image.asset(
-        'assets/logo.png',
-        fit: BoxFit.cover,
-      ),
-    );
-  }
-}
-
-class _RailDestination extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final IconData selectedIcon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _RailDestination({
-    required this.label,
-    required this.icon,
-    required this.selectedIcon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final foreground = selected
-        ? colorScheme.onPrimaryContainer
-        : colorScheme.onPrimaryContainer.withValues(alpha: 0.72);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: selected
-                    ? colorScheme.primary.withValues(alpha: 0.18)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(selected ? selectedIcon : icon, color: foreground),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: foreground,
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

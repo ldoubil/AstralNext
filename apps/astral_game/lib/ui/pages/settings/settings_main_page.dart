@@ -72,7 +72,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
     final textTheme = Theme.of(context).textTheme;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      padding: const EdgeInsets.all(16),
       children: [
         Card(
           elevation: 0,

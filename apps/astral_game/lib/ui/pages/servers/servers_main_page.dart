@@ -78,7 +78,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
       }
 
       return ReorderableListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       itemCount: servers.length,
       buildDefaultDragHandles: false,
       proxyDecorator: (child, index, animation) {

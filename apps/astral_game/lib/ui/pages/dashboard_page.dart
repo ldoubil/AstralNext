@@ -206,7 +206,7 @@ class _DashboardPageState extends State<DashboardPage> {
           onRemoveRoom: _handleRemoveRoom,
         )
             : Padding(
-          padding: const EdgeInsets.all(0),
+          padding: const EdgeInsets.all(16),
           child: DashboardWideLayout(
             p2pStore: _p2pStore,
             screenStateService: _screenStateService,
