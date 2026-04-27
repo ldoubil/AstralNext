@@ -26,7 +26,7 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage> with TickerProviderStateMixin {
   final GlobalP2PStore _p2pStore = GetIt.I<GlobalP2PStore>();
   final P2PService _p2pService = GetIt.I<P2PService>();
   final P2PConfigService _p2pConfig = GetIt.I<P2PConfigService>();
@@ -36,8 +36,29 @@ class _DashboardPageState extends State<DashboardPage> {
   String? _currentRoomUuid;
   
   bool _isCardCollapsed = false;
-  double _dividerPosition = 0.6;
+  double _dividerPosition = 0.95;
   bool _isDragging = false;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    )..addListener(() {
+        setState(() {
+          _dividerPosition = _animation.value;
+        });
+      });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   void _handleSettings() {
     Navigator.pushNamed(context, '/settings');
@@ -249,7 +270,30 @@ class _DashboardPageState extends State<DashboardPage> {
                   _dividerPosition = (_dividerPosition + delta / totalHeight).clamp(0.05, 0.95);
                 });
               },
-              onVerticalDragEnd: (details) => setState(() => _isDragging = false),
+              onVerticalDragEnd: (details) {
+                setState(() => _isDragging = false);
+                
+                final velocity = details.velocity.pixelsPerSecond.dy;
+                double targetPosition;
+                
+                if (velocity < -800) {
+                  targetPosition = 0.2;
+                } else if (velocity > 800) {
+                  targetPosition = 0.95;
+                } else {
+                  targetPosition = _dividerPosition < 0.6 ? 0.2 : 0.95;
+                }
+                
+                _animation = Tween<double>(
+                  begin: _dividerPosition,
+                  end: targetPosition,
+                ).animate(CurvedAnimation(
+                  parent: _animationController,
+                  curve: Curves.elasticOut,
+                ));
+                
+                _animationController.forward(from: 0);
+              },
               child: Container(
                 height: 20,
                 decoration: BoxDecoration(
