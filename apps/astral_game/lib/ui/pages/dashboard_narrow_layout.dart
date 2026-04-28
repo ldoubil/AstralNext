@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
-import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
 import 'package:astral_game/ui/pages/dashboard_history_item.dart';
 import 'package:astral_game/ui/pages/dashboard_user_item.dart';
@@ -14,7 +14,7 @@ enum PanelState {
 }
 
 class DashboardNarrowLayout extends StatefulWidget {
-  final GlobalP2PStore p2pStore;
+  final NodeManagementService p2pStore;
   final String? currentRoomUuid;
   final VoidCallback onSettings;
   final VoidCallback onCreateRoom;

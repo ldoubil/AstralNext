@@ -3,6 +3,7 @@ import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNodeInfo;
 /// 增强的节点信息，包含自定义扩展字段
 class EnhancedNodeInfo {
   final KVNodeInfo baseInfo;
+  final int? port;
   final int? avatarPort;
   final DateTime? lastAvatarPortScan;
   final Map<String, dynamic> metadata;
@@ -11,6 +12,7 @@ class EnhancedNodeInfo {
 
   EnhancedNodeInfo({
     required this.baseInfo,
+    this.port,
     this.avatarPort,
     this.lastAvatarPortScan,
     this.metadata = const {},
@@ -24,6 +26,7 @@ class EnhancedNodeInfo {
 
   EnhancedNodeInfo copyWith({
     KVNodeInfo? baseInfo,
+    int? port,
     int? avatarPort,
     DateTime? lastAvatarPortScan,
     Map<String, dynamic>? metadata,
@@ -32,6 +35,7 @@ class EnhancedNodeInfo {
   }) {
     return EnhancedNodeInfo(
       baseInfo: baseInfo ?? this.baseInfo,
+      port: port ?? this.port,
       avatarPort: avatarPort ?? this.avatarPort,
       lastAvatarPortScan: lastAvatarPortScan ?? this.lastAvatarPortScan,
       metadata: metadata ?? this.metadata,

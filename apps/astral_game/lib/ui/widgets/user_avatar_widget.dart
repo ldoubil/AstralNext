@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
-import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/models/enhanced_node_info.dart';
 
 class UserAvatarWidget extends StatefulWidget {
@@ -38,12 +38,12 @@ class _AvatarCache {
 class _UserAvatarWidgetState extends State<UserAvatarWidget> {
   Uint8List? _avatar;
   bool _isFetching = false;
-  late GlobalP2PStore _p2pStore;
+  late NodeManagementService _p2pStore;
 
   @override
   void initState() {
     super.initState();
-    _p2pStore = GetIt.I<GlobalP2PStore>();
+    _p2pStore = GetIt.I<NodeManagementService>();
 
     // 检查缓存中是否已经有该节点的头像
     if (_AvatarCache.contains(widget.nodeInfo.peerId)) {

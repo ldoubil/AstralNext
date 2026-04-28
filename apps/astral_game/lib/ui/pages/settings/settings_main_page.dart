@@ -5,7 +5,7 @@ import 'package:astral_game/ui/shell/shell_content_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../data/services/global_p2p_store.dart';
+import '../../../data/services/node_management_service.dart';
 import 'general_settings_page.dart';
 import 'network_settings_page.dart';
 import 'cloud_backup_settings_page.dart';
@@ -21,7 +21,7 @@ class SettingsMainPage extends StatefulWidget {
 
 class _SettingsMainPageState extends State<SettingsMainPage> {
   final ClientApiService _apiService = GetIt.I<ClientApiService>();
-  final GlobalP2PStore _p2pStore = GetIt.I<GlobalP2PStore>();
+  final NodeManagementService _p2pStore = GetIt.I<NodeManagementService>();
   final TextEditingController _usernameController = TextEditingController();
   Uint8List? _currentAvatar;
   Timer? _debounceTimer;  // 用于防抖
@@ -29,7 +29,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
   @override
   void initState() {
     super.initState();
-    // 从 GlobalP2PStore 加载当前状态
+    // 从 NodeManagementService 加载当前状态
     _usernameController.text = _p2pStore.currentUsername.value;
     _currentAvatar = _p2pStore.currentUserAvatar.value;
   }
@@ -52,7 +52,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
       final bytes = await image.readAsBytes();
       // 更新到 ClientApiService（用于对外服务）
       await _apiService.setAvatar(bytes);
-      // 同时更新到 GlobalP2PStore（用于 UI 状态同步和持久化）
+      // 同时更新到 NodeManagementService（用于 UI 状态同步和持久化）
       await _p2pStore.updateCurrentUserAvatar(bytes);
       
       setState(() {
@@ -127,7 +127,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
                           // 使用防抖，避免频繁写入
                           _debounceTimer?.cancel();
                           _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-                            // 即时保存用户名到 GlobalP2PStore（会持久化）
+                            // 即时保存用户名到 NodeManagementService（会持久化）
                             _p2pStore.updateCurrentUsername(value);
                           });
                         },

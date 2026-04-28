@@ -4,14 +4,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:signals/signals_flutter.dart';
-import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/models/enhanced_node_info.dart';
 import 'package:astral_game/ui/widgets/user_avatar_widget.dart';
 import 'package:astral_game/utils/platform_version_parser.dart';
 
 class DashboardUserItem extends StatefulWidget {
   final EnhancedNodeInfo node;
-  final GlobalP2PStore p2pStore;
+  final NodeManagementService p2pStore;
 
   const DashboardUserItem({
     super.key,

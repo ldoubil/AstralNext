@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
-import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
@@ -8,7 +8,7 @@ import 'package:astral_game/ui/pages/dashboard_user_item.dart';
 import 'package:astral_game/ui/pages/dashboard_history_item.dart';
 
 class DashboardWideLayout extends StatelessWidget {
-  final GlobalP2PStore p2pStore;
+  final NodeManagementService p2pStore;
   final ScreenStateService screenStateService;
   final String? currentRoomUuid;
   final VoidCallback onSettings;

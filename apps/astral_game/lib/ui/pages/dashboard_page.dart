@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_flutter.dart';
-import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
@@ -20,7 +20,7 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  final GlobalP2PStore _p2pStore = GetIt.I<GlobalP2PStore>();
+  final NodeManagementService _p2pStore = GetIt.I<NodeManagementService>();
   final P2PService _p2pService = GetIt.I<P2PService>();
   final P2PConfigService _p2pConfig = GetIt.I<P2PConfigService>();
   final RoomPersistenceService _roomPersistence =

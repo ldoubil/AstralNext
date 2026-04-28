@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
-import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/ui/pages/rooms/room_state.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
@@ -35,8 +35,8 @@ Future<void> main() async {
   await setupDI();
 
   // 初始化用户信息（从持久化存储加载）
-  final p2pStore = getIt<GlobalP2PStore>();
-  p2pStore.initUserInfo();
+  final nodeManager = getIt<NodeManagementService>();
+  nodeManager.initUserInfo();
 
   // 启动头像 API 服务器（动态分配可用端口）
   final clientApiService = getIt<ClientApiService>();

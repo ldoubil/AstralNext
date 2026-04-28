@@ -1,7 +1,7 @@
 import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/avatar_port_scanner.dart';
 import 'package:astral_game/data/services/client_api_service.dart';
-import 'package:astral_game/data/services/global_p2p_store.dart';
+import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
@@ -12,6 +12,7 @@ import 'package:astral_game/ui/pages/servers/server_state.dart';
 import 'package:astral_game/ui/pages/settings/settings_state.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart';
+import 'package:event_bus/event_bus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,7 +31,13 @@ Future<void> setupDI() async {
   getIt.registerLazySingleton<P2PService>(() => P2PService());
   await getIt<P2PService>().ensureInitialized();
   await initApp();
-  getIt.registerLazySingleton<GlobalP2PStore>(() => GlobalP2PStore());
+  
+  // 事件总线
+  getIt.registerSingleton<EventBus>(EventBus());
+  
+  // 节点管理服务
+  getIt.registerLazySingleton<NodeManagementService>(() => NodeManagementService());
+  
   getIt.registerLazySingleton<P2PConfigService>(
     () => P2PConfigService(
       getIt<AppSettingsService>(),
