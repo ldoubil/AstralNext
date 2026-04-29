@@ -1,5 +1,6 @@
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
+import 'package:get_it/get_it.dart';
 import 'package:signals/signals_core.dart';
 
 /// 房间状态管理
@@ -72,5 +73,5 @@ class RoomState {
   }
 }
 
-/// 全局房间状态实例（通过 GetIt 获取）
-RoomState get roomState => RoomState();
+/// 全局房间状态实例（通过 GetIt 获取单例）
+RoomState get roomState => GetIt.I<RoomState>();
