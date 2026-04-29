@@ -3,15 +3,16 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
-import 'package:astral_game/data/services/p2p_config_service.dart';
-import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:astral_game/ui/pages/dashboard_wide_layout.dart';
 import 'package:astral_game/ui/pages/dashboard_narrow_layout.dart';
-import 'package:astral_rust_core/p2p_service.dart';
 
+/// 仪表盘页面
+///
+/// 显示网络状态、在线用户和房间历史
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -20,107 +21,60 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  final NodeManagementService _p2pStore = GetIt.I<NodeManagementService>();
-  final P2PService _p2pService = GetIt.I<P2PService>();
-  final P2PConfigService _p2pConfig = GetIt.I<P2PConfigService>();
-  final RoomPersistenceService _roomPersistence =
-      GetIt.I<RoomPersistenceService>();
+  final NodeManagementService _nodeManagement = GetIt.I<NodeManagementService>();
+  final ConnectionService _connectionService = GetIt.I<ConnectionService>();
   final ScreenStateService _screenStateService = GetIt.I<ScreenStateService>();
-  bool _isConnecting = false;
+  
   String? _currentRoomUuid;
 
+  /// 处理设置按钮点击
   void _handleSettings() {
     if (mounted) {
       Navigator.pushNamed(context, '/settings');
     }
   }
 
+  /// 处理分享房间
   Future<void> _handleShareRoom() async {
     if (_currentRoomUuid != null) {
       await Clipboard.setData(ClipboardData(text: _currentRoomUuid!));
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('房间号已复制到剪贴板')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('房间号已复制到剪贴板')),
+        );
       }
     }
   }
 
+  /// 处理断开连接
   Future<void> _handleDisconnect() async {
-    final instanceId = _p2pStore.instanceId;
-    if (instanceId != null) {
-      try {
-        await _p2pService.closeServer(instanceId);
-      } catch (_) {}
-    }
-    _p2pStore.setStopped();
-    roomState.setConnected(false);
+    await _connectionService.disconnect();
     setState(() {
       _currentRoomUuid = null;
     });
   }
 
-  Future<void> _connectToRoom(String roomName, String roomPassword) async {
-    if (_isConnecting) return;
+  /// 处理创建房间
+  Future<void> _handleCreateRoom() async {
+    if (_connectionService.isConnecting) return;
 
+    final room = await _connectionService.createRoom();
     setState(() {
-      _isConnecting = true;
+      _currentRoomUuid = room.uuid;
     });
 
-    try {
-      final configToml = _p2pConfig.buildTomlConfig(roomName, roomPassword);
-      debugPrint('连接房间: $roomName');
-
-      final instanceId = await _p2pService.createServer(
-        configToml: configToml,
-        watchEvent: true,
+    final success = await _connectionService.connectToRoom(room.roomName, room.password);
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('连接失败，请重试')),
       );
-
-      final isRunning = await _p2pService.isEasytierRunning(instanceId);
-      if (isRunning) {
-        _p2pStore.setRunning(instanceId);
-        roomState.setConnected(true);
-      } else {
-        debugPrint('连接失败：实例启动异常');
-      }
-    } catch (e) {
-      debugPrint('连接失败: $e');
-    } finally {
-      setState(() {
-        _isConnecting = false;
-      });
     }
   }
 
-  Future<void> _handleCreateRoom() async {
-    if (_isConnecting) return;
-
-    final uuid = _p2pConfig.generateUuid();
-    final roomName = 'Room_${uuid.substring(0, 8)}';
-    final roomPassword = uuid;
-
-    final room = RoomMod(
-      id: DateTime.now().millisecondsSinceEpoch,
-      name: roomName,
-      roomName: roomName,
-      host: 'localhost',
-      port: 11010,
-      password: roomPassword,
-      uuid: uuid,
-      createdAt: DateTime.now(),
-    );
-
-    await _roomPersistence.saveRooms([...roomState.rooms, room]);
-    await roomState.loadFromPersistence();
-
-    setState(() {
-      _currentRoomUuid = uuid;
-    });
-
-    await _connectToRoom(roomName, roomPassword);
-  }
-
+  /// 处理加入房间
   Future<void> _handleJoinRoom() async {
+    if (_connectionService.isConnecting) return;
+
     final TextEditingController uuidController = TextEditingController();
 
     final result = await showDialog<String>(
@@ -152,45 +106,43 @@ class _DashboardPageState extends State<DashboardPage> {
     );
 
     if (result != null && result.isNotEmpty) {
-      final roomName = 'Room_${result.substring(0, 8)}';
-      final roomPassword = result;
-
-      final room = RoomMod(
-        id: DateTime.now().millisecondsSinceEpoch,
-        name: roomName,
-        roomName: roomName,
-        host: 'localhost',
-        port: 11010,
-        password: roomPassword,
-        uuid: result,
-        createdAt: DateTime.now(),
-      );
-
-      await _roomPersistence.saveRooms([...roomState.rooms, room]);
-      await roomState.loadFromPersistence();
-
+      final room = await _connectionService.joinRoom(result);
       setState(() {
         _currentRoomUuid = result;
       });
 
-      await _connectToRoom(roomName, roomPassword);
+      final success = await _connectionService.connectToRoom(room.roomName, room.password);
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('连接失败，请重试')),
+        );
+      }
     }
   }
 
+  /// 处理从历史记录加入房间
   void _handleJoinHistory(String uuid) async {
-    if (uuid.isEmpty) return;
+    if (uuid.isEmpty || _connectionService.isConnecting) return;
+    
     final index = roomState.rooms.indexWhere((r) => r.uuid == uuid);
     if (index != -1) {
       final room = roomState.rooms[index];
       setState(() {
         _currentRoomUuid = uuid;
       });
-      await _connectToRoom(room.roomName, room.password);
+      
+      final success = await _connectionService.connectToRoom(room.roomName, room.password);
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('连接失败，请重试')),
+        );
+      }
     }
   }
 
+  /// 处理移除房间
   void _handleRemoveRoom(RoomMod room) {
-    roomState.removeRoom(room.id);
+    _connectionService.removeRoom(room.id);
   }
 
   @override
@@ -201,7 +153,8 @@ class _DashboardPageState extends State<DashboardPage> {
       return Scaffold(
         body: isNarrow
             ? DashboardNarrowLayout(
-                p2pStore: _p2pStore,
+                nodeManagement: _nodeManagement,
+                connectionService: _connectionService,
                 currentRoomUuid: _currentRoomUuid,
                 onSettings: _handleSettings,
                 onCreateRoom: _handleCreateRoom,
@@ -213,7 +166,8 @@ class _DashboardPageState extends State<DashboardPage> {
             : Padding(
                 padding: const EdgeInsets.all(16),
                 child: DashboardWideLayout(
-                  p2pStore: _p2pStore,
+                  nodeManagement: _nodeManagement,
+                  connectionService: _connectionService,
                   screenStateService: _screenStateService,
                   currentRoomUuid: _currentRoomUuid,
                   onSettings: _handleSettings,

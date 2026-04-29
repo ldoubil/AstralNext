@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
+import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
 import 'package:astral_game/ui/pages/dashboard_history_item.dart';
 import 'package:astral_game/ui/pages/dashboard_user_item.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 
+/// 面板状态
 enum PanelState {
   expanded,
   collapsed,
   dragging,
 }
 
+/// 仪表盘窄屏布局
 class DashboardNarrowLayout extends StatefulWidget {
-  final NodeManagementService p2pStore;
+  final NodeManagementService nodeManagement;
+  final ConnectionService connectionService;
   final String? currentRoomUuid;
   final VoidCallback onSettings;
   final VoidCallback onCreateRoom;
@@ -25,7 +29,8 @@ class DashboardNarrowLayout extends StatefulWidget {
 
   const DashboardNarrowLayout({
     super.key,
-    required this.p2pStore,
+    required this.nodeManagement,
+    required this.connectionService,
     required this.currentRoomUuid,
     required this.onSettings,
     required this.onCreateRoom,
@@ -64,7 +69,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
     });
 
     effect(() {
-      final isConnected = widget.p2pStore.isRunning;
+      final isConnected = widget.nodeManagement.isRunning;
       if (isConnected && _panelState == PanelState.expanded) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -216,11 +221,11 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
 
   Widget _buildRightPanelForNarrow(BuildContext context) {
     return Watch((context) {
-      final isConnected = widget.p2pStore.isRunning;
-      final status = widget.p2pStore.networkStatus.value;
+      final isConnected = widget.nodeManagement.isRunning;
+      final status = widget.nodeManagement.networkStatus.value;
       final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? '10.147.18.24';
-      final username = widget.p2pStore.currentUsername.value;
-      final avatar = widget.p2pStore.currentUserAvatar.value;
+      final username = widget.nodeManagement.currentUsername.value;
+      final avatar = widget.nodeManagement.currentUserAvatar.value;
 
       return DashboardMainCard(
         isConnected: isConnected,
@@ -240,7 +245,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
 
   Widget _buildHistoryListForNarrow(BuildContext context) {
     return Watch((context) {
-      final isConnected = widget.p2pStore.isRunning;
+      final isConnected = widget.nodeManagement.isRunning;
       final history = roomState.rooms;
       final colorScheme = Theme.of(context).colorScheme;
       final textTheme = Theme.of(context).textTheme;
@@ -330,7 +335,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
   }
 
   Widget _buildUserListInline(BuildContext context) {
-    final enhancedNodes = widget.p2pStore.enhancedUserNodes.value;
+    final enhancedNodes = widget.nodeManagement.enhancedUserNodes.value;
 
     if (enhancedNodes.isEmpty) {
       return Center(
@@ -361,7 +366,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
       itemBuilder: (context, index) {
         return DashboardUserItem(
           node: enhancedNodes[index],
-          p2pStore: widget.p2pStore,
+          p2pStore: widget.nodeManagement,
         );
       },
     );

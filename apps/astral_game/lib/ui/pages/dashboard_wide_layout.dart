@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
+import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
@@ -8,8 +9,10 @@ import 'package:astral_game/ui/widgets/user_list_widget.dart';
 import 'package:astral_game/ui/widgets/empty_state_widget.dart';
 import 'package:astral_game/ui/pages/dashboard_history_item.dart';
 
+/// 仪表盘宽屏布局
 class DashboardWideLayout extends StatelessWidget {
-  final NodeManagementService p2pStore;
+  final NodeManagementService nodeManagement;
+  final ConnectionService connectionService;
   final ScreenStateService screenStateService;
   final String? currentRoomUuid;
   final VoidCallback onSettings;
@@ -21,7 +24,8 @@ class DashboardWideLayout extends StatelessWidget {
 
   const DashboardWideLayout({
     super.key,
-    required this.p2pStore,
+    required this.nodeManagement,
+    required this.connectionService,
     required this.screenStateService,
     required this.currentRoomUuid,
     required this.onSettings,
@@ -46,7 +50,7 @@ class DashboardWideLayout extends StatelessWidget {
     return Watch((context) {
       final colorScheme = Theme.of(context).colorScheme;
       final textTheme = Theme.of(context).textTheme;
-      final instanceId = p2pStore.currentInstanceId.value;
+      final instanceId = nodeManagement.currentInstanceId.value;
       final isRunning = instanceId != null;
       final isNarrow = screenStateService.isNarrow;
 
@@ -82,16 +86,16 @@ class DashboardWideLayout extends StatelessWidget {
               isNarrow
                   ? (isRunning
                         ? UserListWidget(
-                            users: p2pStore.enhancedUserNodes.value,
-                            p2pStore: p2pStore,
+                            users: nodeManagement.enhancedUserNodes.value,
+                            p2pStore: nodeManagement,
                             shrinkWrap: true,
                           )
                         : _buildJoinHistory(context, shrinkWrap: true))
                   : Expanded(
                       child: isRunning
                           ? UserListWidget(
-                              users: p2pStore.enhancedUserNodes.value,
-                              p2pStore: p2pStore,
+                              users: nodeManagement.enhancedUserNodes.value,
+                              p2pStore: nodeManagement,
                               physics: const AlwaysScrollableScrollPhysics(),
                             )
                           : _buildJoinHistoryScrollable(context),
@@ -105,11 +109,11 @@ class DashboardWideLayout extends StatelessWidget {
 
   Widget _buildRightPanel(BuildContext context) {
     return Watch((context) {
-      final isConnected = p2pStore.isRunning;
-      final status = p2pStore.networkStatus.value;
+      final isConnected = nodeManagement.isRunning;
+      final status = nodeManagement.networkStatus.value;
       final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? '10.147.18.24';
-      final username = p2pStore.currentUsername.value;
-      final avatar = p2pStore.currentUserAvatar.value;
+      final username = nodeManagement.currentUsername.value;
+      final avatar = nodeManagement.currentUserAvatar.value;
 
       return LayoutBuilder(
         builder: (context, constraints) {

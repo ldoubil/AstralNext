@@ -2,22 +2,30 @@ import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:signals/signals_core.dart';
 
+/// 房间状态管理
+///
+/// 管理房间列表、选中的房间和连接状态
 class RoomState {
-  static final RoomState instance = RoomState._internal();
-  factory RoomState() => instance;
-  RoomState._internal();
-
   RoomPersistenceService? _persistence;
+  
+  /// 房间列表
   final _rooms = signal<List<RoomMod>>([]);
+  
+  /// 选中的房间 ID
   int? _selectedRoomId;
   
+  /// 选中的房间
   final selectedRoom = signal<dynamic>(null);
+  
+  /// 连接状态
   final isConnected = signal<bool>(false);
 
+  /// 初始化持久化服务
   void initPersistence(RoomPersistenceService persistence) {
     _persistence = persistence;
   }
 
+  /// 从持久化存储加载房间
   Future<void> loadFromPersistence() async {
     if (_persistence != null) {
       final loaded = await _persistence!.loadRooms();
@@ -25,6 +33,7 @@ class RoomState {
     }
   }
 
+  /// 恢复选中的房间
   void restoreSelectedRoom(int? roomId) {
     _selectedRoomId = roomId;
     if (roomId != null) {
@@ -35,10 +44,12 @@ class RoomState {
     }
   }
 
+  /// 设置连接状态
   void setConnected(bool value) {
     isConnected.value = value;
   }
 
+  /// 设置选中的房间
   void setSelectedRoom(dynamic room) {
     selectedRoom.value = room;
     if (room != null) {
@@ -47,9 +58,13 @@ class RoomState {
     }
   }
 
+  /// 获取房间列表
   List<RoomMod> get rooms => _rooms.value;
+  
+  /// 获取选中的房间 ID
   int? get selectedRoomId => _selectedRoomId;
 
+  /// 移除房间
   void removeRoom(int roomId) {
     final updated = _rooms.value.where((r) => r.id != roomId).toList();
     _rooms.value = updated;
@@ -57,4 +72,5 @@ class RoomState {
   }
 }
 
-final RoomState roomState = RoomState();
+/// 全局房间状态实例（通过 GetIt 获取）
+RoomState get roomState => RoomState();
