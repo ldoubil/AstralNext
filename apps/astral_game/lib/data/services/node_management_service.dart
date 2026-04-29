@@ -6,12 +6,12 @@ import 'package:event_bus/event_bus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_core.dart';
-import 'package:http/http.dart' as http;
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNetworkStatus;
 
 import '../models/enhanced_node_info.dart';
 import 'app_settings_service.dart';
+import 'node_net/node_net_client.dart';
 
 /// 节点加入事件
 class NodeJoinedEvent {
@@ -264,30 +264,20 @@ class NodeManagementService {
     final port = node.port ?? 4924;
 
     try {
-      final avatarResponse = await http
-          .get(Uri.http('$ip:$port', '/api/avatar'))
-          .timeout(const Duration(seconds: 3));
+      final client = GetIt.I<NodeNetClient>();
+      final result = await client.call(ip, port, 'user.getInfo');
 
-      if (avatarResponse.statusCode == 200) {
-        _updateNodeAvatar(node.peerId, avatarResponse.bodyBytes);
-      }
-    } catch (e) {
-      debugPrint('[NodeManagementService] 获取头像失败 $ip:$port: $e');
-    }
-
-    try {
-      final userResponse = await http
-          .get(Uri.http('$ip:$port', '/api/user'))
-          .timeout(const Duration(seconds: 3));
-
-      if (userResponse.statusCode == 200) {
-        final data = jsonDecode(userResponse.body);
-        if (data is Map && data.containsKey('name')) {
-          _updateNodeCustomName(node.peerId, data['name']);
+      if (result != null) {
+        if (result['name'] != null) {
+          _updateNodeCustomName(node.peerId, result['name'] as String);
+        }
+        if (result['avatar'] != null) {
+          final avatar = base64Decode(result['avatar'] as String);
+          _updateNodeAvatar(node.peerId, avatar);
         }
       }
     } catch (e) {
-      debugPrint('[NodeManagementService] 获取昵称失败 $ip:$port: $e');
+      debugPrint('[NodeManagementService] 获取节点信息失败 $ip:$port: $e');
     }
   }
 

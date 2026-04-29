@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:get_it/get_it.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
-import 'package:astral_game/data/services/client_api_service.dart';
+import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:astral_game/data/state/server_state.dart';
 
 class P2PConfigService {
@@ -35,8 +35,8 @@ class P2PConfigService {
     final disableP2p = _appSettings.isDisableP2p();
     final enabledServers = _serverState.getEnabledServers();
     
-    final clientApiService = GetIt.I<ClientApiService>();
-    final apiPort = clientApiService.port;
+    final nodeNetServer = GetIt.I<NodeNetServer>();
+    final apiPort = nodeNetServer.port;
     
     String peerBlock = '';
     if (enabledServers.isNotEmpty) {

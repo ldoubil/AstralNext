@@ -1,7 +1,11 @@
 import 'package:astral_game/data/services/app_settings_service.dart';
-import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
+import 'package:astral_game/data/services/node_net/methods/message_methods.dart';
+import 'package:astral_game/data/services/node_net/methods/node_methods.dart';
+import 'package:astral_game/data/services/node_net/methods/user_methods.dart';
+import 'package:astral_game/data/services/node_net/node_net_client.dart';
+import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
@@ -36,14 +40,15 @@ Future<void> setupDI() async {
   
   getIt.registerLazySingleton<NodeManagementService>(() => NodeManagementService());
   
+  getIt.registerSingleton<NodeNetServer>(NodeNetServer());
+  getIt.registerSingleton<NodeNetClient>(NodeNetClient());
+  
   getIt.registerLazySingleton<P2PConfigService>(
     () => P2PConfigService(
       getIt<AppSettingsService>(),
       getIt<ServerState>(),
     ),
   );
-  
-  getIt.registerLazySingleton<ClientApiService>(() => ClientApiService());
   
   getIt.registerLazySingleton<ServerState>(() => ServerState());
   getIt.registerLazySingleton<ServerStatusState>(() => ServerStatusState());
@@ -74,4 +79,19 @@ Future<void> setupDI() async {
   );
 
   getIt.registerLazySingleton<ConnectionService>(() => ConnectionService());
+  
+  await _initNodeNetServer();
+}
+
+/// 初始化 NodeNet 服务端
+Future<void> _initNodeNetServer() async {
+  final server = getIt<NodeNetServer>();
+  final appSettings = getIt<AppSettingsService>();
+  final nodeManagement = getIt<NodeManagementService>();
+  
+  server.registerAll(UserMethods(appSettings).methods);
+  server.registerAll(NodeMethods(nodeManagement).methods);
+  server.registerAll(MessageMethods().methods);
+  
+  await server.start();
 }
