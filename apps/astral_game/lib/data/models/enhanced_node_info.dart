@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNodeInfo;
 
 /// 增强的节点信息，包含自定义扩展字段
@@ -9,6 +11,7 @@ class EnhancedNodeInfo {
   final Map<String, dynamic> metadata;
   final String? customName;
   final DateTime? lastNameFetch;
+  final Uint8List? avatar;
 
   EnhancedNodeInfo({
     required this.baseInfo,
@@ -18,6 +21,7 @@ class EnhancedNodeInfo {
     this.metadata = const {},
     this.customName,
     this.lastNameFetch,
+    this.avatar,
   });
 
   factory EnhancedNodeInfo.fromKVNodeInfo(KVNodeInfo info) {
@@ -32,6 +36,7 @@ class EnhancedNodeInfo {
     Map<String, dynamic>? metadata,
     String? customName,
     DateTime? lastNameFetch,
+    Uint8List? avatar,
   }) {
     return EnhancedNodeInfo(
       baseInfo: baseInfo ?? this.baseInfo,
@@ -41,6 +46,7 @@ class EnhancedNodeInfo {
       metadata: metadata ?? this.metadata,
       customName: customName ?? this.customName,
       lastNameFetch: lastNameFetch ?? this.lastNameFetch,
+      avatar: avatar ?? this.avatar,
     );
   }
 

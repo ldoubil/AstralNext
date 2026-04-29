@@ -223,7 +223,7 @@ class NodeManagementService {
   void _updateNodeAvatar(int peerId, Uint8List avatar) {
     userNodes.value = userNodes.value.map((n) {
       if (n.peerId == peerId) {
-        return n.copyWith(avatarPort: n.port ?? 4924);
+        return n.copyWith(avatar: avatar);
       }
       return n;
     }).toList();
