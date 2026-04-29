@@ -1,5 +1,5 @@
 import 'package:astral_game/data/services/node_management_service.dart';
-import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:astral_game/data/services/node_net/node_net_server.dart';
 
 /// 节点相关方法
 class NodeMethods {
@@ -8,7 +8,7 @@ class NodeMethods {
   NodeMethods(this._nodeManagement);
 
   /// 获取节点列表
-  List<Map<String, dynamic>> list(Parameters params) {
+  List<Map<String, dynamic>> list(dynamic params) {
     return _nodeManagement.userNodes.value.map((node) {
       return {
         'peerId': node.peerId,
@@ -20,8 +20,11 @@ class NodeMethods {
   }
 
   /// 获取节点详情
-  Map<String, dynamic> getInfo(Parameters params) {
-    final peerId = params['peerId'].asInt;
+  Map<String, dynamic> getInfo(dynamic params) {
+    int peerId = 0;
+    if (params is Map && params['peerId'] != null) {
+      peerId = params['peerId'] as int;
+    }
 
     final node = _nodeManagement.userNodes.value.firstWhere(
       (n) => n.peerId == peerId,

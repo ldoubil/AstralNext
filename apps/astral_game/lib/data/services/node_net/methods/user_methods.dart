@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:astral_game/data/services/app_settings_service.dart';
-import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:astral_game/data/services/node_net/node_net_server.dart';
 
 /// 用户相关方法
 class UserMethods {
@@ -10,7 +10,7 @@ class UserMethods {
   UserMethods(this._settings);
 
   /// 获取用户信息
-  Map<String, dynamic> getInfo(Parameters params) {
+  Map<String, dynamic> getInfo(dynamic params) {
     final avatar = _settings.getAvatar();
     return {
       'name': _settings.getUsername(),
@@ -19,14 +19,16 @@ class UserMethods {
   }
 
   /// 更新用户信息
-  Future<Map<String, dynamic>> update(Parameters params) async {
-    if (params['name'].exists) {
-      await _settings.setUsername(params['name'].asString);
-    }
+  Future<Map<String, dynamic>> update(dynamic params) async {
+    if (params is Map) {
+      if (params['name'] != null) {
+        await _settings.setUsername(params['name'] as String);
+      }
 
-    if (params['avatar'].exists) {
-      final avatarBase64 = params['avatar'].asString;
-      await _settings.setAvatar(base64Decode(avatarBase64));
+      if (params['avatar'] != null) {
+        final avatarBase64 = params['avatar'] as String;
+        await _settings.setAvatar(base64Decode(avatarBase64));
+      }
     }
 
     return {'success': true};

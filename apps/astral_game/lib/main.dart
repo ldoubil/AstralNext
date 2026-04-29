@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:astral_game/di.dart';
-import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/state/room_state.dart';
@@ -37,10 +36,6 @@ Future<void> main() async {
   // 初始化用户信息（从持久化存储加载）
   final nodeManager = getIt<NodeManagementService>();
   nodeManager.initUserInfo();
-
-  // 启动头像 API 服务器（动态分配可用端口）
-  final clientApiService = getIt<ClientApiService>();
-  await clientApiService.start();
 
   // 初始化房间持久化
   final roomPersistence = getIt<RoomPersistenceService>();

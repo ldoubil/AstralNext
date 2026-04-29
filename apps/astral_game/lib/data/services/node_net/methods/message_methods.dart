@@ -1,6 +1,6 @@
+import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:event_bus/event_bus.dart';
 import 'package:get_it/get_it.dart';
-import 'package:json_rpc_2/json_rpc_2.dart';
 
 /// 消息事件
 class MessageEvent {
@@ -20,9 +20,11 @@ class MessageMethods {
   /// 发送消息（通知）
   ///
   /// 此方法不返回响应，仅触发事件
-  void send(Parameters params) {
-    final content = params['content'].asString;
-    final fromPeerId = params['fromPeerId'].exists ? params['fromPeerId'].asInt : 0;
+  void send(dynamic params) {
+    if (params is! Map) return;
+
+    final content = params['content'] as String? ?? '';
+    final fromPeerId = params['fromPeerId'] as int? ?? 0;
 
     final eventBus = GetIt.I<EventBus>();
     eventBus.fire(MessageEvent(
@@ -35,7 +37,7 @@ class MessageMethods {
   /// 广播消息（通知）
   ///
   /// 此方法不返回响应，仅触发事件
-  void broadcast(Parameters params) {
+  void broadcast(dynamic params) {
     send(params);
   }
 

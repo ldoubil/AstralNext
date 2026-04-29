@@ -3,7 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:json_rpc_2/json_rpc_2.dart';
+
+import 'node_net_server.dart';
 
 /// 节点网客户端
 ///

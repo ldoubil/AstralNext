@@ -3,10 +3,21 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:json_rpc_2/json_rpc_2.dart';
 
-/// 方法处理器类型
-typedef MethodHandler = FutureOr<dynamic> Function(Parameters params);
+/// 方法处理器类型（使用动态参数）
+typedef MethodHandler = FutureOr<dynamic> Function(dynamic params);
+
+/// JSON-RPC 异常
+class RpcException implements Exception {
+  final int code;
+  final String message;
+  final dynamic data;
+
+  RpcException(this.code, this.message, {this.data});
+
+  @override
+  String toString() => 'RpcException($code): $message';
+}
 
 /// 节点网服务端
 ///
@@ -14,7 +25,7 @@ typedef MethodHandler = FutureOr<dynamic> Function(Parameters params);
 class NodeNetServer {
   HttpServer? _httpServer;
   final Map<String, MethodHandler> _methods = {};
-  final List<void Function(String method, Parameters params)> _notificationListeners = [];
+  final List<void Function(String method, dynamic params)> _notificationListeners = [];
 
   /// 获取监听端口
   int get port => _httpServer?.port ?? 0;
@@ -35,12 +46,12 @@ class NodeNetServer {
   }
 
   /// 监听通知
-  void onNotification(void Function(String method, Parameters params) listener) {
+  void onNotification(void Function(String method, dynamic params) listener) {
     _notificationListeners.add(listener);
   }
 
   /// 移除通知监听
-  void removeNotification(void Function(String method, Parameters params) listener) {
+  void removeNotification(void Function(String method, dynamic params) listener) {
     _notificationListeners.remove(listener);
   }
 
@@ -134,12 +145,11 @@ class NodeNetServer {
     }
 
     try {
-      final parameters = _createParameters(params);
-      final result = await handler(parameters);
+      final result = await handler(params);
 
       if (id == null) {
         for (final listener in _notificationListeners) {
-          listener(method, parameters);
+          listener(method, params);
         }
         return null;
       }
@@ -149,26 +159,13 @@ class NodeNetServer {
         'result': result,
         'id': id,
       };
-    } on RpcException catch (e) {
-      return _buildError(e.code, e.message, e.data, id);
     } catch (e, stackTrace) {
       debugPrint('[NodeNetServer] 方法执行失败: $method, 错误: $e\n$stackTrace');
+      if (e is RpcException) {
+        return _buildError(e.code, e.message, e.data, id);
+      }
       return _buildError(-32603, 'Internal error', e.toString(), id);
     }
-  }
-
-  /// 创建 Parameters 对象
-  Parameters _createParameters(dynamic params) {
-    if (params == null) {
-      return Parameters.none();
-    }
-    if (params is Map) {
-      return Parameters(params.cast<String, dynamic>());
-    }
-    if (params is List) {
-      return Parameters(params.asMap().map((k, v) => MapEntry(k.toString(), v)));
-    }
-    return Parameters({'value': params});
   }
 
   /// 构建错误响应
