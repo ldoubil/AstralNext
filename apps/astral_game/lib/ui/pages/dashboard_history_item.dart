@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
-import 'package:astral_game/ui/pages/rooms/room_state.dart';
 
 class DashboardDismissibleHistoryItem extends StatefulWidget {
   final RoomMod room;

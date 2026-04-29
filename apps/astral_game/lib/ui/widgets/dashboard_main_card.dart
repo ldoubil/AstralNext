@@ -1,10 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
-import 'package:astral_game/data/services/client_api_service.dart';
 
 class DashboardMainCard extends StatefulWidget {
   final bool isConnected;
@@ -407,7 +405,6 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return Card(
       elevation: 0,

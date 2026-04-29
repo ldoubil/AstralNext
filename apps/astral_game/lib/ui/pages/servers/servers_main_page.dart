@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/data/state/server_state.dart';
 
-import 'server_state.dart';
 import 'server_dialog.dart';
 import 'blocked_servers.dart';
 import 'server_mod.dart';

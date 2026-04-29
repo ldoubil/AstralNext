@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals.dart';
-import 'server_mod.dart';
+import 'package:astral_game/ui/pages/servers/server_mod.dart';
 
 typedef ServerPersistenceCallback = Future<List<ServerMod>> Function();
 typedef ServerSaveCallback = Future<void> Function(List<ServerMod>);

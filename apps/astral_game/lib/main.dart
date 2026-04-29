@@ -4,7 +4,7 @@ import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/client_api_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
-import 'package:astral_game/ui/pages/rooms/room_state.dart';
+import 'package:astral_game/data/state/room_state.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 

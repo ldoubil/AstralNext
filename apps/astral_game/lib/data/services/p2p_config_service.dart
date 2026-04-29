@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:get_it/get_it.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/client_api_service.dart';
-import 'package:astral_game/ui/pages/servers/server_state.dart';
+import 'package:astral_game/data/state/server_state.dart';
 
 class P2PConfigService {
   final AppSettingsService _appSettings;

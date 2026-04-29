@@ -1,6 +1,6 @@
 import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/ui/pages/rooms/room_mod.dart';
 import 'package:signals/signals_core.dart';
-import 'room_mod.dart';
 
 class RoomState {
   static final RoomState instance = RoomState._internal();

@@ -140,8 +140,6 @@ class DashboardNetworkActions extends StatelessWidget {
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),

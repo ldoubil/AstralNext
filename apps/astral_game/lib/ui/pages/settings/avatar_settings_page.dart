@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:astral_game/data/services/client_api_service.dart';
+import 'package:astral_game/data/services/node_management_service.dart';
 
 class AvatarSettingsPage extends StatefulWidget {
   const AvatarSettingsPage({super.key});
@@ -14,20 +14,13 @@ class AvatarSettingsPage extends StatefulWidget {
 }
 
 class _AvatarSettingsPageState extends State<AvatarSettingsPage> {
-  final ClientApiService _apiService = GetIt.I<ClientApiService>();
+  final NodeManagementService _p2pStore = GetIt.I<NodeManagementService>();
   Uint8List? _currentAvatar;
 
   @override
   void initState() {
     super.initState();
-    _loadAvatar();
-  }
-
-  Future<void> _loadAvatar() async {
-    await _apiService.init();
-    setState(() {
-      _currentAvatar = _apiService.getAvatar();
-    });
+    _currentAvatar = _p2pStore.currentUserAvatar.value;
   }
 
   Future<void> _pickImage() async {
@@ -40,29 +33,32 @@ class _AvatarSettingsPageState extends State<AvatarSettingsPage> {
 
     if (image != null) {
       final bytes = await image.readAsBytes();
-      
-      await _apiService.setAvatar(bytes);
+      await _p2pStore.updateCurrentUserAvatar(bytes);
       
       setState(() {
         _currentAvatar = bytes;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('头像已更新')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('头像已更新')),
+        );
+      }
     }
   }
 
   Future<void> _removeAvatar() async {
-    await _apiService.setAvatar(Uint8List(0));
+    await _p2pStore.updateCurrentUserAvatar(null);
     
     setState(() {
       _currentAvatar = null;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已恢复默认头像')),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已恢复默认头像')),
+      );
+    }
   }
 
   @override

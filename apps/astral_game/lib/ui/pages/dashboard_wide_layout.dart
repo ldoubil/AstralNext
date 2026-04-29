@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
-import 'package:astral_game/ui/pages/rooms/room_state.dart';
+import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
-import 'package:astral_game/ui/pages/dashboard_user_item.dart';
+import 'package:astral_game/ui/widgets/user_list_widget.dart';
+import 'package:astral_game/ui/widgets/empty_state_widget.dart';
 import 'package:astral_game/ui/pages/dashboard_history_item.dart';
 
 class DashboardWideLayout extends StatelessWidget {
@@ -80,11 +81,19 @@ class DashboardWideLayout extends StatelessWidget {
               const SizedBox(height: 16),
               isNarrow
                   ? (isRunning
-                        ? _buildUserListInline(context)
-                        : _buildJoinHistory(context))
+                        ? UserListWidget(
+                            users: p2pStore.enhancedUserNodes.value,
+                            p2pStore: p2pStore,
+                            shrinkWrap: true,
+                          )
+                        : _buildJoinHistory(context, shrinkWrap: true))
                   : Expanded(
                       child: isRunning
-                          ? _buildUserListScrollable(context)
+                          ? UserListWidget(
+                              users: p2pStore.enhancedUserNodes.value,
+                              p2pStore: p2pStore,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                            )
                           : _buildJoinHistoryScrollable(context),
                     ),
             ],
@@ -129,72 +138,16 @@ class DashboardWideLayout extends StatelessWidget {
     });
   }
 
-  Widget _buildUserListInline(BuildContext context) {
-    final enhancedNodes = p2pStore.enhancedUserNodes.value;
-
-    if (enhancedNodes.isEmpty) {
-      return _buildEmptyUserState(context);
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: enhancedNodes.length,
-      itemBuilder: (context, index) {
-        return DashboardUserItem(
-          node: enhancedNodes[index],
-          p2pStore: p2pStore,
-        );
-      },
-    );
-  }
-
-  Widget _buildUserListScrollable(BuildContext context) {
-    final enhancedNodes = p2pStore.enhancedUserNodes.value;
-
-    if (enhancedNodes.isEmpty) {
-      return _buildEmptyUserState(context);
-    }
-
-    return ListView.builder(
-      itemCount: enhancedNodes.length,
-      itemBuilder: (context, index) {
-        return DashboardUserItem(
-          node: enhancedNodes[index],
-          p2pStore: p2pStore,
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyUserState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.people_outlined,
-            size: 48,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '暂无在线用户',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildJoinHistory(BuildContext context) {
+  Widget _buildJoinHistory(BuildContext context, {required bool shrinkWrap}) {
     return Watch((context) {
       final history = roomState.rooms;
 
       if (history.isEmpty) {
-        return _buildEmptyHistoryState(context);
+        return const EmptyStateWidget(
+          icon: Icons.history_outlined,
+          message: '暂无加入历史',
+          subtitle: '创建或加入房间后会显示在这里',
+        );
       }
 
       return Column(
@@ -216,7 +169,11 @@ class DashboardWideLayout extends StatelessWidget {
       final history = roomState.rooms;
 
       if (history.isEmpty) {
-        return _buildEmptyHistoryState(context);
+        return const EmptyStateWidget(
+          icon: Icons.history_outlined,
+          message: '暂无加入历史',
+          subtitle: '创建或加入房间后会显示在这里',
+        );
       }
 
       return ListView.builder(
@@ -227,34 +184,5 @@ class DashboardWideLayout extends StatelessWidget {
         ),
       );
     });
-  }
-
-  Widget _buildEmptyHistoryState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.history_outlined,
-            size: 48,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '暂无加入历史',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '创建或加入房间后会显示在这里',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

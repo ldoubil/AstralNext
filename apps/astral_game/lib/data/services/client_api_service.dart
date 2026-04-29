@@ -3,35 +3,21 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:get_it/get_it.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
 
 class ClientApiService {
   HttpServer? _server;
   int _port = 0;
-  Uint8List? _customAvatar;
-  late SharedPreferences _prefs;
   late AppSettingsService _appSettings;
 
   int get port => _port;
   bool get isRunning => _server != null;
 
-  Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
-    _appSettings = GetIt.I<AppSettingsService>();
-    final avatarBase64 = _prefs.getString('avatar');
-    if (avatarBase64 != null) {
-      _customAvatar = base64Decode(avatarBase64);
-    }
-  }
-
   Future<void> start() async {
     if (_server != null) return;
 
-    await init();
+    _appSettings = GetIt.I<AppSettingsService>();
     
-    // 使用动态端口分配，让系统自动选择可用端口
-    // 监听所有接口，允许VPN网络中的其他节点访问
     _server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
     _port = _server!.port;
 
@@ -62,8 +48,9 @@ class ClientApiService {
       response.statusCode = HttpStatus.ok;
       response.headers.contentType = ContentType('image', 'png');
       
-      if (_customAvatar != null) {
-        response.add(_customAvatar!);
+      final avatar = _appSettings.getAvatar();
+      if (avatar != null) {
+        response.add(avatar);
       } else {
         response.add(_generateDefaultAvatar());
       }
@@ -84,16 +71,6 @@ class ClientApiService {
       response.statusCode = HttpStatus.notFound;
       await response.close();
     }
-  }
-
-  Future<void> setAvatar(Uint8List avatarData) async {
-    _customAvatar = avatarData;
-    final base64 = base64Encode(avatarData);
-    await _prefs.setString('avatar', base64);
-  }
-
-  Uint8List getAvatar() {
-    return _customAvatar ?? _generateDefaultAvatar();
   }
 
   Uint8List _generateDefaultAvatar() {

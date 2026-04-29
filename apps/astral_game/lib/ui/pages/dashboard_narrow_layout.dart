@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
+import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
 import 'package:astral_game/ui/pages/dashboard_history_item.dart';
 import 'package:astral_game/ui/pages/dashboard_user_item.dart';
 import 'package:astral_game/ui/pages/rooms/room_mod.dart';
-import 'package:astral_game/ui/pages/rooms/room_state.dart';
 
 enum PanelState {
   expanded,

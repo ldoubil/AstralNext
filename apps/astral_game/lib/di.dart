@@ -1,15 +1,15 @@
 import 'package:astral_game/data/services/app_settings_service.dart';
-import 'package:astral_game/data/services/avatar_port_scanner.dart';
 import 'package:astral_game/data/services/client_api_service.dart';
+import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/data/services/server_persistence_service.dart';
 import 'package:astral_game/data/services/webdav_backup_service.dart';
+import 'package:astral_game/data/state/server_state.dart';
+import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/ui/shell/shell_content_controller.dart';
-import 'package:astral_game/ui/pages/servers/server_state.dart';
-import 'package:astral_game/ui/pages/settings/settings_state.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart';
 import 'package:event_bus/event_bus.dart';
@@ -48,9 +48,6 @@ Future<void> setupDI() async {
   // 客户端 API 服务
   getIt.registerLazySingleton<ClientApiService>(() => ClientApiService());
   
-  // 头像端口扫描器
-  getIt.registerLazySingleton<AvatarPortScanner>(() => AvatarPortScanner());
-  
   // 服务器状态
   getIt.registerLazySingleton<ServerState>(() => ServerState());
   getIt.registerLazySingleton<ServerStatusState>(() => ServerStatusState());
@@ -80,4 +77,7 @@ Future<void> setupDI() async {
       getIt<RoomPersistenceService>(),
     ),
   );
+
+  // 连接服务
+  getIt.registerLazySingleton<ConnectionService>(() => ConnectionService());
 }

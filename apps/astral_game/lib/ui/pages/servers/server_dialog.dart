@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:astral_game/data/state/server_state.dart';
 
 import 'server_mod.dart';
-import 'server_state.dart';
 import 'blocked_servers.dart';
 
 Future<void> showAddServerDialog(BuildContext context) async {

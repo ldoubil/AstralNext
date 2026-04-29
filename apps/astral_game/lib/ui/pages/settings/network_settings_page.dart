@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'settings_state.dart';
+import 'package:astral_game/data/state/settings_state.dart';
 
 class NetworkSettingsPage extends StatefulWidget {
   const NetworkSettingsPage({super.key});

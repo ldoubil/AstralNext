@@ -10,7 +10,6 @@ import 'general_settings_page.dart';
 import 'network_settings_page.dart';
 import 'cloud_backup_settings_page.dart';
 import 'about_page.dart';
-import '../../../data/services/client_api_service.dart';
 
 class SettingsMainPage extends StatefulWidget {
   const SettingsMainPage({super.key});
@@ -20,16 +19,14 @@ class SettingsMainPage extends StatefulWidget {
 }
 
 class _SettingsMainPageState extends State<SettingsMainPage> {
-  final ClientApiService _apiService = GetIt.I<ClientApiService>();
   final NodeManagementService _p2pStore = GetIt.I<NodeManagementService>();
   final TextEditingController _usernameController = TextEditingController();
   Uint8List? _currentAvatar;
-  Timer? _debounceTimer;  // 用于防抖
+  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
-    // 从 NodeManagementService 加载当前状态
     _usernameController.text = _p2pStore.currentUsername.value;
     _currentAvatar = _p2pStore.currentUserAvatar.value;
   }
@@ -50,18 +47,17 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
 
     if (image != null) {
       final bytes = await image.readAsBytes();
-      // 更新到 ClientApiService（用于对外服务）
-      await _apiService.setAvatar(bytes);
-      // 同时更新到 NodeManagementService（用于 UI 状态同步和持久化）
       await _p2pStore.updateCurrentUserAvatar(bytes);
       
       setState(() {
         _currentAvatar = bytes;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('头像已更新')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('头像已更新')),
+        );
+      }
     }
   }
 
@@ -69,7 +65,6 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
   Widget build(BuildContext context) {
     final contentController = getIt<ShellContentController>();
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return ListView(
       padding: const EdgeInsets.all(16),

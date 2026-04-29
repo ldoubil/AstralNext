@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'settings_state.dart';
+import 'package:astral_game/data/state/settings_state.dart';
 
 class GeneralSettingsPage extends StatelessWidget {
   const GeneralSettingsPage({super.key});
