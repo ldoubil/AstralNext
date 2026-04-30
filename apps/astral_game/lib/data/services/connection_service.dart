@@ -1,20 +1,28 @@
-import 'package:get_it/get_it.dart';
 import 'package:astral_game/utils/logger.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/state/room_state.dart';
-import 'package:astral_game/ui/pages/rooms/room_mod.dart';
+import 'package:astral_game/data/models/room_mod.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 
 /// 连接服务
 ///
 /// 负责管理 P2P 网络连接、房间创建和加入等操作
 class ConnectionService {
-  final P2PService _p2pService = GetIt.I<P2PService>();
-  final P2PConfigService _p2pConfig = GetIt.I<P2PConfigService>();
-  final NodeManagementService _nodeManagement = GetIt.I<NodeManagementService>();
-  final RoomPersistenceService _roomPersistence = GetIt.I<RoomPersistenceService>();
+  final P2PService _p2pService;
+  final P2PConfigService _p2pConfig;
+  final NodeManagementService _nodeManagement;
+  final RoomPersistenceService _roomPersistence;
+  final RoomState _roomState;
+
+  ConnectionService(
+    this._p2pService,
+    this._p2pConfig,
+    this._nodeManagement,
+    this._roomPersistence,
+    this._roomState,
+  );
 
   bool _isConnecting = false;
 
@@ -45,7 +53,7 @@ class ConnectionService {
       final isRunning = await _p2pService.isEasytierRunning(instanceId);
       if (isRunning) {
         _nodeManagement.setRunning(instanceId);
-        roomState.setConnected(true);
+        _roomState.setConnected(true);
         appLogger.i('[ConnectionService] 连接成功，实例ID: $instanceId');
         return true;
       } else {
@@ -72,7 +80,7 @@ class ConnectionService {
       }
     }
     _nodeManagement.setStopped();
-    roomState.setConnected(false);
+    _roomState.setConnected(false);
   }
 
   /// 创建新房间
@@ -81,29 +89,7 @@ class ConnectionService {
   /// 返回创建的房间信息
   Future<RoomMod> createRoom() async {
     final uuid = _p2pConfig.generateUuid();
-    final roomName = 'Room_${uuid.substring(0, 8)}';
-    final roomPassword = uuid;
-
-    final room = RoomMod(
-      id: DateTime.now().millisecondsSinceEpoch,
-      name: roomName,
-      roomName: roomName,
-      host: 'localhost',
-      port: 11010,
-      password: roomPassword,
-      uuid: uuid,
-      createdAt: DateTime.now(),
-    );
-
-    try {
-      await _roomPersistence.saveRooms([...roomState.rooms, room]);
-      await roomState.loadFromPersistence();
-      appLogger.i('[ConnectionService] 已创建房间: $roomName, UUID: $uuid');
-    } catch (e, stackTrace) {
-      appLogger.e('[ConnectionService] 保存房间失败: $e', error: e, stackTrace: stackTrace);
-    }
-
-    return room;
+    return _createAndPersistRoom(uuid);
   }
 
   /// 加入已有房间
@@ -111,6 +97,11 @@ class ConnectionService {
   /// [uuid] 房间 UUID
   /// 返回房间信息
   Future<RoomMod> joinRoom(String uuid) async {
+    return _createAndPersistRoom(uuid);
+  }
+
+  /// 创建并持久化房间
+  RoomMod _createAndPersistRoom(String uuid) {
     final roomName = 'Room_${uuid.substring(0, 8)}';
     final roomPassword = uuid;
 
@@ -125,13 +116,12 @@ class ConnectionService {
       createdAt: DateTime.now(),
     );
 
-    try {
-      await _roomPersistence.saveRooms([...roomState.rooms, room]);
-      await roomState.loadFromPersistence();
-      appLogger.i('[ConnectionService] 已加入房间: $roomName, UUID: $uuid');
-    } catch (e, stackTrace) {
-      appLogger.e('[ConnectionService] 保存房间记录失败: $e', error: e, stackTrace: stackTrace);
-    }
+    _roomPersistence.saveRooms([..._roomState.rooms, room]).then((_) {
+      _roomState.loadFromPersistence();
+      appLogger.i('[ConnectionService] 已创建/加入房间: $roomName, UUID: $uuid');
+    }).catchError((e, stackTrace) {
+      appLogger.e('[ConnectionService] 保存房间失败: $e', error: e, stackTrace: stackTrace);
+    });
 
     return room;
   }
@@ -140,7 +130,7 @@ class ConnectionService {
   ///
   /// [roomId] 房间 ID
   void removeRoom(int roomId) {
-    roomState.removeRoom(roomId);
+    _roomState.removeRoom(roomId);
     appLogger.i('[ConnectionService] 已移除房间: $roomId');
   }
 }

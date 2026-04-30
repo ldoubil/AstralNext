@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/ui/widgets/dashboard_main_card.dart';
 import 'package:astral_game/ui/pages/dashboard_history_item.dart';
 import 'package:astral_game/ui/pages/dashboard_user_item.dart';
-import 'package:astral_game/ui/pages/rooms/room_mod.dart';
+import 'package:astral_game/data/models/room_mod.dart';
 
 /// 面板状态
 enum PanelState {
@@ -246,7 +247,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
   Widget _buildHistoryListForNarrow(BuildContext context) {
     return Watch((context) {
       final isConnected = widget.nodeManagement.isRunning;
-      final history = roomState.rooms;
+      final history = getIt<RoomState>().rooms;
       final colorScheme = Theme.of(context).colorScheme;
       final textTheme = Theme.of(context).textTheme;
 

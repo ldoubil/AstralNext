@@ -1,4 +1,3 @@
-import 'package:get_it/get_it.dart';
 import 'package:signals/signals.dart';
 
 class SettingsState {
@@ -36,5 +35,3 @@ class SettingsState {
     listenList.value = list;
   }
 }
-
-SettingsState get settingsState => GetIt.I<SettingsState>();

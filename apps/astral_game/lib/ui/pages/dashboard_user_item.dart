@@ -27,7 +27,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
       (context) {
         final node = widget.node;
         final shouldFetchAvatar = widget.p2pStore.isValidIp(node.ipv4);
-        final ipDisplayText = widget.p2pStore.getNodeIpDisplayText(node.ipv4);
+        final ipDisplayText = node.ipv4;
         final isDirect = node.baseInfo.cost <= 1 || node.baseInfo.hops.length <= 1;
         final (platformName, _) = PlatformVersionParser.parsePlatformInfo(node.baseInfo.version);
         final versionNumber = PlatformVersionParser.getVersionNumber(node.baseInfo.version);

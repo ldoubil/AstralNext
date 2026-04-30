@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
+import 'package:astral_game/ui/widgets/avatar_widget.dart';
 
 class DashboardMainCard extends StatefulWidget {
   final bool isConnected;
@@ -63,31 +64,11 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
 
     return Row(
       children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: colorScheme.primaryContainer,
-            border: Border.all(
-              color: colorScheme.outline,
-              width: 1,
-            ),
-          ),
-          child: widget.userAvatar != null
-              ? ClipOval(
-                  child: Image.memory(
-                    widget.userAvatar!,
-                    fit: BoxFit.cover,
-                    width: 48,
-                    height: 48,
-                  ),
-                )
-              : Icon(
-                  Icons.person_outline,
-                  color: colorScheme.onPrimaryContainer,
-                  size: 24,
-                ),
+        AvatarWidget(
+          avatar: widget.userAvatar,
+          size: 48,
+          shape: AvatarShape.circle,
+          borderWidth: 1,
         ),
         const SizedBox(width: 14),
         Expanded(

@@ -89,9 +89,23 @@ Future<void> setupDI() async {
     ),
   );
 
-  getIt.registerLazySingleton<ConnectionService>(() => ConnectionService());
+  getIt.registerLazySingleton<ConnectionService>(() => ConnectionService(
+    getIt<P2PService>(),
+    getIt<P2PConfigService>(),
+    getIt<NodeManagementService>(),
+    getIt<RoomPersistenceService>(),
+    getIt<RoomState>(),
+  ));
   
   await _initNodeNetServer();
+}
+
+/// 释放所有服务资源
+void disposeDI() {
+  getIt<NodeManagementService>().dispose();
+  getIt<ScreenStateService>().dispose();
+  getIt<ServerStatusState>().dispose();
+  getIt<NodeNetClient>().dispose();
 }
 
 /// 初始化 NodeNet 服务端

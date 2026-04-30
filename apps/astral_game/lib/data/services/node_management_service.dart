@@ -125,34 +125,28 @@ class NodeManagementService {
     try {
       final status = await _p2pService.getNetworkStatus(instanceId);
 
-      if (status != null) {
-        networkStatus.value = KVNetworkStatus(
-          totalNodes: status.totalNodes,
-          nodes: List.from(status.nodes),
-        );
+      networkStatus.value = KVNetworkStatus(
+        totalNodes: status.totalNodes,
+        nodes: List.from(status.nodes),
+      );
 
-        final currentNodes = Map<int, EnhancedNodeInfo>.fromEntries(
-          userNodes.value.map((node) => MapEntry(node.peerId, node)),
-        );
+      final currentNodes = Map<int, EnhancedNodeInfo>.fromEntries(
+        userNodes.value.map((node) => MapEntry(node.peerId, node)),
+      );
 
-        final newNodes = <int, EnhancedNodeInfo>{};
-        for (final node in status.nodes) {
-          if (!node.hostname.contains('PublicServer')) {
-            final port = _parsePortFromHostname(node.hostname);
-            newNodes[node.peerId] = EnhancedNodeInfo(
-              baseInfo: node,
-              port: port,
-            );
-          }
+      final newNodes = <int, EnhancedNodeInfo>{};
+      for (final node in status.nodes) {
+        if (!node.hostname.contains('PublicServer')) {
+          final port = _parsePortFromHostname(node.hostname);
+          newNodes[node.peerId] = EnhancedNodeInfo(
+            baseInfo: node,
+            port: port,
+          );
         }
-
-        _processNodeChanges(currentNodes, newNodes);
-        enhancedUserNodes.value = List.from(userNodes.value);
-      } else {
-        userNodes.value = [];
-        enhancedUserNodes.value = [];
-        networkStatus.value = null;
       }
+
+      _processNodeChanges(currentNodes, newNodes);
+      enhancedUserNodes.value = List.from(userNodes.value);
     } catch (e, stackTrace) {
       appLogger.e('[NodeManagementService] 轮询网络状态失败: $e', error: e, stackTrace: stackTrace);
     }
@@ -271,7 +265,7 @@ class NodeManagementService {
 
       if (result != null) {
         if (result['name'] != null) {
-          _updateNodeCustomName(node.peerId, result['name'] as String);
+          updateNodeCustomName(node.peerId, result['name'] as String);
         }
         if (result['avatar'] != null) {
           final avatar = base64Decode(result['avatar'] as String);
@@ -330,11 +324,6 @@ class NodeManagementService {
   }
 
   /// 更新节点自定义名称
-  void _updateNodeCustomName(int peerId, String name) {
-    updateNodeCustomName(peerId, name);
-  }
-
-  /// 更新节点自定义名称（公开方法）
   void updateNodeCustomName(int peerId, String name) {
     userNodes.value = userNodes.value.map((n) {
       if (n.peerId == peerId) {
@@ -355,9 +344,6 @@ class NodeManagementService {
     }
     appLogger.i('[NodeManagementService] 用户信息已初始化: ${currentUsername.value}');
   }
-
-  /// 设置启动状态（空实现）
-  void setStarting() {}
 
   /// 设置运行状态
   void setRunning(String instanceId) {
@@ -382,11 +368,6 @@ class NodeManagementService {
   /// 检查是否为有效用户节点
   bool isValidUserNode(String ip, String hostname) {
     return isValidIp(ip) && !isServerNode(hostname);
-  }
-
-  /// 获取节点 IP 显示文本
-  String getNodeIpDisplayText(String ip) {
-    return ip;
   }
 
   /// 更新当前用户头像

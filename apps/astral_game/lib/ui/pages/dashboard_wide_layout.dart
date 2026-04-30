@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
@@ -144,7 +145,7 @@ class DashboardWideLayout extends StatelessWidget {
 
   Widget _buildJoinHistory(BuildContext context, {required bool shrinkWrap}) {
     return Watch((context) {
-      final history = roomState.rooms;
+      final history = getIt<RoomState>().rooms;
 
       if (history.isEmpty) {
         return const EmptyStateWidget(
@@ -170,7 +171,7 @@ class DashboardWideLayout extends StatelessWidget {
 
   Widget _buildJoinHistoryScrollable(BuildContext context) {
     return Watch((context) {
-      final history = roomState.rooms;
+      final history = getIt<RoomState>().rooms;
 
       if (history.isEmpty) {
         return const EmptyStateWidget(

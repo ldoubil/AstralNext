@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:get_it/get_it.dart';
 import 'package:signals/signals.dart';
-import 'package:astral_game/ui/pages/servers/server_mod.dart';
+import 'package:astral_game/data/models/server_mod.dart';
+import 'package:astral_game/utils/ping_util.dart';
 
 typedef ServerPersistenceCallback = Future<List<ServerMod>> Function();
 typedef ServerSaveCallback = Future<void> Function(List<ServerMod>);
@@ -154,36 +153,4 @@ class ServerStatusState {
   }
 }
 
-class PingUtil {
-  static Future<int?> ping(String server) async {
-    try {
-      final parts = server.split(':');
-      final hostname = parts[0];
-      final port = parts.length > 1 ? int.parse(parts[1]) : 80;
 
-      Socket? socket;
-      final stopwatch = Stopwatch();
-
-      try {
-        stopwatch.start();
-        socket = await Socket.connect(
-          hostname,
-          port,
-          timeout: const Duration(seconds: 5),
-        );
-        stopwatch.stop();
-        final ms = stopwatch.elapsedMilliseconds;
-        return ms > 800 ? null : ms;
-      } on SocketException {
-        return null;
-      } finally {
-        socket?.destroy();
-      }
-    } catch (e) {
-      return null;
-    }
-  }
-}
-
-ServerState get serverState => GetIt.I<ServerState>();
-ServerStatusState get serverStatusState => GetIt.I<ServerStatusState>();

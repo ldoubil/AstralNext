@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/ui/shell/shell_content_controller.dart';
+import 'package:astral_game/ui/widgets/avatar_widget.dart';
+import 'package:astral_game/utils/image_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../data/services/node_management_service.dart';
 import 'general_settings_page.dart';
 import 'network_settings_page.dart';
@@ -33,20 +34,15 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
 
   @override
   void dispose() {
+    _usernameController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 256,
-      maxHeight: 256,
-    );
+    final bytes = await ImagePickerHelper.pickImageFromGallery();
 
-    if (image != null) {
-      final bytes = await image.readAsBytes();
+    if (bytes != null) {
       await _p2pStore.updateCurrentUserAvatar(bytes);
       
       setState(() {
@@ -84,26 +80,12 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
                   children: [
                     GestureDetector(
                       onTap: _pickImage,
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: _currentAvatar != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.memory(
-                                  _currentAvatar!,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : Icon(
-                                Icons.person_outline,
-                                color: colorScheme.onPrimaryContainer,
-                                size: 28,
-                              ),
+                      child: AvatarWidget(
+                        avatar: _currentAvatar,
+                        size: 56,
+                        shape: AvatarShape.roundedSquare,
+                        borderRadius: 16,
+                        showBorder: false,
                       ),
                     ),
                     const SizedBox(width: 12),

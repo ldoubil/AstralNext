@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:astral_game/di.dart';
 import 'package:astral_game/data/state/settings_state.dart';
 
 class GeneralSettingsPage extends StatelessWidget {
@@ -21,9 +22,9 @@ class GeneralSettingsPage extends StatelessWidget {
               SwitchListTile(
                 title: const Text('关闭时最小化到托盘'),
                 subtitle: const Text('点击关闭按钮时最小化而不是退出'),
-                value: settingsState.closeMinimize.value,
+                value: getIt<SettingsState>().closeMinimize.value,
                 onChanged: (value) {
-                  settingsState.closeMinimize.value = value;
+                  getIt<SettingsState>().closeMinimize.value = value;
                 },
               ),
             ],

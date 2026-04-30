@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:astral_game/config/constants.dart';
 
 class DashboardNetworkActions extends StatelessWidget {
   final bool isConnected;
@@ -91,7 +92,9 @@ class DashboardNetworkActions extends StatelessWidget {
           _buildNetworkRow(
             context,
             '房间ID',
-            roomUuid?.substring(0, 8) ?? '未连接',
+            (roomUuid != null && roomUuid!.length >= AppConstants.uuidDisplayLength)
+                ? roomUuid!.substring(0, AppConstants.uuidDisplayLength)
+                : (roomUuid ?? '未连接'),
             Icons.room_outlined,
           ),
           const SizedBox(height: 8),

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/data/state/room_state.dart';
-import 'package:astral_game/ui/pages/rooms/room_mod.dart';
+import 'package:astral_game/data/models/room_mod.dart';
 import 'package:astral_game/ui/pages/dashboard_wide_layout.dart';
 import 'package:astral_game/ui/pages/dashboard_narrow_layout.dart';
 
@@ -24,6 +25,7 @@ class _DashboardPageState extends State<DashboardPage> {
   final NodeManagementService _nodeManagement = GetIt.I<NodeManagementService>();
   final ConnectionService _connectionService = GetIt.I<ConnectionService>();
   final ScreenStateService _screenStateService = GetIt.I<ScreenStateService>();
+  final RoomState _roomState = getIt<RoomState>();
   
   String? _currentRoomUuid;
 
@@ -124,9 +126,9 @@ class _DashboardPageState extends State<DashboardPage> {
   void _handleJoinHistory(String uuid) async {
     if (uuid.isEmpty || _connectionService.isConnecting) return;
     
-    final index = roomState.rooms.indexWhere((r) => r.uuid == uuid);
+    final index = _roomState.rooms.indexWhere((r) => r.uuid == uuid);
     if (index != -1) {
-      final room = roomState.rooms[index];
+      final room = _roomState.rooms[index];
       setState(() {
         _currentRoomUuid = uuid;
       });

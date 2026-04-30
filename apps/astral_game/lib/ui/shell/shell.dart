@@ -22,6 +22,7 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   late final ShellContentController _contentController;
   late final ScreenStateService _screenStateService;
+  late final List<NavigationItem> _navigationItems;
 
   @override
   void initState() {
@@ -29,6 +30,27 @@ class _ShellState extends State<Shell> {
     _contentController = getIt<ShellContentController>();
     _contentController.addListener(_onContentChanged);
     _screenStateService = getIt<ScreenStateService>();
+
+    _navigationItems = [
+      NavigationItem(
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home,
+        label: '主页',
+        page: const DashboardPage(key: PageStorageKey('dashboard')),
+      ),
+      NavigationItem(
+        icon: Icons.dns_outlined,
+        activeIcon: Icons.dns,
+        label: '服务器',
+        page: const ServersMainPage(key: PageStorageKey('servers')),
+      ),
+      NavigationItem(
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings,
+        label: '设置',
+        page: const SettingsMainPage(key: PageStorageKey('settings')),
+      ),
+    ];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -58,33 +80,9 @@ class _ShellState extends State<Shell> {
 
   int _selectedIndex = 0;
 
-  List<NavigationItem> get _navigationItems => [
-        NavigationItem(
-          icon: Icons.home_outlined,
-          activeIcon: Icons.home,
-          label: '主页',
-          page: const DashboardPage(key: PageStorageKey('dashboard')),
-        ),
-        NavigationItem(
-          icon: Icons.dns_outlined,
-          activeIcon: Icons.dns,
-          label: '服务器',
-          page: const ServersMainPage(key: PageStorageKey('servers')),
-        ),
-        NavigationItem(
-          icon: Icons.settings_outlined,
-          activeIcon: Icons.settings,
-          label: '设置',
-          page: const SettingsMainPage(key: PageStorageKey('settings')),
-        ),
-      ];
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    _screenStateService.updateScreenWidth(screenWidth);
 
     final isCompact = _screenStateService.isNarrow;
 

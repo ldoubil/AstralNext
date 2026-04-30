@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:astral_game/di.dart';
 import 'package:astral_game/data/state/settings_state.dart';
 
 class ListenListPage extends StatelessWidget {
@@ -6,7 +7,7 @@ class ListenListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final listenList = settingsState.listenList.value;
+    final listenList = getIt<SettingsState>().listenList.value;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
@@ -119,7 +120,7 @@ class ListenListPage extends StatelessWidget {
     );
 
     if (result != null && result.trim().isNotEmpty) {
-      settingsState.addListenItem(result.trim());
+      getIt<SettingsState>().addListenItem(result.trim());
     }
   }
 
@@ -155,7 +156,7 @@ class ListenListPage extends StatelessWidget {
     );
 
     if (result != null && result.trim().isNotEmpty && result != item) {
-      settingsState.updateListenItem(index, result.trim());
+      getIt<SettingsState>().updateListenItem(index, result.trim());
     }
   }
 
@@ -184,7 +185,7 @@ class ListenListPage extends StatelessWidget {
     );
 
     if (confirm == true) {
-      settingsState.removeListenItem(index);
+      getIt<SettingsState>().removeListenItem(index);
     }
   }
 }

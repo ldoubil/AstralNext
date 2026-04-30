@@ -39,6 +39,7 @@ Future<void> main() async {
 
   // 初始化房间持久化
   final roomPersistence = getIt<RoomPersistenceService>();
+  final roomState = getIt<RoomState>();
   roomState.initPersistence(roomPersistence);
   await roomState.loadFromPersistence();
   roomState.restoreSelectedRoom(roomPersistence.loadSelectedRoomId());

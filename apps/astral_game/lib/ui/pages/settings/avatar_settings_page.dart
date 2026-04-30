@@ -2,9 +2,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:image_picker/image_picker.dart';
 
 import 'package:astral_game/data/services/node_management_service.dart';
+import 'package:astral_game/ui/widgets/avatar_widget.dart';
+import 'package:astral_game/utils/image_picker_helper.dart';
 
 class AvatarSettingsPage extends StatefulWidget {
   const AvatarSettingsPage({super.key});
@@ -24,15 +25,9 @@ class _AvatarSettingsPageState extends State<AvatarSettingsPage> {
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 256,
-      maxHeight: 256,
-    );
+    final bytes = await ImagePickerHelper.pickImageFromGallery();
 
-    if (image != null) {
-      final bytes = await image.readAsBytes();
+    if (bytes != null) {
       await _p2pStore.updateCurrentUserAvatar(bytes);
       
       setState(() {
@@ -83,29 +78,11 @@ class _AvatarSettingsPageState extends State<AvatarSettingsPage> {
                 Center(
                   child: Stack(
                     children: [
-                      Container(
-                        width: 128,
-                        height: 128,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colorScheme.primaryContainer,
-                          border: Border.all(
-                            color: colorScheme.outline,
-                            width: 2,
-                          ),
-                        ),
-                        child: _currentAvatar != null
-                            ? ClipOval(
-                                child: Image.memory(
-                                  _currentAvatar!,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.person,
-                                size: 64,
-                                color: Colors.grey,
-                              ),
+                      AvatarWidget(
+                        avatar: _currentAvatar,
+                        size: 128,
+                        shape: AvatarShape.circle,
+                        borderWidth: 2,
                       ),
                       Positioned(
                         bottom: 0,

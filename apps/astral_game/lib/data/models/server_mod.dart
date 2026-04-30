@@ -1,24 +1,24 @@
 class ServerMod {
-  int id;
-  String name;
-  String url;
-  bool enable;
+  final int id;
+  final String name;
+  final String url;
+  final bool enable;
 
   // 协议开关
-  bool tcp;
-  bool faketcp;
-  bool udp;
-  bool ws;
-  bool wss;
-  bool quic;
-  bool wg;
-  bool txt;
-  bool srv;
-  bool http;
-  bool https;
+  final bool tcp;
+  final bool faketcp;
+  final bool udp;
+  final bool ws;
+  final bool wss;
+  final bool quic;
+  final bool wg;
+  final bool txt;
+  final bool srv;
+  final bool http;
+  final bool https;
 
   /// 排序顺序
-  int sortOrder;
+  final int sortOrder;
 
   static int _nextId = 1;
 

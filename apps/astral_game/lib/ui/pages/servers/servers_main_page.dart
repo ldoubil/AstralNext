@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/di.dart';
 import 'package:astral_game/data/state/server_state.dart';
+import 'package:astral_game/data/models/server_mod.dart';
 
 import 'server_dialog.dart';
 import 'blocked_servers.dart';
-import 'server_mod.dart';
 
 class ServersMainPage extends StatefulWidget {
   const ServersMainPage({super.key});
@@ -14,12 +15,15 @@ class ServersMainPage extends StatefulWidget {
 }
 
 class _ServersMainPageState extends State<ServersMainPage> {
+  final _serverState = getIt<ServerState>();
+  final _serverStatusState = getIt<ServerStatusState>();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      serverStatusState.startPeriodicCheck(
-        serverState.servers.value,
+      _serverStatusState.startPeriodicCheck(
+        _serverState.servers.value,
         const Duration(seconds: 30),
       );
     });
@@ -27,7 +31,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
 
   @override
   void dispose() {
-    serverStatusState.stopPeriodicCheck();
+    _serverStatusState.stopPeriodicCheck();
     super.dispose();
   }
 
@@ -46,8 +50,8 @@ class _ServersMainPageState extends State<ServersMainPage> {
 
   Widget _buildBody(BuildContext context) {
     return Watch((context) {
-      final servers = serverState.servers.value;
-      final statuses = serverStatusState.serverStatuses.value;
+      final servers = _serverState.servers.value;
+      final statuses = _serverStatusState.serverStatuses.value;
 
       if (servers.isEmpty) {
         return Center(
@@ -95,7 +99,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
         }
         final server = newServers.removeAt(oldIndex);
         newServers.insert(newIndex, server);
-        serverState.reorderServers(newServers);
+        _serverState.reorderServers(newServers);
       },
       itemBuilder: (context, index) {
         final server = servers[index];
@@ -133,7 +137,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
                     child: Switch(
                       value: server.enable,
                       onChanged: (value) {
-                        serverState.toggleServerEnabled(server.id, value);
+                        _serverState.toggleServerEnabled(server.id, value);
                       },
                     ),
                   ),
@@ -238,7 +242,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
           ),
           TextButton(
             onPressed: () {
-              serverState.removeServer(server.id);
+              _serverState.removeServer(server.id);
               Navigator.of(context).pop();
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),

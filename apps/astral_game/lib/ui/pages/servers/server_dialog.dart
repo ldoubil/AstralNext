@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:astral_game/di.dart';
 import 'package:astral_game/data/state/server_state.dart';
+import 'package:astral_game/data/models/server_mod.dart';
 
-import 'server_mod.dart';
 import 'blocked_servers.dart';
 
 Future<void> showAddServerDialog(BuildContext context) async {
@@ -105,9 +106,9 @@ class _ServerDialogState extends State<ServerDialog> {
       );
 
       if (widget.server == null) {
-        serverState.addServer(server);
+        getIt<ServerState>().addServer(server);
       } else {
-        serverState.updateServer(server);
+        getIt<ServerState>().updateServer(server);
       }
       Navigator.of(context).pop();
     }

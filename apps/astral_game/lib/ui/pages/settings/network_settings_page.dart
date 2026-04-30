@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:astral_game/di.dart';
 import 'package:astral_game/data/state/settings_state.dart';
+import 'package:astral_game/utils/input_validator.dart';
 
 class NetworkSettingsPage extends StatefulWidget {
   const NetworkSettingsPage({super.key});
@@ -12,39 +14,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
   final TextEditingController _virtualIpController = TextEditingController(text: '10.147.18.24');
   bool _isDhcp = true;
   bool _isValidIP = true;
-
-  bool _isValidIPv4(String ip) {
-    final parts = ip.split('/');
-    if (parts.length > 2) return false;
-
-    final ipPart = parts[0];
-    if (ipPart.isEmpty) return false;
-
-    final octets = ipPart.split('.');
-    if (octets.length != 4) return false;
-
-    for (final octet in octets) {
-      try {
-        final value = int.parse(octet);
-        if (value < 0 || value > 255) return false;
-      } catch (e) {
-        return false;
-      }
-    }
-
-    if (parts.length == 2) {
-      final maskPart = parts[1];
-      if (maskPart.isEmpty) return false;
-      try {
-        final mask = int.parse(maskPart);
-        if (mask < 0 || mask > 32) return false;
-      } catch (e) {
-        return false;
-      }
-    }
-
-    return true;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +46,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                         onChanged: (value) {
                           if (!_isDhcp) {
                             setState(() {
-                              _isValidIP = _isValidIPv4(value);
+                              _isValidIP = InputValidator.validateIPv4(value) == null;
                             });
                           }
                         },
@@ -128,9 +97,9 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                 SwitchListTile(
                   title: const Text('禁用 P2P'),
                   subtitle: const Text('禁用点对点直连，仅通过中继服务器通信'),
-                  value: settingsState.disableP2p.value,
+                  value: getIt<SettingsState>().disableP2p.value,
                   onChanged: (value) {
-                    settingsState.disableP2p.value = value;
+                    getIt<SettingsState>().disableP2p.value = value;
                   },
                 ),
               ],

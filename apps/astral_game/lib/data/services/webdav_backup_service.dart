@@ -7,7 +7,7 @@ import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
 import 'package:webdav_client/webdav_client.dart' hide File;
 
-import 'package:astral_game/ui/pages/rooms/room_mod.dart';
+import 'package:astral_game/data/models/room_mod.dart';
 import 'app_settings_service.dart';
 import 'room_persistence_service.dart';
 
