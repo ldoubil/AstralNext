@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:astral_game/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSettingsService {
@@ -86,10 +87,10 @@ class AppSettingsService {
     if (avatarBase64 == null || avatarBase64.isEmpty) {
       return null;
     }
-    try {
+     try {
       return base64Decode(avatarBase64);
     } catch (e) {
-      print('[AppSettingsService] Failed to decode avatar: $e');
+      appLogger.e('[AppSettingsService] Failed to decode avatar: $e');
       return null;
     }
   }

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:astral_game/utils/logger.dart';
 import 'package:http/http.dart' as http;
 
 import 'node_net_server.dart';
@@ -99,10 +99,10 @@ class NodeNetClient {
             body: jsonEncode(request),
           )
           .timeout(timeout);
-    } on TimeoutException {
-      debugPrint('[NodeNetClient] 通知超时: $method -> $ip:$port');
+     } on TimeoutException {
+      appLogger.w('[NodeNetClient] 通知超时: $method -> $ip:$port');
     } catch (e) {
-      debugPrint('[NodeNetClient] 发送通知失败: $method -> $ip:$port, 错误: $e');
+      appLogger.e('[NodeNetClient] 发送通知失败: $method -> $ip:$port, 错误: $e');
     }
   }
 

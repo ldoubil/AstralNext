@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:astral_game/utils/logger.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
@@ -27,7 +27,7 @@ class ConnectionService {
   /// 返回连接是否成功
   Future<bool> connectToRoom(String roomName, String roomPassword) async {
     if (_isConnecting) {
-      debugPrint('[ConnectionService] 已有连接正在进行中，跳过');
+      appLogger.w('[ConnectionService] 已有连接正在进行中，跳过');
       return false;
     }
 
@@ -35,7 +35,7 @@ class ConnectionService {
 
     try {
       final configToml = _p2pConfig.buildTomlConfig(roomName, roomPassword);
-      debugPrint('[ConnectionService] 正在连接房间: $roomName');
+      appLogger.i('[ConnectionService] 正在连接房间: $roomName');
 
       final instanceId = await _p2pService.createServer(
         configToml: configToml,
@@ -46,14 +46,14 @@ class ConnectionService {
       if (isRunning) {
         _nodeManagement.setRunning(instanceId);
         roomState.setConnected(true);
-        debugPrint('[ConnectionService] 连接成功，实例ID: $instanceId');
+        appLogger.i('[ConnectionService] 连接成功，实例ID: $instanceId');
         return true;
       } else {
-        debugPrint('[ConnectionService] 连接失败：实例启动异常');
+        appLogger.e('[ConnectionService] 连接失败：实例启动异常');
         return false;
       }
     } catch (e, stackTrace) {
-      debugPrint('[ConnectionService] 连接失败: $e\n$stackTrace');
+      appLogger.e('[ConnectionService] 连接失败: $e', error: e, stackTrace: stackTrace);
       return false;
     } finally {
       _isConnecting = false;
@@ -66,9 +66,9 @@ class ConnectionService {
     if (instanceId != null) {
       try {
         await _p2pService.closeServer(instanceId);
-        debugPrint('[ConnectionService] 已断开连接，实例ID: $instanceId');
+        appLogger.i('[ConnectionService] 已断开连接，实例ID: $instanceId');
       } catch (e, stackTrace) {
-        debugPrint('[ConnectionService] 断开连接时发生错误: $e\n$stackTrace');
+        appLogger.e('[ConnectionService] 断开连接时发生错误: $e', error: e, stackTrace: stackTrace);
       }
     }
     _nodeManagement.setStopped();
@@ -98,9 +98,9 @@ class ConnectionService {
     try {
       await _roomPersistence.saveRooms([...roomState.rooms, room]);
       await roomState.loadFromPersistence();
-      debugPrint('[ConnectionService] 已创建房间: $roomName, UUID: $uuid');
+      appLogger.i('[ConnectionService] 已创建房间: $roomName, UUID: $uuid');
     } catch (e, stackTrace) {
-      debugPrint('[ConnectionService] 保存房间失败: $e\n$stackTrace');
+      appLogger.e('[ConnectionService] 保存房间失败: $e', error: e, stackTrace: stackTrace);
     }
 
     return room;
@@ -128,9 +128,9 @@ class ConnectionService {
     try {
       await _roomPersistence.saveRooms([...roomState.rooms, room]);
       await roomState.loadFromPersistence();
-      debugPrint('[ConnectionService] 已加入房间: $roomName, UUID: $uuid');
+      appLogger.i('[ConnectionService] 已加入房间: $roomName, UUID: $uuid');
     } catch (e, stackTrace) {
-      debugPrint('[ConnectionService] 保存房间记录失败: $e\n$stackTrace');
+      appLogger.e('[ConnectionService] 保存房间记录失败: $e', error: e, stackTrace: stackTrace);
     }
 
     return room;
@@ -141,6 +141,6 @@ class ConnectionService {
   /// [roomId] 房间 ID
   void removeRoom(int roomId) {
     roomState.removeRoom(roomId);
-    debugPrint('[ConnectionService] 已移除房间: $roomId');
+    appLogger.i('[ConnectionService] 已移除房间: $roomId');
   }
 }

@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:event_bus/event_bus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_core.dart';
+import 'package:astral_game/utils/logger.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNetworkStatus;
 
@@ -76,7 +76,7 @@ class NodeManagementService {
   void start(String instanceId) {
     currentInstanceId.value = instanceId;
     _startPolling(instanceId);
-    debugPrint('[NodeManagementService] 已启动，实例ID: $instanceId');
+    appLogger.i('[NodeManagementService] 已启动，实例ID: $instanceId');
   }
 
   /// 停止节点管理
@@ -86,7 +86,7 @@ class NodeManagementService {
     currentInstanceId.value = null;
     userNodes.value = [];
     enhancedUserNodes.value = [];
-    debugPrint('[NodeManagementService] 已停止');
+    appLogger.i('[NodeManagementService] 已停止');
   }
 
   /// 开始轮询网络状态
@@ -154,7 +154,7 @@ class NodeManagementService {
         networkStatus.value = null;
       }
     } catch (e, stackTrace) {
-      debugPrint('[NodeManagementService] 轮询网络状态失败: $e\n$stackTrace');
+      appLogger.e('[NodeManagementService] 轮询网络状态失败: $e', error: e, stackTrace: stackTrace);
     }
   }
 
@@ -182,7 +182,7 @@ class NodeManagementService {
       userNodes.value = List.from(userNodes.value)..add(node);
       _eventBus.fire(NodeJoinedEvent(node));
       _scheduleIpReadyCheck(node);
-      debugPrint('[NodeManagementService] 节点加入: ${node.hostname} (peerId: $peerId)');
+      appLogger.i('[NodeManagementService] 节点加入: ${node.hostname} (peerId: $peerId)');
     }
   }
 
@@ -192,7 +192,7 @@ class NodeManagementService {
       userNodes.value = userNodes.value.where((n) => n.peerId != peerId).toList();
       _cancelIpReadyTimer(peerId);
       _eventBus.fire(NodeLeftEvent(peerId));
-      debugPrint('[NodeManagementService] 节点离开: peerId: $peerId');
+      appLogger.i('[NodeManagementService] 节点离开: peerId: $peerId');
     }
   }
 
@@ -208,7 +208,7 @@ class NodeManagementService {
 
       if (currentNode.ipv4 != newNode.ipv4) {
         _eventBus.fire(NodeIpChangedEvent(newNode, currentNode.ipv4, newNode.ipv4));
-        debugPrint('[NodeManagementService] 节点IP变更: ${currentNode.ipv4} -> ${newNode.ipv4}');
+        appLogger.i('[NodeManagementService] 节点IP变更: ${currentNode.ipv4} -> ${newNode.ipv4}');
         if (newNode.ipv4 != '0.0.0.0') {
           _fetchNodeInfo(newNode);
         }
@@ -277,7 +277,7 @@ class NodeManagementService {
         }
       }
     } catch (e) {
-      debugPrint('[NodeManagementService] 获取节点信息失败 $ip:$port: $e');
+      appLogger.e('[NodeManagementService] 获取节点信息失败 $ip:$port: $e');
     }
   }
 
@@ -315,7 +315,7 @@ class NodeManagementService {
     if (avatar != null) {
       currentUserAvatar.value = avatar;
     }
-    debugPrint('[NodeManagementService] 用户信息已初始化: ${currentUsername.value}');
+    appLogger.i('[NodeManagementService] 用户信息已初始化: ${currentUsername.value}');
   }
 
   /// 设置启动状态（空实现）
@@ -356,10 +356,10 @@ class NodeManagementService {
     currentUserAvatar.value = avatar;
     if (avatar != null) {
       await _appSettings.setAvatar(avatar);
-      debugPrint('[NodeManagementService] 用户头像已更新');
+      appLogger.i('[NodeManagementService] 用户头像已更新');
     } else {
       await _appSettings.clearAvatar();
-      debugPrint('[NodeManagementService] 用户头像已清除');
+      appLogger.i('[NodeManagementService] 用户头像已清除');
     }
   }
 
@@ -367,12 +367,12 @@ class NodeManagementService {
   Future<void> updateCurrentUsername(String username) async {
     currentUsername.value = username;
     await _appSettings.setUsername(username);
-    debugPrint('[NodeManagementService] 用户名已更新: $username');
+    appLogger.i('[NodeManagementService] 用户名已更新: $username');
   }
 
   /// 释放资源
   void dispose() {
     stop();
-    debugPrint('[NodeManagementService] 资源已释放');
+    appLogger.i('[NodeManagementService] 资源已释放');
   }
 }

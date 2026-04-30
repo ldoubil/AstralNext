@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:astral_game/utils/logger.dart';
 
 /// 方法处理器类型（使用动态参数）
 typedef MethodHandler = FutureOr<dynamic> Function(dynamic params);
@@ -36,13 +36,13 @@ class NodeNetServer {
   /// 注册方法
   void register(String method, MethodHandler handler) {
     _methods[method] = handler;
-    debugPrint('[NodeNetServer] 注册方法: $method');
+    appLogger.i('[NodeNetServer] 注册方法: $method');
   }
 
   /// 批量注册方法
   void registerAll(Map<String, MethodHandler> methods) {
     _methods.addAll(methods);
-    debugPrint('[NodeNetServer] 批量注册 ${methods.length} 个方法');
+    appLogger.i('[NodeNetServer] 批量注册 ${methods.length} 个方法');
   }
 
   /// 监听通知
@@ -58,17 +58,17 @@ class NodeNetServer {
   /// 启动服务
   Future<void> start() async {
     if (_httpServer != null) {
-      debugPrint('[NodeNetServer] 服务已在运行');
+      appLogger.w('[NodeNetServer] 服务已在运行');
       return;
     }
 
     try {
       _httpServer = await HttpServer.bind(InternetAddress.anyIPv4, 0);
-      debugPrint('[NodeNetServer] 服务已启动，端口: ${_httpServer!.port}');
+      appLogger.i('[NodeNetServer] 服务已启动，端口: ${_httpServer!.port}');
 
       _httpServer!.listen(_handleRequest);
     } catch (e, stackTrace) {
-      debugPrint('[NodeNetServer] 启动失败: $e\n$stackTrace');
+      appLogger.e('[NodeNetServer] 启动失败: $e', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -79,7 +79,7 @@ class NodeNetServer {
 
     await _httpServer!.close();
     _httpServer = null;
-    debugPrint('[NodeNetServer] 服务已停止');
+    appLogger.i('[NodeNetServer] 服务已停止');
   }
 
   /// 处理 HTTP 请求
@@ -118,7 +118,7 @@ class NodeNetServer {
         _sendResponse(request, _buildError(-32600, 'Invalid Request', null));
       }
     } catch (e, stackTrace) {
-      debugPrint('[NodeNetServer] 处理请求失败: $e\n$stackTrace');
+      appLogger.e('[NodeNetServer] 处理请求失败: $e', error: e, stackTrace: stackTrace);
       _sendResponse(request, _buildError(-32603, 'Internal error', e.toString()));
     } finally {
       await request.response.close();
@@ -160,7 +160,7 @@ class NodeNetServer {
         'id': id,
       };
     } catch (e, stackTrace) {
-      debugPrint('[NodeNetServer] 方法执行失败: $method, 错误: $e\n$stackTrace');
+      appLogger.e('[NodeNetServer] 方法执行失败: $method, 错误: $e', error: e, stackTrace: stackTrace);
       if (e is RpcException) {
         return _buildError(e.code, e.message, e.data, id);
       }

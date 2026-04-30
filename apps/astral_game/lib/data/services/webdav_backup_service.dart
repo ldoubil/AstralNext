@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io' as io;
 
 import 'package:archive/archive.dart';
-import 'package:flutter/material.dart';
+import 'package:astral_game/utils/logger.dart';
 import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
 import 'package:webdav_client/webdav_client.dart' hide File;
@@ -351,7 +351,7 @@ class WebDavBackupService {
         await io.File(localZipPath).delete();
       } catch (_) {}
     } catch (e, st) {
-      debugPrint('[备份恢复] 恢复失败: $e\n$st');
+      appLogger.e('[备份恢复] 恢复失败: $e', error: e, stackTrace: st);
       onProgress?.call('error', 0, _webDavErrorMessage(e));
       rethrow;
     }

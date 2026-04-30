@@ -19,6 +19,7 @@ import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart';
 import 'package:event_bus/event_bus.dart';
 import 'package:get_it/get_it.dart';
+import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final getIt = GetIt.instance;
@@ -27,6 +28,16 @@ final getIt = GetIt.instance;
 Future<void> setupDI() async {
   final prefs = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(prefs);
+  getIt.registerLazySingleton<Logger>(() => Logger(
+        printer: PrettyPrinter(
+          methodCount: 0,
+          errorMethodCount: 5,
+          lineLength: 80,
+          colors: true,
+          printEmojis: false,
+          dateTimeFormat: DateTimeFormat.none,
+        ),
+      ));
   getIt.registerSingleton<AppSettingsService>(AppSettingsService(prefs));
   getIt.registerSingleton<ShellContentController>(ShellContentController());
   
