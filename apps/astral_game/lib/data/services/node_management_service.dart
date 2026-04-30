@@ -238,6 +238,7 @@ class NodeManagementService {
   void _scheduleIpReadyCheck(EnhancedNodeInfo node) {
     if (node.ipv4 != '0.0.0.0') {
       _fetchNodeInfo(node);
+      _pushOwnInfoToNode(node);
       return;
     }
 
@@ -253,6 +254,7 @@ class NodeManagementService {
           timer.cancel();
           _ipReadyTimers.remove(node.peerId);
           _fetchNodeInfo(currentNode);
+          _pushOwnInfoToNode(currentNode);
         }
       },
     );
@@ -279,6 +281,42 @@ class NodeManagementService {
     } catch (e) {
       appLogger.e('[NodeManagementService] 获取节点信息失败 $ip:$port: $e');
     }
+  }
+
+  /// 推送自己的用户信息到指定节点
+  Future<void> _pushOwnInfoToNode(EnhancedNodeInfo node) async {
+    final ip = node.ipv4;
+    final port = node.port ?? 4924;
+
+    if (ip == '0.0.0.0') {
+      appLogger.w('[NodeManagementService] 节点 ${node.hostname} IP 无效，无法推送用户信息');
+      return;
+    }
+
+    final ownName = _appSettings.getUsername();
+    final ownAvatar = _appSettings.getAvatar();
+
+    final params = {
+      'name': ownName,
+      if (ownAvatar != null) 'avatar': base64Encode(ownAvatar),
+    };
+
+    final client = GetIt.I<NodeNetClient>();
+
+    for (int retry = 0; retry < 3; retry++) {
+      try {
+        await client.notify(ip, port, 'user.update', params: params);
+        appLogger.i('[NodeManagementService] 成功推送用户信息到节点 ${node.hostname} ($ip:$port)');
+        return;
+      } catch (e) {
+        appLogger.w('[NodeManagementService] 推送用户信息到节点 ${node.hostname} 失败 (重试 $retry/3): $e');
+        if (retry < 2) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
+    }
+
+    appLogger.e('[NodeManagementService] 推送用户信息到节点 ${node.hostname} 失败，已达最大重试次数');
   }
 
   /// 更新节点头像
