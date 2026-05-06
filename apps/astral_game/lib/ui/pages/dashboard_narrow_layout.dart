@@ -240,7 +240,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
         onJoinRoomTap: widget.onJoinRoom,
         onShareRoomTap: widget.onShareRoom,
         onDisconnectTap: widget.onDisconnect,
-
+        showFirewall: true,
       );
     });
   }

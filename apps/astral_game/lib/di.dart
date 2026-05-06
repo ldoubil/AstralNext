@@ -1,5 +1,6 @@
 import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
+import 'package:astral_game/data/services/firewall_service.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/node_net/methods/message_methods.dart';
 import 'package:astral_game/data/services/node_net/methods/node_methods.dart';
@@ -97,6 +98,8 @@ Future<void> setupDI() async {
     getIt<RoomPersistenceService>(),
     getIt<RoomState>(),
   ));
+
+  getIt.registerLazySingleton<FirewallService>(() => FirewallService());
   
   await _initNodeNetServer();
 }

@@ -1,7 +1,9 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/di.dart';
+import 'package:astral_game/data/services/firewall_service.dart';
 import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/ui/widgets/avatar_widget.dart';
 
@@ -17,6 +19,7 @@ class DashboardMainCard extends StatefulWidget {
   final VoidCallback? onShareRoomTap;
   final VoidCallback? onDisconnectTap;
   final bool isCollapsed;
+  final bool showFirewall;
 
   const DashboardMainCard({
     super.key,
@@ -31,6 +34,7 @@ class DashboardMainCard extends StatefulWidget {
     this.onShareRoomTap,
     this.onDisconnectTap,
     this.isCollapsed = false,
+    this.showFirewall = true,
   });
 
   @override
@@ -38,9 +42,60 @@ class DashboardMainCard extends StatefulWidget {
 }
 
 class _DashboardMainCardState extends State<DashboardMainCard> {
+  bool _firewallEnabled = false;
+  bool _isLoadingFirewall = true;
+
   @override
   void initState() {
     super.initState();
+    _loadFirewallStatus();
+  }
+
+  Future<void> _loadFirewallStatus() async {
+    // 仅在非 web 平台加载防火墙状态
+    // Web 平台不支持防火墙操作
+    if (!kIsWeb) {
+      try {
+        final firewallService = getIt<FirewallService>();
+        final status = await firewallService.getPrivateFirewallStatus();
+        if (mounted) {
+          setState(() {
+            _firewallEnabled = status;
+            _isLoadingFirewall = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isLoadingFirewall = false;
+          });
+        }
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoadingFirewall = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleFirewall(bool enable) async {
+    setState(() {
+      _firewallEnabled = enable;
+    });
+    
+    try {
+      final firewallService = getIt<FirewallService>();
+      await firewallService.setPrivateFirewallStatus(enable);
+    } catch (e) {
+      // 恢复状态
+      if (mounted) {
+        setState(() {
+          _firewallEnabled = !enable;
+        });
+      }
+    }
   }
 
   @override
@@ -179,10 +234,81 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                         fontSize: 12,
                         color: colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
-                    ),
-                  ],
-                ),
               ),
+            ],
+          ),
+        ),
+
+        // 防火墙开关（非 Web 平台）
+        if (widget.showFirewall && !kIsWeb) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _firewallEnabled
+                        ? colorScheme.primaryContainer
+                        : colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.shield,
+                    size: 18,
+                    color: _firewallEnabled
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '防火墙',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        _isLoadingFirewall
+                            ? '加载中...'
+                            : (_firewallEnabled ? '已启用' : '已禁用'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isLoadingFirewall)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Switch(
+                    value: _firewallEnabled,
+                    onChanged: _toggleFirewall,
+                  ),
+              ],
+            ),
+          ),
+        ],
               Switch(
                 value: disableP2p,
                 onChanged: (value) {
