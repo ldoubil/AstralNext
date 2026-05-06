@@ -11,6 +11,8 @@ class AstralGameApp extends StatefulWidget {
 }
 
 class _AstralGameAppState extends State<AstralGameApp> with WidgetsBindingObserver {
+  bool _disposed = false;
+
   @override
   void initState() {
     super.initState();
@@ -20,13 +22,20 @@ class _AstralGameAppState extends State<AstralGameApp> with WidgetsBindingObserv
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    disposeDI();
+    _safeDisposeDI();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
+      _safeDisposeDI();
+    }
+  }
+
+  void _safeDisposeDI() {
+    if (!_disposed) {
+      _disposed = true;
       disposeDI();
     }
   }

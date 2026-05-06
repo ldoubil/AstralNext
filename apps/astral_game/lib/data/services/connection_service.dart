@@ -89,7 +89,7 @@ class ConnectionService {
   /// 返回创建的房间信息
   Future<RoomMod> createRoom() async {
     final uuid = _p2pConfig.generateUuid();
-    return _createAndPersistRoom(uuid);
+    return await _createAndPersistRoom(uuid);
   }
 
   /// 加入已有房间
@@ -97,11 +97,11 @@ class ConnectionService {
   /// [uuid] 房间 UUID
   /// 返回房间信息
   Future<RoomMod> joinRoom(String uuid) async {
-    return _createAndPersistRoom(uuid);
+    return await _createAndPersistRoom(uuid);
   }
 
   /// 创建并持久化房间
-  RoomMod _createAndPersistRoom(String uuid) {
+  Future<RoomMod> _createAndPersistRoom(String uuid) async {
     final roomName = 'Room_${uuid.substring(0, 8)}';
     final roomPassword = uuid;
 
@@ -116,12 +116,13 @@ class ConnectionService {
       createdAt: DateTime.now(),
     );
 
-    _roomPersistence.saveRooms([..._roomState.rooms, room]).then((_) {
-      _roomState.loadFromPersistence();
+    try {
+      await _roomPersistence.saveRooms([..._roomState.rooms, room]);
+      await _roomState.loadFromPersistence();
       appLogger.i('[ConnectionService] 已创建/加入房间: $roomName, UUID: $uuid');
-    }).catchError((e, stackTrace) {
+    } catch (e, stackTrace) {
       appLogger.e('[ConnectionService] 保存房间失败: $e', error: e, stackTrace: stackTrace);
-    });
+    }
 
     return room;
   }

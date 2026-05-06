@@ -10,6 +10,8 @@ import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/data/models/room_mod.dart';
 import 'package:astral_game/ui/pages/dashboard_wide_layout.dart';
 import 'package:astral_game/ui/pages/dashboard_narrow_layout.dart';
+import 'package:astral_game/ui/pages/settings/settings_main_page.dart';
+import 'package:astral_game/ui/shell/shell_content_controller.dart';
 
 /// 仪表盘页面
 ///
@@ -32,7 +34,11 @@ class _DashboardPageState extends State<DashboardPage> {
   /// 处理设置按钮点击
   void _handleSettings() {
     if (mounted) {
-      Navigator.pushNamed(context, '/settings');
+      final contentController = getIt<ShellContentController>();
+      contentController.showOverlay(
+        title: '设置',
+        contentBuilder: (_) => const SettingsMainPage(),
+      );
     }
   }
 

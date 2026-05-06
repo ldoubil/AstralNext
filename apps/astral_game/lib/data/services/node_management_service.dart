@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:astral_game/config/constants.dart';
 import 'package:event_bus/event_bus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_core.dart';
@@ -136,7 +137,7 @@ class NodeManagementService {
 
       final newNodes = <int, EnhancedNodeInfo>{};
       for (final node in status.nodes) {
-        if (!node.hostname.contains('PublicServer')) {
+        if (!node.hostname.contains(AppConstants.publicServerHostname)) {
           final port = _parsePortFromHostname(node.hostname);
           newNodes[node.peerId] = EnhancedNodeInfo(
             baseInfo: node,
@@ -161,41 +162,27 @@ class NodeManagementService {
     final leftPeerIds = currentNodes.keys.toSet().difference(newNodes.keys.toSet());
     final existingPeerIds = currentNodes.keys.toSet().intersection(newNodes.keys.toSet());
 
-    _processJoinedNodes(joinedPeerIds, newNodes);
-    _processLeftNodes(leftPeerIds);
-    _processExistingNodes(existingPeerIds, currentNodes, newNodes);
-  }
+    // 构建新的节点列表，一次性赋值避免竞态
+    final updatedNodes = List<EnhancedNodeInfo>.from(userNodes.value);
 
-  /// 处理新加入的节点
-  void _processJoinedNodes(
-    Set<int> joinedPeerIds,
-    Map<int, EnhancedNodeInfo> newNodes,
-  ) {
+    // 处理新加入的节点
     for (final peerId in joinedPeerIds) {
       final node = newNodes[peerId]!;
-      userNodes.value = List.from(userNodes.value)..add(node);
+      updatedNodes.add(node);
       _eventBus.fire(NodeJoinedEvent(node));
       _scheduleIpReadyCheck(node);
       appLogger.i('[NodeManagementService] 节点加入: ${node.hostname} (peerId: $peerId)');
     }
-  }
 
-  /// 处理离开的节点
-  void _processLeftNodes(Set<int> leftPeerIds) {
+    // 处理离开的节点
     for (final peerId in leftPeerIds) {
-      userNodes.value = userNodes.value.where((n) => n.peerId != peerId).toList();
+      updatedNodes.removeWhere((n) => n.peerId == peerId);
       _cancelIpReadyTimer(peerId);
       _eventBus.fire(NodeLeftEvent(peerId));
       appLogger.i('[NodeManagementService] 节点离开: peerId: $peerId');
     }
-  }
 
-  /// 处理已存在的节点
-  void _processExistingNodes(
-    Set<int> existingPeerIds,
-    Map<int, EnhancedNodeInfo> currentNodes,
-    Map<int, EnhancedNodeInfo> newNodes,
-  ) {
+    // 处理已存在的节点
     for (final peerId in existingPeerIds) {
       final currentNode = currentNodes[peerId]!;
       final newNode = newNodes[peerId]!;
@@ -208,13 +195,14 @@ class NodeManagementService {
         }
       }
 
-      userNodes.value = userNodes.value.map((n) {
-        if (n.peerId == peerId) {
-          return n.copyWith(baseInfo: newNode.baseInfo);
-        }
-        return n;
-      }).toList();
+      final index = updatedNodes.indexWhere((n) => n.peerId == peerId);
+      if (index != -1) {
+        updatedNodes[index] = updatedNodes[index].copyWith(baseInfo: newNode.baseInfo);
+      }
     }
+
+    // 一次性赋值
+    userNodes.value = updatedNodes;
   }
 
   /// 从主机名解析端口号
@@ -362,7 +350,7 @@ class NodeManagementService {
 
   /// 检查是否为服务器节点
   bool isServerNode(String hostname) {
-    return hostname.contains('PublicServer');
+    return hostname.contains(AppConstants.publicServerHostname);
   }
 
   /// 检查是否为有效用户节点

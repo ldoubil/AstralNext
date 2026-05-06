@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:astral_game/di.dart';
+import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/utils/input_validator.dart';
 
@@ -11,9 +12,23 @@ class NetworkSettingsPage extends StatefulWidget {
 }
 
 class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
-  final TextEditingController _virtualIpController = TextEditingController(text: '10.147.18.24');
-  bool _isDhcp = true;
+  late TextEditingController _virtualIpController;
+  late bool _isDhcp;
   bool _isValidIP = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final appSettings = getIt<AppSettingsService>();
+    _isDhcp = appSettings.getIsDhcp();
+    _virtualIpController = TextEditingController(text: appSettings.getVirtualIp());
+  }
+
+  @override
+  void dispose() {
+    _virtualIpController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +63,9 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                             setState(() {
                               _isValidIP = InputValidator.validateIPv4(value) == null;
                             });
+                            if (_isValidIP) {
+                              getIt<AppSettingsService>().setVirtualIp(value);
+                            }
                           }
                         },
                         decoration: InputDecoration(
@@ -70,6 +88,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                             setState(() {
                               _isDhcp = value;
                             });
+                            getIt<AppSettingsService>().setIsDhcp(value);
                           },
                         ),
                         Text(
@@ -100,6 +119,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                   value: getIt<SettingsState>().disableP2p.value,
                   onChanged: (value) {
                     getIt<SettingsState>().disableP2p.value = value;
+                    getIt<SettingsState>().saveToPersistence();
                   },
                 ),
               ],

@@ -13,6 +13,20 @@ class AppSettingsService {
   static const String _keyUsername = 'username';
   static const String _keyAvatar = 'avatar';
 
+  // 通用设置
+  static const String _keyCloseMinimize = 'close_minimize';
+  static const String _keyUserListSimple = 'user_list_simple';
+  static const String _keyEnableBannerCarousel = 'enable_banner_carousel';
+
+  // 网络设置
+  static const String _keyDefaultProtocol = 'default_protocol';
+  static const String _keyEnableEncryption = 'enable_encryption';
+  static const String _keyLatencyFirst = 'latency_first';
+  static const String _keyDataCompressAlgo = 'data_compress_algo';
+  static const String _keyListenList = 'listen_list';
+  static const String _keyIsDhcp = 'is_dhcp';
+  static const String _keyVirtualIp = 'virtual_ip';
+
   final SharedPreferences _prefs;
 
   AppSettingsService(this._prefs);
@@ -104,4 +118,61 @@ class AppSettingsService {
   /// 清除头像
   Future<void> clearAvatar() async =>
       await _prefs.remove(_keyAvatar);
+
+  // ---- 通用设置 ----
+
+  /// 获取关闭时最小化设置
+  bool getCloseMinimize() => _prefs.getBool(_keyCloseMinimize) ?? true;
+  Future<void> setCloseMinimize(bool value) async =>
+      await _prefs.setBool(_keyCloseMinimize, value);
+
+  /// 获取用户列表简化模式
+  bool getUserListSimple() => _prefs.getBool(_keyUserListSimple) ?? true;
+  Future<void> setUserListSimple(bool value) async =>
+      await _prefs.setBool(_keyUserListSimple, value);
+
+  /// 获取启用横幅轮播
+  bool getEnableBannerCarousel() => _prefs.getBool(_keyEnableBannerCarousel) ?? true;
+  Future<void> setEnableBannerCarousel(bool value) async =>
+      await _prefs.setBool(_keyEnableBannerCarousel, value);
+
+  // ---- 网络设置 ----
+
+  /// 获取默认协议
+  String getDefaultProtocol() => _prefs.getString(_keyDefaultProtocol) ?? 'tcp';
+  Future<void> setDefaultProtocol(String value) async =>
+      await _prefs.setString(_keyDefaultProtocol, value);
+
+  /// 获取启用加密
+  bool getEnableEncryption() => _prefs.getBool(_keyEnableEncryption) ?? true;
+  Future<void> setEnableEncryption(bool value) async =>
+      await _prefs.setBool(_keyEnableEncryption, value);
+
+  /// 获取延迟优先
+  bool getLatencyFirst() => _prefs.getBool(_keyLatencyFirst) ?? false;
+  Future<void> setLatencyFirst(bool value) async =>
+      await _prefs.setBool(_keyLatencyFirst, value);
+
+  /// 获取数据压缩算法
+  int getDataCompressAlgo() => _prefs.getInt(_keyDataCompressAlgo) ?? 1;
+  Future<void> setDataCompressAlgo(int value) async =>
+      await _prefs.setInt(_keyDataCompressAlgo, value);
+
+  /// 获取监听列表
+  List<String> getListenList() => _prefs.getStringList(_keyListenList) ?? [
+        'tcp://0.0.0.0:0',
+        'udp://0.0.0.0:0',
+      ];
+  Future<void> setListenList(List<String> value) async =>
+      await _prefs.setStringList(_keyListenList, value);
+
+  /// 获取是否使用 DHCP
+  bool getIsDhcp() => _prefs.getBool(_keyIsDhcp) ?? true;
+  Future<void> setIsDhcp(bool value) async =>
+      await _prefs.setBool(_keyIsDhcp, value);
+
+  /// 获取虚拟 IP
+  String getVirtualIp() => _prefs.getString(_keyVirtualIp) ?? '10.147.18.24';
+  Future<void> setVirtualIp(String value) async =>
+      await _prefs.setString(_keyVirtualIp, value);
 }

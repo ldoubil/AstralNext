@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:astral_game/data/models/server_mod.dart';
+import 'package:astral_game/utils/logger.dart';
 import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
 
@@ -35,6 +36,7 @@ class ServerPersistenceService {
             return server;
           })
           .toList();
+      // 确保 nextId 大于所有已存在的 ID，防止 ID 冲突
       ServerMod.setNextId(maxId + 1);
       return servers;
     } catch (e) {
@@ -48,8 +50,8 @@ class ServerPersistenceService {
       final file = File(filePath);
       final json = jsonEncode(servers.map((s) => s.toJson()).toList());
       await file.writeAsString(json);
-    } catch (e) {
-      // ignore
+    } catch (e, stackTrace) {
+      appLogger.e('[ServerPersistenceService] 保存服务器失败: $e', error: e, stackTrace: stackTrace);
     }
   }
 }

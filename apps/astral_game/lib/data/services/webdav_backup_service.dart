@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' as io;
 
 import 'package:archive/archive.dart';
+import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/utils/logger.dart';
 import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
@@ -86,13 +87,13 @@ class WebDavBackupService {
   static const _metaFileName = 'backup_meta.json';
   static const _roomsFileName = 'rooms.json';
 
-  dynamic _client;
+  Client? _client;
 
   WebDavBackupService(this._settings, this._roomPersistence);
 
   // ---- WebDAV 客户端管理 ----
 
-  dynamic _createClient() {
+  Client? _createClient() {
     final rawUrl = _settings.getWebDavUrl();
     final username = _settings.getWebDavUsername();
     final password = _settings.getWebDavPassword();
@@ -124,7 +125,7 @@ class WebDavBackupService {
     }
   }
 
-  dynamic _getClient() {
+  Client? _getClient() {
     return _client ?? _createClient();
   }
 
@@ -160,7 +161,7 @@ class WebDavBackupService {
       // 2. 构建元数据
       final meta = BackupMeta(
         createdAt: DateTime.now(),
-        appVersion: '1.0.0',
+        appVersion: AppConstants.appVersion,
         roomCount: rooms.length,
       );
 

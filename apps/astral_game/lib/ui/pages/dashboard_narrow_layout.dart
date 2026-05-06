@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
@@ -192,7 +193,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
                 height: _dividerHeight,
                 decoration: BoxDecoration(
                   color: _panelState == PanelState.dragging
-                      ? colorScheme.primary.withAlpha(20)
+                      ? colorScheme.primary.withValues(alpha: 0.08)
                       : Colors.transparent,
                 ),
                 child: Center(
@@ -224,7 +225,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
     return Watch((context) {
       final isConnected = widget.nodeManagement.isRunning;
       final status = widget.nodeManagement.networkStatus.value;
-      final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? '10.147.18.24';
+      final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? AppConstants.defaultVirtualIp;
       final username = widget.nodeManagement.currentUsername.value;
       final avatar = widget.nodeManagement.currentUserAvatar.value;
 
@@ -239,7 +240,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
         onJoinRoomTap: widget.onJoinRoom,
         onShareRoomTap: widget.onShareRoom,
         onDisconnectTap: widget.onDisconnect,
-        showFirewall: false,
+
       );
     });
   }
@@ -255,7 +256,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colorScheme.outline.withAlpha(50)),
+           side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
         ),
         child: ClipRect(
           child: Column(
@@ -336,40 +337,42 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
   }
 
   Widget _buildUserListInline(BuildContext context) {
-    final enhancedNodes = widget.nodeManagement.enhancedUserNodes.value;
+    return Watch((context) {
+      final enhancedNodes = widget.nodeManagement.enhancedUserNodes.value;
 
-    if (enhancedNodes.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.people_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '暂无在线用户',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+      if (enhancedNodes.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.people_outlined,
+                size: 48,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: enhancedNodes.length,
-      itemBuilder: (context, index) {
-        return DashboardUserItem(
-          node: enhancedNodes[index],
-          p2pStore: widget.nodeManagement,
+              const SizedBox(height: 12),
+              Text(
+                '暂无在线用户',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         );
-      },
-    );
+      }
+
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: enhancedNodes.length,
+        itemBuilder: (context, index) {
+          return DashboardUserItem(
+            node: enhancedNodes[index],
+            p2pStore: widget.nodeManagement,
+          );
+        },
+      );
+    });
   }
 }

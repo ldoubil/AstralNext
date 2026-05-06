@@ -16,6 +16,8 @@ class AppConstants {
   static const Duration pollingInterval = Duration(seconds: 3);
   static const Duration ipReadyCheckInterval = Duration(seconds: 2);
   static const Duration retryDelay = Duration(seconds: 1);
+  static const Duration pingTimeout = Duration(seconds: 5);
+  static const int maxPingLatencyMs = 800;
 
   // 屏幕断点
   static const double narrowBreakpoint = 600;

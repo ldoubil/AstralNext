@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 
+typedef WidgetBuilder = Widget Function(BuildContext context);
+
 class ShellContentController extends ChangeNotifier {
-  Widget? _overlayContent;
+  WidgetBuilder? _overlayContentBuilder;
   String? _overlayTitle;
   VoidCallback? _onClose;
 
-  Widget? get overlayContent => _overlayContent;
+  WidgetBuilder? get overlayContentBuilder => _overlayContentBuilder;
   String? get overlayTitle => _overlayTitle;
-  bool get hasOverlay => _overlayContent != null;
+  bool get hasOverlay => _overlayContentBuilder != null;
 
   void showOverlay({
-    required Widget content,
+    required WidgetBuilder contentBuilder,
     required String title,
     VoidCallback? onClose,
   }) {
-    _overlayContent = content;
+    _overlayContentBuilder = contentBuilder;
     _overlayTitle = title;
     _onClose = onClose;
     notifyListeners();
@@ -22,7 +24,7 @@ class ShellContentController extends ChangeNotifier {
 
   void closeOverlay() {
     _onClose?.call();
-    _overlayContent = null;
+    _overlayContentBuilder = null;
     _overlayTitle = null;
     _onClose = null;
     notifyListeners();

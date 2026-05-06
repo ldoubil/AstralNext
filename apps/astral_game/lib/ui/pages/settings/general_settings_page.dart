@@ -25,6 +25,7 @@ class GeneralSettingsPage extends StatelessWidget {
                 value: getIt<SettingsState>().closeMinimize.value,
                 onChanged: (value) {
                   getIt<SettingsState>().closeMinimize.value = value;
+                  getIt<SettingsState>().saveToPersistence();
                 },
               ),
             ],

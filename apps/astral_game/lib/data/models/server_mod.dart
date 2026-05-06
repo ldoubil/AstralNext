@@ -26,6 +26,11 @@ class ServerMod {
     _nextId = value;
   }
 
+  /// 获取下一个唯一 ID
+  static int generateNextId() {
+    return _nextId++;
+  }
+
   ServerMod({
     int? id,
     this.enable = false,
@@ -43,7 +48,7 @@ class ServerMod {
     this.http = false,
     this.https = false,
     this.sortOrder = 0,
-  }) : id = id ?? _nextId++;
+  }) : id = id ?? generateNextId();
 
   ServerMod copyWith({
     String? name,

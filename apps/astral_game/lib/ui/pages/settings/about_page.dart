@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:astral_game/config/constants.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
@@ -34,7 +35,7 @@ class AboutPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'v1.0.0',
+                  'v${AppConstants.appVersion}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.outline,
                       ),
@@ -56,7 +57,7 @@ class AboutPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.code),
                 title: const Text('版本信息'),
-                subtitle: const Text('当前版本: 1.0.0'),
+                subtitle: Text('当前版本: ${AppConstants.appVersion}'),
                 trailing: const Icon(Icons.chevron_right),
               ),
               const Divider(height: 1),
@@ -81,7 +82,7 @@ class AboutPage extends StatelessWidget {
                   showLicensePage(
                     context: context,
                     applicationName: 'Astral Game',
-                    applicationVersion: '1.0.0',
+                    applicationVersion: AppConstants.appVersion,
                   );
                 },
               ),

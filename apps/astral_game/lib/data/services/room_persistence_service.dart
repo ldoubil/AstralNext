@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:astral_game/data/models/room_mod.dart';
+import 'package:astral_game/utils/logger.dart';
 import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,8 +42,8 @@ class RoomPersistenceService {
       final file = File(filePath);
       final json = jsonEncode(rooms.map((r) => r.toJson()).toList());
       await file.writeAsString(json);
-    } catch (e) {
-      // ignore
+    } catch (e, stackTrace) {
+      appLogger.e('[RoomPersistenceService] 保存房间失败: $e', error: e, stackTrace: stackTrace);
     }
   }
 

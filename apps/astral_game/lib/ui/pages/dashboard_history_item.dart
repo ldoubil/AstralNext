@@ -67,7 +67,7 @@ class _DashboardDismissibleHistoryItemState
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     color: isHovered
-                        ? colorScheme.primaryContainer.withAlpha(20)
+                        ? colorScheme.primaryContainer.withValues(alpha: 0.08)
                         : Colors.transparent,
                   ),
                   child: Row(
@@ -167,7 +167,7 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   color: isHovered
-                      ? colorScheme.primaryContainer.withAlpha(20)
+                       ? colorScheme.primaryContainer.withValues(alpha: 0.08)
                       : Colors.transparent,
                 ),
                 child: Row(
@@ -261,7 +261,7 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
                     Icon(
                       Icons.arrow_forward_ios_outlined,
                       size: 16,
-                      color: colorScheme.onSurfaceVariant.withAlpha(128),
+                       color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
                   ],
                 ),

@@ -40,38 +40,38 @@ class ServerState {
     }
   }
 
-  void setServers(List<ServerMod> serverList) {
+  Future<void> setServers(List<ServerMod> serverList) async {
     servers.value = serverList;
-    _saveToPersistence();
+    await _saveToPersistence();
   }
 
-  void addServer(ServerMod server) {
+  Future<void> addServer(ServerMod server) async {
     final list = List<ServerMod>.from(servers.value);
     list.add(server);
     servers.value = list;
-    _saveToPersistence();
+    await _saveToPersistence();
   }
 
-  void removeServer(int id) {
+  Future<void> removeServer(int id) async {
     final list = servers.value.where((s) => s.id != id).toList();
     servers.value = list;
-    _saveToPersistence();
+    await _saveToPersistence();
   }
 
-  void updateServer(ServerMod updatedServer) {
+  Future<void> updateServer(ServerMod updatedServer) async {
     final list = servers.value.map((s) {
       return s.id == updatedServer.id ? updatedServer : s;
     }).toList();
     servers.value = list;
-    _saveToPersistence();
+    await _saveToPersistence();
   }
 
-  void reorderServers(List<ServerMod> reordered) {
+  Future<void> reorderServers(List<ServerMod> reordered) async {
     servers.value = reordered;
-    _saveToPersistence();
+    await _saveToPersistence();
   }
 
-  void toggleServerEnabled(int id, bool enabled) {
+  Future<void> toggleServerEnabled(int id, bool enabled) async {
     final list = servers.value.map((s) {
       if (s.id == id) {
         return s.copyWith(enable: enabled);
@@ -79,7 +79,7 @@ class ServerState {
       return s;
     }).toList();
     servers.value = list;
-    _saveToPersistence();
+    await _saveToPersistence();
   }
 
   ServerMod? getServerById(int id) {
@@ -114,20 +114,22 @@ class ServerStatusState {
   }
 
   Future<void> checkServersStatus(List<ServerMod> servers) async {
-    final Map<int, ServerStatus> newStatuses = {};
     final activeIds = activeServerIds.value;
+    final Map<int, ServerStatus> newStatuses = {};
 
-    for (final server in servers) {
+    // 并行 ping 所有服务器
+    final futures = servers.map((server) async {
       if (activeIds.contains(server.id)) {
         newStatuses[server.id] = ServerStatus.inUse;
-        continue;
+        return;
       }
 
       final isOnline = await _checkServerOnline(server);
       newStatuses[server.id] =
           isOnline ? ServerStatus.online : ServerStatus.offline;
-    }
+    });
 
+    await Future.wait(futures);
     serverStatuses.value = newStatuses;
   }
 

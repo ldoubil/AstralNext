@@ -68,6 +68,7 @@ Future<void> setupDI() async {
   );
   
   getIt.registerLazySingleton<SettingsState>(() => SettingsState());
+  getIt<SettingsState>().loadFromPersistence();
   
   getIt.registerLazySingleton<RoomState>(() => RoomState());
   
@@ -106,6 +107,7 @@ void disposeDI() {
   getIt<ScreenStateService>().dispose();
   getIt<ServerStatusState>().dispose();
   getIt<NodeNetClient>().dispose();
+  getIt<NodeNetServer>().stop();
 }
 
 /// 初始化 NodeNet 服务端

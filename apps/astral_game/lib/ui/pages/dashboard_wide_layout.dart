@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
@@ -59,7 +60,7 @@ class DashboardWideLayout extends StatelessWidget {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colorScheme.outline.withAlpha(50)),
+           side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -112,7 +113,7 @@ class DashboardWideLayout extends StatelessWidget {
     return Watch((context) {
       final isConnected = nodeManagement.isRunning;
       final status = nodeManagement.networkStatus.value;
-      final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? '10.147.18.24';
+      final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? AppConstants.defaultVirtualIp;
       final username = nodeManagement.currentUsername.value;
       final avatar = nodeManagement.currentUserAvatar.value;
 

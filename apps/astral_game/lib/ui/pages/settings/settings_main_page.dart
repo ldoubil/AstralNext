@@ -125,7 +125,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
           subtitle: '权限和界面设置',
           onTap: () => contentController.showOverlay(
             title: '软件设置',
-            content: const GeneralSettingsPage(),
+            contentBuilder: (_) => const GeneralSettingsPage(),
           ),
         ),
         _buildSectionHeader(context, '网络设置'),
@@ -137,7 +137,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
           subtitle: 'IP 地址和 P2P 设置',
           onTap: () => contentController.showOverlay(
             title: '网络配置',
-            content: const NetworkSettingsPage(),
+            contentBuilder: (_) => const NetworkSettingsPage(),
           ),
         ),
         _buildSectionHeader(context, '数据管理'),
@@ -149,7 +149,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
           subtitle: 'WebDAV 备份与恢复房间数据',
           onTap: () => contentController.showOverlay(
             title: '云备份',
-            content: const CloudBackupSettingsPage(),
+            contentBuilder: (_) => const CloudBackupSettingsPage(),
           ),
         ),
         _buildSectionHeader(context, '其他'),
@@ -161,7 +161,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
           subtitle: '版本信息和相关链接',
           onTap: () => contentController.showOverlay(
             title: '关于',
-            content: const AboutPage(),
+            contentBuilder: (_) => const AboutPage(),
           ),
         ),
       ],

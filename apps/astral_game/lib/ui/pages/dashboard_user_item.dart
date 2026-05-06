@@ -67,11 +67,11 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
         margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
           color: _isHovered
-              ? colorScheme.surfaceContainerHighest.withAlpha(128)
+              ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _isHovered ? colorScheme.outline.withAlpha(50) : Colors.transparent,
+            color: _isHovered ? colorScheme.outline.withValues(alpha: 0.2) : Colors.transparent,
             width: 1,
           ),
         ),
@@ -99,7 +99,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: colorScheme.onSurfaceVariant.withAlpha(128),
+                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                               ),
                             ),
                       if (platformName.isNotEmpty)
@@ -132,7 +132,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                           fontSize: 12,
                           color: shouldFetchAvatar
                               ? colorScheme.onSurfaceVariant
-                              : colorScheme.onSurfaceVariant.withAlpha(128),
+                               : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                         ),
                       ),
                       if (isDirect)
@@ -141,7 +141,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.green.withAlpha(200),
+                              color: Colors.green.withValues(alpha: 0.78),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -161,7 +161,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                             versionNumber,
                             style: TextStyle(
                               fontSize: 11,
-                              color: colorScheme.onSurfaceVariant.withAlpha(128),
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                             ),
                           ),
                         ),

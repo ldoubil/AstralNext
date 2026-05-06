@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:astral_game/config/constants.dart';
+
 class PingUtil {
   static Future<int?> ping(String server) async {
     try {
@@ -15,11 +17,11 @@ class PingUtil {
         socket = await Socket.connect(
           hostname,
           port,
-          timeout: const Duration(seconds: 5),
+          timeout: AppConstants.pingTimeout,
         );
         stopwatch.stop();
         final ms = stopwatch.elapsedMilliseconds;
-        return ms > 800 ? null : ms;
+        return ms > AppConstants.maxPingLatencyMs ? null : ms;
       } on SocketException {
         return null;
       } finally {

@@ -139,7 +139,7 @@ class _ShellState extends State<Shell> {
                               },
                               child: KeyedSubtree(
                                 key: ValueKey(overlayTitle),
-                                child: _contentController.overlayContent!,
+                                child: _contentController.overlayContentBuilder!(context),
                               ),
                             )
                           : IndexedStack(
