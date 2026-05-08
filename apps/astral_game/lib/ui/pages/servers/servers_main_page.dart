@@ -5,6 +5,7 @@ import 'package:astral_game/data/state/server_state.dart';
 import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/data/models/server_mod.dart';
 import 'package:astral_game/data/services/public_server_service.dart';
+import 'package:astral_game/utils/ping_util.dart';
 
 import 'server_dialog.dart';
 import 'blocked_servers.dart';
@@ -19,16 +20,12 @@ class ServersMainPage extends StatefulWidget {
 class _ServersMainPageState extends State<ServersMainPage> {
   final _serverState = getIt<ServerState>();
   final _serverStatusState = getIt<ServerStatusState>();
+  String? _lastServersFingerprint;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _serverStatusState.startPeriodicCheck(
-        _serverState.servers.value,
-        const Duration(seconds: 30),
-      );
-    });
+    // 延迟检测会在 build 的 Watch 中根据服务器列表自动刷新
   }
 
   @override
@@ -50,10 +47,41 @@ class _ServersMainPageState extends State<ServersMainPage> {
     }
   }
 
+  Color _getLatencyColor(int latencyMs, ColorScheme colorScheme) {
+    // 颜色分段可按需要再微调
+    if (latencyMs <= 80) return AppColors.online;
+    if (latencyMs <= 160) return Colors.orange;
+    return AppColors.error;
+  }
+
+  String _sourceLabel(ServerSource source) {
+    switch (source) {
+      case ServerSource.public:
+        return '公共服务器';
+      case ServerSource.manual:
+        return '手动添加';
+    }
+  }
+
   Widget _buildBody(BuildContext context) {
     return Watch((context) {
       final servers = _serverState.servers.value;
       final statuses = _serverStatusState.serverStatuses.value;
+      final latencies = _serverStatusState.serverLatencies.value;
+
+      // 服务器列表是 signal，会动态变化；这里确保延迟检测的目标列表始终是最新的。
+      final fingerprint =
+          servers.map((s) => '${s.id}:${s.url}:${s.enable}').join('|');
+      if (_lastServersFingerprint != fingerprint) {
+        _lastServersFingerprint = fingerprint;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _serverStatusState.startPeriodicCheck(
+            _serverState.servers.value,
+            const Duration(seconds: 30),
+          );
+        });
+      }
 
       if (servers.isEmpty) {
         return Center(
@@ -106,6 +134,8 @@ class _ServersMainPageState extends State<ServersMainPage> {
       itemBuilder: (context, index) {
         final server = servers[index];
         final status = statuses[server.id] ?? ServerStatus.unknown;
+        final latency = latencies[server.id];
+        final colorScheme = Theme.of(context).colorScheme;
 
         return ReorderableDragStartListener(
           key: ValueKey(server.id),
@@ -113,23 +143,72 @@ class _ServersMainPageState extends State<ServersMainPage> {
           child: Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
-              leading: Container(
-                width: 4,
-                height: 40,
-                decoration: BoxDecoration(
-                  color:
-                      _getStatusColor(status, Theme.of(context).colorScheme),
-                  borderRadius: BorderRadius.circular(2),
+              leading: SizedBox(
+                width: 56,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: latency != null
+                            ? _getLatencyColor(latency, colorScheme)
+                            : _getStatusColor(status, colorScheme),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        latency != null ? '${latency}ms' : '--',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: colorScheme.outline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              title: Text(
-                server.name,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      server.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: server.source == ServerSource.public
+                          ? colorScheme.primary.withValues(alpha: 0.10)
+                          : colorScheme.outline.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _sourceLabel(server.source),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: server.source == ServerSource.public
+                                ? colorScheme.primary
+                                : colorScheme.outline,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                ],
               ),
               subtitle: Text(
-                (BlockedServers.isBlocked(server.url) || server.encrypted)
-                    ? '***'
-                    : server.url,
+                server.source == ServerSource.public
+                    ? '公共服务器'
+                    : (BlockedServers.isBlocked(server.url) ? '***' : server.url),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -149,7 +228,8 @@ class _ServersMainPageState extends State<ServersMainPage> {
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'edit') {
-                        if (BlockedServers.isBlocked(server.url) || server.encrypted) {
+                        if (BlockedServers.isBlocked(server.url) ||
+                            server.source == ServerSource.public) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('此服务器不可编辑'),
@@ -292,6 +372,7 @@ class _PublicServerDialogState extends State<_PublicServerDialog> {
   List<PublicServer> _servers = [];
   bool _isLoading = true;
   String? _error;
+  final Map<String, int?> _latencies = {};
 
   @override
   void initState() {
@@ -303,6 +384,7 @@ class _PublicServerDialogState extends State<_PublicServerDialog> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _latencies.clear();
     });
 
     try {
@@ -311,6 +393,18 @@ class _PublicServerDialogState extends State<_PublicServerDialog> {
         setState(() {
           _servers = servers;
           _isLoading = false;
+        });
+      }
+
+      // 后台测延迟（解密后的明文 URL）
+      for (final s in servers) {
+        final url = (s.decryptedUrl ?? '').trim();
+        if (url.isEmpty) continue;
+        PingUtil.ping(url).then((ms) {
+          if (!mounted) return;
+          setState(() {
+            _latencies[url] = ms;
+          });
         });
       }
     } catch (e) {
@@ -323,17 +417,26 @@ class _PublicServerDialogState extends State<_PublicServerDialog> {
     }
   }
 
-  bool _isAlreadyAdded(String encryptedUrl) {
-    return widget.serverState.servers.value.any((s) => s.url == encryptedUrl);
+  bool _isAlreadyAdded(PublicServer server) {
+    final url = (server.decryptedUrl ?? '').trim();
+    if (url.isEmpty) return false;
+    return widget.serverState.servers.value.any((s) => s.url.trim() == url);
   }
 
   void _addServer(PublicServer server) {
+    final url = (server.decryptedUrl ?? '').trim();
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('服务器地址解密失败，无法添加')),
+      );
+      return;
+    }
     widget.serverState.addServer(
       ServerMod(
         name: server.name,
-        url: server.encryptedUrl,
-        encrypted: true,
+        url: url,
         enable: true,
+        source: ServerSource.public,
       ),
     );
     ScaffoldMessenger.of(context).showSnackBar(
@@ -375,12 +478,14 @@ class _PublicServerDialogState extends State<_PublicServerDialog> {
                         itemCount: _servers.length,
                         itemBuilder: (context, index) {
                           final server = _servers[index];
-                          final added = _isAlreadyAdded(server.encryptedUrl);
+                          final added = _isAlreadyAdded(server);
+                          final url = (server.decryptedUrl ?? '').trim();
+                          final ms = url.isEmpty ? null : _latencies[url];
 
                           return ListTile(
                             title: Text(server.name),
                             subtitle: Text(
-                              server.encryptedUrl,
+                              '公共服务器${ms != null ? ' · ${ms}ms' : ''}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),

@@ -83,7 +83,15 @@ class PublicServerService {
   /// 解析 RSA 私钥（PKCS#1 DER 格式）
   RSAPrivateKey? _parsePrivateKey(String base64Key) {
     try {
-      final keyBytes = Uint8List.fromList(base64.decode(base64Key));
+      // 兼容：
+      // - 多行/带空格的 Base64
+      // - PEM 头尾（BEGIN/END ... KEY）
+      final normalized = base64Key
+          .replaceAll(RegExp(r'-----BEGIN [^-]+-----'), '')
+          .replaceAll(RegExp(r'-----END [^-]+-----'), '')
+          .replaceAll(RegExp(r'\s+'), '');
+
+      final keyBytes = Uint8List.fromList(base64.decode(normalized));
       appLogger.i('[PublicServerService] 密钥字节数: ${keyBytes.length}');
       appLogger.i('[PublicServerService] 前16字节: ${keyBytes.take(16).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}');
 
@@ -92,7 +100,9 @@ class PublicServerService {
       for (int i = 0; i < seq.length; i++) {
         final elem = seq[i];
         if (elem is BigInt) {
-          appLogger.i('[PublicServerService]   [$i] BigInt (${elem.bitLength} bits): ${elem.toRadixString(16).substring(0, 16)}...');
+          final hex = elem.toRadixString(16);
+          final preview = hex.length <= 16 ? hex : hex.substring(0, 16);
+          appLogger.i('[PublicServerService]   [$i] BigInt (${elem.bitLength} bits): $preview${hex.length <= 16 ? '' : '...'}');
         } else if (elem is Uint8List) {
           appLogger.i('[PublicServerService]   [$i] Uint8List (${elem.length} bytes)');
         } else if (elem is List) {
@@ -107,9 +117,9 @@ class PublicServerService {
         appLogger.i('[PublicServerService] 按 PKCS#1 解析 (9个字段)');
         return RSAPrivateKey(
           seq[1] as BigInt,
-          seq[2] as BigInt,
-          seq[3] as BigInt,
-          seq[4] as BigInt,
+          seq[3] as BigInt, // d
+          seq[4] as BigInt, // p
+          seq[5] as BigInt, // q
         );
       }
 
@@ -121,9 +131,9 @@ class PublicServerService {
         if (pkcs1Key.length >= 9) {
           return RSAPrivateKey(
             pkcs1Key[1] as BigInt,
-            pkcs1Key[2] as BigInt,
-            pkcs1Key[3] as BigInt,
-            pkcs1Key[4] as BigInt,
+            pkcs1Key[3] as BigInt, // d
+            pkcs1Key[4] as BigInt, // p
+            pkcs1Key[5] as BigInt, // q
           );
         }
       }
@@ -186,49 +196,24 @@ class PublicServerService {
   String? _decryptUrl(String encryptedBase64, RSAPrivateKey privateKey) {
     try {
       final encryptedBytes = Uint8List.fromList(base64.decode(encryptedBase64));
-
-      final modulus = privateKey.n!;
-      final privateExponent = privateKey.d!;
-
-      BigInt cipherInt = BigInt.zero;
-      for (final byte in encryptedBytes) {
-        cipherInt = (cipherInt << 8) | BigInt.from(byte);
+      // 优先用 PointyCastle 标准实现做解密，避免手搓填充细节出错。
+      final pkcs1 = PKCS1Encoding(RSAEngine())
+        ..init(false, PrivateKeyParameter<RSAPrivateKey>(privateKey));
+      try {
+        final plain = pkcs1.process(encryptedBytes);
+        return utf8.decode(plain);
+      } catch (_) {
+        // 一些后端默认用 OAEP；这里做一次兜底尝试（常见为 SHA-1 / MGF1-SHA1）。
+        final oaep = OAEPEncoding(RSAEngine())
+          ..init(false, PrivateKeyParameter<RSAPrivateKey>(privateKey));
+        final plain = oaep.process(encryptedBytes);
+        return utf8.decode(plain);
       }
-
-      final plainInt = cipherInt.modPow(privateExponent, modulus);
-
-      final byteLen = (modulus.bitLength + 7) ~/ 8;
-      final plainBytes = _bigIntToBytes(plainInt, byteLen);
-
-      if (plainBytes.length < 11 || plainBytes[0] != 0 || plainBytes[1] != 2) {
-        return null;
-      }
-
-      int dataStart = -1;
-      for (int i = 2; i < plainBytes.length; i++) {
-        if (plainBytes[i] == 0) {
-          dataStart = i + 1;
-          break;
-        }
-      }
-
-      if (dataStart == -1 || dataStart >= plainBytes.length) return null;
-
-      final data = plainBytes.sublist(dataStart);
-      return utf8.decode(data);
     } catch (e) {
       appLogger.e('[PublicServerService] RSA 解密失败: $e');
       return null;
     }
   }
 
-  Uint8List _bigIntToBytes(BigInt number, int byteLength) {
-    final bytes = Uint8List(byteLength);
-    var temp = number;
-    for (int i = byteLength - 1; i >= 0; i--) {
-      bytes[i] = (temp & BigInt.from(0xFF)).toInt();
-      temp = temp >> 8;
-    }
-    return bytes;
-  }
+  // _bigIntToBytes 不再使用（改用 PointyCastle 标准解密实现）
 }

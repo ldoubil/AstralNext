@@ -5,6 +5,7 @@ import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:astral_game/data/services/public_server_service.dart';
 import 'package:astral_game/data/state/server_state.dart';
+import 'package:astral_game/utils/logger.dart';
 
 class P2PConfigService {
   final AppSettingsService _appSettings;
@@ -42,12 +43,20 @@ class P2PConfigService {
     String peerBlock = '';
     if (enabledServers.isNotEmpty) {
       peerBlock = enabledServers.map((server) {
-        final protocol = server.udp ? 'udp' : server.tcp ? 'tcp' : 'tcp';
         final url = server.encrypted
             ? _decryptUrl(server.url) ?? server.url
             : server.url;
-        return '[[peer]]\nuri = "${_escapeString("$protocol://$url")}"';
-      }).join('\n\n');
+
+        // 服务器地址现在支持“完整 URI”（例如 tcp://host:port、udp://host:port、ws://...）
+        // 如果已经带 scheme，则不要再拼装协议前缀，避免出现 tcp://tcp//... 这类错误。
+        final trimmed = url.trim();
+        final hasScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(trimmed);
+        if (hasScheme) {
+          return '[[peer]]\nuri = "${_escapeString(trimmed)}"';
+        }
+        appLogger.w('[P2PConfigService] 跳过无效服务器地址（必须是完整 URI）: $trimmed');
+        return '';
+      }).where((s) => s.isNotEmpty).join('\n\n');
     }
     
     return '''

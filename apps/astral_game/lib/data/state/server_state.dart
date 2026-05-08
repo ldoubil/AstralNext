@@ -97,6 +97,7 @@ class ServerState {
 
 class ServerStatusState {
   final serverStatuses = signal<Map<int, ServerStatus>>({});
+  final serverLatencies = signal<Map<int, int?>>({});
   final activeServerIds = signal<Set<int>>({});
   Timer? _checkTimer;
 
@@ -116,32 +117,32 @@ class ServerStatusState {
   Future<void> checkServersStatus(List<ServerMod> servers) async {
     final activeIds = activeServerIds.value;
     final Map<int, ServerStatus> newStatuses = {};
+    final Map<int, int?> newLatencies = {};
 
     // 并行 ping 所有服务器
     final futures = servers.map((server) async {
       if (activeIds.contains(server.id)) {
         newStatuses[server.id] = ServerStatus.inUse;
+        newLatencies[server.id] = null;
         return;
       }
 
-      final isOnline = await _checkServerOnline(server);
+      final latency = await _checkServerLatency(server);
+      newLatencies[server.id] = latency;
       newStatuses[server.id] =
-          isOnline ? ServerStatus.online : ServerStatus.offline;
+          latency != null ? ServerStatus.online : ServerStatus.offline;
     });
 
     await Future.wait(futures);
     serverStatuses.value = newStatuses;
+    serverLatencies.value = newLatencies;
   }
 
-  Future<bool> _checkServerOnline(ServerMod server) async {
-    // 加密服务器无法直接 ping
-    if (server.encrypted) return false;
-
+  Future<int?> _checkServerLatency(ServerMod server) async {
     try {
-      final latency = await PingUtil.ping(server.url);
-      return latency != null;
+      return await PingUtil.ping(server.url);
     } catch (e) {
-      return false;
+      return null;
     }
   }
 

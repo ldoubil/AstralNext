@@ -1,22 +1,15 @@
+enum ServerSource {
+  manual,
+  public,
+}
+
 class ServerMod {
   final int id;
   final String name;
   final String url;
   final bool enable;
   final bool encrypted;
-
-  // 协议开关
-  final bool tcp;
-  final bool faketcp;
-  final bool udp;
-  final bool ws;
-  final bool wss;
-  final bool quic;
-  final bool wg;
-  final bool txt;
-  final bool srv;
-  final bool http;
-  final bool https;
+  final ServerSource source;
 
   /// 排序顺序
   final int sortOrder;
@@ -38,17 +31,7 @@ class ServerMod {
     this.encrypted = false,
     required this.name,
     required this.url,
-    this.tcp = false,
-    this.faketcp = false,
-    this.udp = false,
-    this.ws = false,
-    this.wss = false,
-    this.quic = false,
-    this.wg = false,
-    this.txt = false,
-    this.srv = false,
-    this.http = false,
-    this.https = false,
+    this.source = ServerSource.manual,
     this.sortOrder = 0,
   }) : id = id ?? generateNextId();
 
@@ -57,17 +40,7 @@ class ServerMod {
     String? url,
     bool? enable,
     bool? encrypted,
-    bool? tcp,
-    bool? faketcp,
-    bool? udp,
-    bool? ws,
-    bool? wss,
-    bool? quic,
-    bool? wg,
-    bool? txt,
-    bool? srv,
-    bool? http,
-    bool? https,
+    ServerSource? source,
     int? sortOrder,
   }) {
     return ServerMod(
@@ -76,17 +49,7 @@ class ServerMod {
       url: url ?? this.url,
       enable: enable ?? this.enable,
       encrypted: encrypted ?? this.encrypted,
-      tcp: tcp ?? this.tcp,
-      faketcp: faketcp ?? this.faketcp,
-      udp: udp ?? this.udp,
-      ws: ws ?? this.ws,
-      wss: wss ?? this.wss,
-      quic: quic ?? this.quic,
-      wg: wg ?? this.wg,
-      txt: txt ?? this.txt,
-      srv: srv ?? this.srv,
-      http: http ?? this.http,
-      https: https ?? this.https,
+      source: source ?? this.source,
       sortOrder: sortOrder ?? this.sortOrder,
     );
   }
@@ -97,17 +60,7 @@ class ServerMod {
         'url': url,
         'enable': enable,
         'encrypted': encrypted,
-        'tcp': tcp,
-        'faketcp': faketcp,
-        'udp': udp,
-        'ws': ws,
-        'wss': wss,
-        'quic': quic,
-        'wg': wg,
-        'txt': txt,
-        'srv': srv,
-        'http': http,
-        'https': https,
+        'source': source.name,
         'sortOrder': sortOrder,
       };
 
@@ -117,17 +70,9 @@ class ServerMod {
         url: json['url'] as String? ?? '',
         enable: json['enable'] as bool? ?? false,
         encrypted: json['encrypted'] as bool? ?? false,
-        tcp: json['tcp'] as bool? ?? false,
-        faketcp: json['faketcp'] as bool? ?? false,
-        udp: json['udp'] as bool? ?? false,
-        ws: json['ws'] as bool? ?? false,
-        wss: json['wss'] as bool? ?? false,
-        quic: json['quic'] as bool? ?? false,
-        wg: json['wg'] as bool? ?? false,
-        txt: json['txt'] as bool? ?? false,
-        srv: json['srv'] as bool? ?? false,
-        http: json['http'] as bool? ?? false,
-        https: json['https'] as bool? ?? false,
+        source: ServerSource.values.byName(
+          (json['source'] as String?) ?? ServerSource.manual.name,
+        ),
         sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
       );
 }
