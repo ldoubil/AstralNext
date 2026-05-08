@@ -17,6 +17,9 @@ class NodeNetClient {
   /// 默认超时时间
   static const Duration defaultTimeout = Duration(seconds: 5);
 
+  /// JSON-RPC 客户端日志（调用成功也会打印，可能较频繁）
+  static const bool _rpcClientLog = true;
+
   /// 设置/清除鉴权 token（建议在连接建立/断开时调用）
   void setAuthToken(String? token) {
     final trimmed = token?.trim();
@@ -40,6 +43,7 @@ class NodeNetClient {
     String? authToken,
   }) async {
     final id = ++_requestId;
+    final sw = Stopwatch()..start();
     final request = {
       'jsonrpc': '2.0',
       'method': method,
@@ -54,6 +58,9 @@ class NodeNetClient {
         headers['x-astral-token'] = token;
       }
 
+      if (_rpcClientLog) {
+        appLogger.d('[NodeNetClient] -> call#$id $method $ip:$port');
+      }
       final response = await _httpClient
           .post(
             Uri.http('$ip:$port', '/rpc'),
@@ -77,12 +84,25 @@ class NodeNetClient {
         );
       }
 
+      if (_rpcClientLog) {
+        appLogger.d(
+          '[NodeNetClient] <- ok#$id $method $ip:$port costMs=${sw.elapsedMilliseconds}',
+        );
+      }
       return json['result'];
     } on TimeoutException {
       throw RpcException(-32000, 'Request timeout');
     } on RpcException {
+      if (_rpcClientLog) {
+        appLogger.w(
+          '[NodeNetClient] <- rpc_error#$id $method $ip:$port costMs=${sw.elapsedMilliseconds}',
+        );
+      }
       rethrow;
     } catch (e) {
+      if (_rpcClientLog) {
+        appLogger.e('[NodeNetClient] <- internal_error#$id $method $ip:$port err=$e');
+      }
       throw RpcException(-32603, 'Internal error: $e');
     }
   }
@@ -102,6 +122,7 @@ class NodeNetClient {
     Duration timeout = defaultTimeout,
     String? authToken,
   }) async {
+    final sw = Stopwatch()..start();
     final request = {
       'jsonrpc': '2.0',
       'method': method,
@@ -115,6 +136,9 @@ class NodeNetClient {
         headers['x-astral-token'] = token;
       }
 
+      if (_rpcClientLog) {
+        appLogger.d('[NodeNetClient] -> notify $method $ip:$port');
+      }
       await _httpClient
           .post(
             Uri.http('$ip:$port', '/rpc'),
@@ -122,6 +146,11 @@ class NodeNetClient {
             body: jsonEncode(request),
           )
           .timeout(timeout);
+      if (_rpcClientLog) {
+        appLogger.d(
+          '[NodeNetClient] <- notify ok $method $ip:$port costMs=${sw.elapsedMilliseconds}',
+        );
+      }
     } on TimeoutException {
       appLogger.w('[NodeNetClient] 通知超时: $method -> $ip:$port');
       throw RpcException(-32000, 'Request timeout');

@@ -34,6 +34,9 @@ class NodeNetServer {
   final Map<String, MethodHandler> _methods = {};
   final List<void Function(String method, dynamic params)> _notificationListeners = [];
 
+  /// JSON-RPC 日志开关：`true` 会输出每次请求的概览（可能较频繁）
+  static const bool _rpcAccessLog = true;
+
   /// 会话鉴权 token（为空表示不校验）
   String? _authToken;
 
@@ -98,6 +101,7 @@ class NodeNetServer {
 
   /// 处理 HTTP 请求
   Future<void> _handleRequest(HttpRequest request) async {
+    final sw = Stopwatch()..start();
     try {
       if (request.method.toUpperCase() != 'POST') {
         request.response.statusCode = HttpStatus.methodNotAllowed;
@@ -113,12 +117,21 @@ class NodeNetServer {
       final mime = contentType?.mimeType.toLowerCase();
       if (mime != 'application/json') {
         request.response.statusCode = HttpStatus.unsupportedMediaType;
+        if (_rpcAccessLog) {
+          final remoteIp = request.connectionInfo?.remoteAddress.address ?? 'unknown';
+          appLogger.w(
+            '[NodeNetServer] 非 JSON 请求被拒绝: $remoteIp ${request.method} ${request.uri} mime=${mime ?? "null"}',
+          );
+        }
         return;
       }
 
       final remoteIp = request.connectionInfo?.remoteAddress.address ?? 'unknown';
       if (!_allowRequest(remoteIp)) {
         request.response.statusCode = HttpStatus.tooManyRequests;
+        if (_rpcAccessLog) {
+          appLogger.w('[NodeNetServer] 限流: ip=$remoteIp');
+        }
         _sendResponse(
           request,
           _buildError(-32029, 'Rate limit exceeded', {'ip': remoteIp}, null),
@@ -131,6 +144,9 @@ class NodeNetServer {
         final got = request.headers.value('x-astral-token')?.trim();
         if (got == null || got.isEmpty || got != expectedToken) {
           request.response.statusCode = HttpStatus.unauthorized;
+          if (_rpcAccessLog) {
+            appLogger.w('[NodeNetServer] 鉴权失败: ip=$remoteIp');
+          }
           _sendResponse(
             request,
             _buildError(-32001, 'Unauthorized', null, null),
@@ -143,6 +159,11 @@ class NodeNetServer {
       try {
         body = await _readBodyWithLimit(request, maxBodyBytes);
       } on RpcException catch (e) {
+        if (_rpcAccessLog) {
+          appLogger.w(
+            '[NodeNetServer] 请求体读取失败: ip=$remoteIp code=${e.code} msg=${e.message}',
+          );
+        }
         _sendResponse(request, _buildError(e.code, e.message, e.data, null));
         return;
       }
@@ -151,6 +172,9 @@ class NodeNetServer {
       try {
         json = jsonDecode(body);
       } catch (e) {
+        if (_rpcAccessLog) {
+          appLogger.w('[NodeNetServer] JSON 解析失败: ip=$remoteIp err=$e');
+        }
         _sendResponse(request, _buildError(-32700, 'Parse error', null));
         return;
       }
@@ -158,6 +182,9 @@ class NodeNetServer {
       request.response.headers.contentType = ContentType.json;
 
       if (json is List) {
+        if (_rpcAccessLog) {
+          appLogger.d('[NodeNetServer] batch 请求: ip=$remoteIp count=${json.length}');
+        }
         final results = await Future.wait(json.map((r) async {
           if (r is! Map) {
             return _buildError(-32600, 'Invalid Request', null, null);
@@ -184,6 +211,12 @@ class NodeNetServer {
       appLogger.e('[NodeNetServer] 处理请求失败: $e', error: e, stackTrace: stackTrace);
       _sendResponse(request, _buildError(-32603, 'Internal error', e.toString()));
     } finally {
+      if (_rpcAccessLog) {
+        final remoteIp = request.connectionInfo?.remoteAddress.address ?? 'unknown';
+        appLogger.d(
+          '[NodeNetServer] done ip=$remoteIp status=${request.response.statusCode} costMs=${sw.elapsedMilliseconds}',
+        );
+      }
       await request.response.close();
     }
   }
@@ -229,33 +262,54 @@ class NodeNetServer {
 
   /// 处理单个 JSON-RPC 请求
   Future<Map<String, dynamic>?> _processRequest(Map<String, dynamic> json) async {
+    final sw = Stopwatch()..start();
     final id = json['id'];
     final method = json['method'] as String?;
     final params = json['params'];
 
     if (method == null) {
+      if (_rpcAccessLog) {
+        appLogger.w('[NodeNetServer] invalid request: missing method');
+      }
       return _buildError(-32600, 'Invalid Request', null, id);
     }
 
     if (json['jsonrpc'] != '2.0') {
+      if (_rpcAccessLog) {
+        appLogger.w('[NodeNetServer] invalid request: bad jsonrpc version method=$method');
+      }
       return _buildError(-32600, 'Invalid jsonrpc version', null, id);
     }
 
     final handler = _methods[method];
     if (handler == null) {
+      if (_rpcAccessLog) {
+        appLogger.w('[NodeNetServer] method not found: $method');
+      }
       return _buildError(-32601, 'Method not found', method, id);
     }
 
     try {
+      if (_rpcAccessLog) {
+        appLogger.d(
+          '[NodeNetServer] <- ${id == null ? "notify" : "call"} method=$method',
+        );
+      }
       final result = await handler(params);
 
       if (id == null) {
         for (final listener in _notificationListeners) {
           listener(method, params);
         }
+        if (_rpcAccessLog) {
+          appLogger.d('[NodeNetServer] -> notify ok method=$method costMs=${sw.elapsedMilliseconds}');
+        }
         return null;
       }
 
+      if (_rpcAccessLog) {
+        appLogger.d('[NodeNetServer] -> ok method=$method costMs=${sw.elapsedMilliseconds}');
+      }
       return {
         'jsonrpc': '2.0',
         'result': result,

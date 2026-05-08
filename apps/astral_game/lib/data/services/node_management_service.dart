@@ -24,6 +24,9 @@ class NodeManagementService {
   final _p2pService = GetIt.I<P2PService>();
   final _appSettings = GetIt.I<AppSettingsService>();
 
+  /// 是否打印“每秒轮询细节”日志（非常刷屏，默认关闭）
+  static const bool _verbosePollLogs = false;
+
   /// 用户节点列表
   final userNodes = signal<List<EnhancedNodeInfo>>([]);
   
@@ -70,9 +73,11 @@ class NodeManagementService {
     _stopPolling();
     _pollNetworkStatus(instanceId);
     _pollingTimer = Timer.periodic(_pollingInterval, (_) {
-      // 用于确认轮询“确实在每秒触发”（用户侧可从日志观察节拍）
-      _pollTick++;
-      appLogger.d('[NodeManagementService] poll tick=$_pollTick');
+      if (_verbosePollLogs) {
+        // 用于确认轮询“确实在每秒触发”（非常刷屏）
+        _pollTick++;
+        appLogger.d('[NodeManagementService] poll tick=$_pollTick');
+      }
       _pollNetworkStatus(instanceId);
     });
   }
@@ -126,13 +131,15 @@ class NodeManagementService {
 
       userNodes.value = normalized;
 
-      // 每秒打印“本次实际获取到的节点列表”（用于排查多开/路由不稳定等问题）
-      final nodesPreview = normalized
-          .map((n) => '${n.peerId}:${n.hostname}:${_normalizeIpv4(n.ipv4)}')
-          .join(', ');
-      appLogger.d(
-        '[NodeManagementService] poll users(total=${normalized.length}, rawTotal=$newTotalNodes) [$nodesPreview]',
-      );
+      if (_verbosePollLogs) {
+        // 每秒打印“本次实际获取到的节点列表”（非常刷屏）
+        final nodesPreview = normalized
+            .map((n) => '${n.peerId}:${n.hostname}:${_normalizeIpv4(n.ipv4)}')
+            .join(', ');
+        appLogger.d(
+          '[NodeManagementService] poll users(total=${normalized.length}, rawTotal=$newTotalNodes) [$nodesPreview]',
+        );
+      }
 
       // 同步拉取资料（昵称/头像），不做冷却；不推送自己的资料。
       for (final n in normalized) {
