@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
+import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/models/enhanced_node_info.dart';
 import 'package:astral_game/utils/platform_version_parser.dart';
@@ -141,7 +142,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.78),
+                              color: AppColors.online,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -192,10 +193,10 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                           color: node.baseInfo.latencyMs < 100
-                              ? Colors.green[600]
+                              ? AppColors.online
                               : node.baseInfo.latencyMs < 300
-                                  ? Colors.yellow[600]
-                                  : Colors.red[600],
+                                  ? AppColors.warning
+                                  : AppColors.error,
                         ),
                       ),
                       if (node.baseInfo.lossRate > 0)
@@ -206,7 +207,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: Colors.red[600],
+                              color: AppColors.error,
                             ),
                           ),
                         ),

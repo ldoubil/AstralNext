@@ -7,8 +7,6 @@ class AstralGameTheme {
   static const Color _darkSurface = Color(0xFF0F1115);
 
   static const _subThemesData = FlexSubThemesData(
-    interactionEffects: false,
-    splashType: FlexSplashType.noSplash,
     adaptiveRemoveElevationTint: FlexAdaptive.all(),
     adaptiveAppBarScrollUnderOff: FlexAdaptive.all(),
     thickBorderWidth: 0,
@@ -30,10 +28,10 @@ class AstralGameTheme {
     return base.copyWith(
       scaffoldBackgroundColor: surface,
       shadowColor: Colors.transparent,
-      dividerTheme: const DividerThemeData(
-        color: Colors.transparent,
-        thickness: 0,
-        space: 0,
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant.withValues(alpha: 0.3),
+        thickness: 1,
+        space: 1,
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: surface,
@@ -42,21 +40,55 @@ class AstralGameTheme {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: CardThemeData(
         elevation: 0,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: scheme.surfaceTint.withValues(alpha: 0.05),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
       ),
-      dialogTheme: const DialogThemeData(
+      dialogTheme: DialogThemeData(
         elevation: 0,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: scheme.surfaceTint.withValues(alpha: 0.05),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         elevation: 0,
         backgroundColor: surface,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: scheme.surfaceTint.withValues(alpha: 0.05),
         shadowColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationThemeData(
+        filled: true,
+        fillColor: surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: scheme.primaryContainer,

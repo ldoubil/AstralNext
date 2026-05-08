@@ -22,31 +22,33 @@ class BottomNav extends StatelessWidget {
     final screenHeight = mediaQuery.size.height;
     final isSmallWindow = screenWidth < 300 || screenHeight < 400;
 
-    return BottomNavigationBar(
+    return NavigationBar(
       backgroundColor: colorScheme.surfaceContainerLow,
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: colorScheme.primary,
-      unselectedItemColor: colorScheme.onSurfaceVariant,
-      showUnselectedLabels: !isSmallWindow,
-      selectedFontSize: isSmallWindow ? 10 : 12,
-      unselectedFontSize: isSmallWindow ? 8 : 10,
-      items: navigationItems
+      indicatorColor: colorScheme.secondaryContainer,
+      indicatorShape: const StadiumBorder(),
+      height: isSmallWindow ? 56 : 80,
+      labelBehavior: isSmallWindow
+          ? NavigationDestinationLabelBehavior.alwaysHide
+          : NavigationDestinationLabelBehavior.alwaysShow,
+      selectedIndex: selectedIndex,
+      onDestinationSelected: onSelected,
+      destinations: navigationItems
           .map(
-            (item) => BottomNavigationBarItem(
+            (item) => NavigationDestination(
               icon: Icon(
                 item.icon,
                 size: isSmallWindow ? 20 : 24,
+                color: colorScheme.onSurface,
               ),
-              activeIcon: Icon(
+              selectedIcon: Icon(
                 item.activeIcon,
                 size: isSmallWindow ? 20 : 24,
+                color: colorScheme.onSecondaryContainer,
               ),
               label: item.label,
             ),
           )
           .toList(),
-      currentIndex: selectedIndex,
-      onTap: onSelected,
     );
   }
 }

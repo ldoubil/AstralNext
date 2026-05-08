@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/state/server_state.dart';
+import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/data/models/server_mod.dart';
 
 import 'server_dialog.dart';
@@ -38,11 +39,11 @@ class _ServersMainPageState extends State<ServersMainPage> {
   Color _getStatusColor(ServerStatus status, ColorScheme colorScheme) {
     switch (status) {
       case ServerStatus.online:
-        return Colors.green;
+        return AppColors.online;
       case ServerStatus.offline:
-        return Colors.red;
+        return AppColors.error;
       case ServerStatus.inUse:
-        return Colors.blue;
+        return AppColors.info;
       case ServerStatus.unknown:
         return colorScheme.outline;
     }
@@ -245,7 +246,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
               _serverState.removeServer(server.id);
               Navigator.of(context).pop();
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('删除'),
           ),
         ],
