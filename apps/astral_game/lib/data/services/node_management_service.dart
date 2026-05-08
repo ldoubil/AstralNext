@@ -126,17 +126,24 @@ class NodeManagementService {
     try {
       final status = await _p2pService.getNetworkStatus(instanceId);
 
-      networkStatus.value = KVNetworkStatus(
-        totalNodes: status.totalNodes,
-        nodes: List.from(status.nodes),
-      );
+      final newTotalNodes = status.totalNodes;
+      final newNodesList = status.nodes;
+      final prevStatus = networkStatus.value;
+      if (prevStatus == null ||
+          prevStatus.totalNodes != newTotalNodes ||
+          prevStatus.nodes.length != newNodesList.length) {
+        networkStatus.value = KVNetworkStatus(
+          totalNodes: newTotalNodes,
+          nodes: List.from(newNodesList),
+        );
+      }
 
       final currentNodes = Map<int, EnhancedNodeInfo>.fromEntries(
         userNodes.value.map((node) => MapEntry(node.peerId, node)),
       );
 
       final newNodes = <int, EnhancedNodeInfo>{};
-      for (final node in status.nodes) {
+      for (final node in newNodesList) {
         if (!node.hostname.contains(AppConstants.publicServerHostname)) {
           final port = _parsePortFromHostname(node.hostname);
           newNodes[node.peerId] = EnhancedNodeInfo(
@@ -146,21 +153,31 @@ class NodeManagementService {
         }
       }
 
-      _processNodeChanges(currentNodes, newNodes);
-      enhancedUserNodes.value = List.from(userNodes.value);
+      final changed = _processNodeChanges(currentNodes, newNodes);
+      if (changed) {
+        enhancedUserNodes.value = List.from(userNodes.value);
+      }
     } catch (e, stackTrace) {
       appLogger.e('[NodeManagementService] 轮询网络状态失败: $e', error: e, stackTrace: stackTrace);
     }
   }
 
   /// 处理节点变化
-  void _processNodeChanges(
+  ///
+  /// 返回 true 表示有实际变化
+  bool _processNodeChanges(
     Map<int, EnhancedNodeInfo> currentNodes,
     Map<int, EnhancedNodeInfo> newNodes,
   ) {
     final joinedPeerIds = newNodes.keys.toSet().difference(currentNodes.keys.toSet());
     final leftPeerIds = currentNodes.keys.toSet().difference(newNodes.keys.toSet());
     final existingPeerIds = currentNodes.keys.toSet().intersection(newNodes.keys.toSet());
+
+    if (joinedPeerIds.isEmpty && leftPeerIds.isEmpty && existingPeerIds.isEmpty) {
+      return false;
+    }
+
+    bool changed = joinedPeerIds.isNotEmpty || leftPeerIds.isNotEmpty;
 
     // 构建新的节点列表，一次性赋值避免竞态
     final updatedNodes = List<EnhancedNodeInfo>.from(userNodes.value);
@@ -188,6 +205,7 @@ class NodeManagementService {
       final newNode = newNodes[peerId]!;
 
       if (currentNode.ipv4 != newNode.ipv4) {
+        changed = true;
         _eventBus.fire(NodeIpChangedEvent(newNode, currentNode.ipv4, newNode.ipv4));
         appLogger.i('[NodeManagementService] 节点IP变更: ${currentNode.ipv4} -> ${newNode.ipv4}');
         if (newNode.ipv4 != '0.0.0.0') {
@@ -201,8 +219,11 @@ class NodeManagementService {
       }
     }
 
-    // 一次性赋值
-    userNodes.value = updatedNodes;
+    // 仅在有变化时赋值
+    if (changed) {
+      userNodes.value = updatedNodes;
+    }
+    return changed;
   }
 
   /// 从主机名解析端口号
@@ -252,12 +273,13 @@ class NodeManagementService {
       final result = await client.call(ip, port, 'user.getInfo');
 
       if (result != null) {
-        if (result['name'] != null) {
-          updateNodeCustomName(node.peerId, result['name'] as String);
-        }
-        if (result['avatar'] != null) {
-          final avatar = base64Decode(result['avatar'] as String);
-          _updateNodeAvatar(node.peerId, avatar);
+        final name = result['name'] as String?;
+        final avatarBytes = result['avatar'] != null
+            ? base64Decode(result['avatar'] as String)
+            : null;
+
+        if (name != null || avatarBytes != null) {
+          _updateNodeInfo(node.peerId, name: name, avatar: avatarBytes);
         }
       }
     } catch (e) {
@@ -301,11 +323,14 @@ class NodeManagementService {
     appLogger.e('[NodeManagementService] 推送用户信息到节点 ${node.hostname} 失败，已达最大重试次数');
   }
 
-  /// 更新节点头像
-  void _updateNodeAvatar(int peerId, Uint8List avatar) {
+  /// 批量更新节点信息（头像和/或昵称），单次 signal 触发
+  void _updateNodeInfo(int peerId, {String? name, Uint8List? avatar}) {
     userNodes.value = userNodes.value.map((n) {
       if (n.peerId == peerId) {
-        return n.copyWith(avatar: avatar);
+        return n.copyWith(
+          customName: name ?? n.customName,
+          avatar: avatar ?? n.avatar,
+        );
       }
       return n;
     }).toList();
@@ -313,12 +338,7 @@ class NodeManagementService {
 
   /// 更新节点自定义名称
   void updateNodeCustomName(int peerId, String name) {
-    userNodes.value = userNodes.value.map((n) {
-      if (n.peerId == peerId) {
-        return n.copyWith(customName: name);
-      }
-      return n;
-    }).toList();
+    _updateNodeInfo(peerId, name: name);
   }
 
   /// 初始化用户信息
