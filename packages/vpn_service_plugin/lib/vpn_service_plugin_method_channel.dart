@@ -8,11 +8,16 @@ class MethodChannelVpnServicePlugin extends VpnServicePluginPlatform {
 
   StreamController<Map<String, dynamic>>? _startedController;
   StreamController<String>? _stoppedController;
+  StreamSubscription? _eventSubscription;
 
   @override
-  Future<bool> prepare() async {
-    final result = await _methodChannel.invokeMethod<bool>('prepareVpn');
-    return result ?? false;
+  Future<String> prepare() async {
+    try {
+      final result = await _methodChannel.invokeMethod<String>('prepareVpn');
+      return result ?? 'unknown';
+    } on PlatformException catch (e) {
+      return 'error_start_activity';
+    }
   }
 
   @override
@@ -43,7 +48,8 @@ class MethodChannelVpnServicePlugin extends VpnServicePluginPlatform {
   }
 
   void _listenEvents() {
-    _eventChannel.receiveBroadcastStream().listen((event) {
+    _eventSubscription?.cancel();
+    _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
       if (event is Map) {
         final data = Map<String, dynamic>.from(event);
         final type = data['type'] as String?;
