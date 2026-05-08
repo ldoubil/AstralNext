@@ -80,26 +80,58 @@ class PublicServerService {
     return _decryptUrl(encryptedBase64, privateKey);
   }
 
-  /// 解析 RSA 私钥（PKCS#8 DER 格式）
+  /// 解析 RSA 私钥（PKCS#1 DER 格式）
   RSAPrivateKey? _parsePrivateKey(String base64Key) {
     try {
       final keyBytes = Uint8List.fromList(base64.decode(base64Key));
+      appLogger.i('[PublicServerService] 密钥字节数: ${keyBytes.length}');
+      appLogger.i('[PublicServerService] 前16字节: ${keyBytes.take(16).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}');
+
       final seq = _parseASN1Sequence(keyBytes);
-      if (seq.length < 3) return null;
+      appLogger.i('[PublicServerService] 顶层 SEQUENCE 元素数: ${seq.length}');
+      for (int i = 0; i < seq.length; i++) {
+        final elem = seq[i];
+        if (elem is BigInt) {
+          appLogger.i('[PublicServerService]   [$i] BigInt (${elem.bitLength} bits): ${elem.toRadixString(16).substring(0, 16)}...');
+        } else if (elem is Uint8List) {
+          appLogger.i('[PublicServerService]   [$i] Uint8List (${elem.length} bytes)');
+        } else if (elem is List) {
+          appLogger.i('[PublicServerService]   [$i] List (${elem.length} items)');
+        } else {
+          appLogger.i('[PublicServerService]   [$i] ${elem.runtimeType}');
+        }
+      }
 
-      final privateKeyOctet = seq[2] as Uint8List;
-      final pkcs1Key = _parseASN1Sequence(privateKeyOctet);
+      // PKCS#1 RSAPrivateKey: SEQUENCE { version, n, e, d, p, q, dp, dq, qInv }
+      if (seq.length >= 9) {
+        appLogger.i('[PublicServerService] 按 PKCS#1 解析 (9个字段)');
+        return RSAPrivateKey(
+          seq[1] as BigInt,
+          seq[2] as BigInt,
+          seq[3] as BigInt,
+          seq[4] as BigInt,
+        );
+      }
 
-      if (pkcs1Key.length < 9) return null;
+      // 兼容 PKCS#8 格式
+      if (seq.length >= 3 && seq[2] is Uint8List) {
+        appLogger.i('[PublicServerService] 按 PKCS#8 解析');
+        final pkcs1Key = _parseASN1Sequence(seq[2] as Uint8List);
+        appLogger.i('[PublicServerService] PKCS#1 内层元素数: ${pkcs1Key.length}');
+        if (pkcs1Key.length >= 9) {
+          return RSAPrivateKey(
+            pkcs1Key[1] as BigInt,
+            pkcs1Key[2] as BigInt,
+            pkcs1Key[3] as BigInt,
+            pkcs1Key[4] as BigInt,
+          );
+        }
+      }
 
-      return RSAPrivateKey(
-        pkcs1Key[1] as BigInt,
-        pkcs1Key[2] as BigInt,
-        pkcs1Key[3] as BigInt,
-        pkcs1Key[4] as BigInt,
-      );
-    } catch (e) {
-      appLogger.e('[PublicServerService] 解析 RSA 私钥失败: $e');
+      appLogger.e('[PublicServerService] 无法识别的密钥格式: ${seq.length} 个元素');
+      return null;
+    } catch (e, stackTrace) {
+      appLogger.e('[PublicServerService] 解析 RSA 私钥异常: $e', error: e, stackTrace: stackTrace);
       return null;
     }
   }
@@ -131,7 +163,7 @@ class PublicServerService {
       offset += length;
 
       if (tag == 0x30 || tag == 0x31) {
-        results.add(_parseASN1Sequence(value));
+        results.addAll(_parseASN1Sequence(value));
       } else if (tag == 0x02) {
         BigInt bigInt = BigInt.zero;
         for (final byte in value) {
