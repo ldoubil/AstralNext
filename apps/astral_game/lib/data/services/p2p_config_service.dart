@@ -166,12 +166,12 @@ class P2PConfigService {
     }
     
     return '''
-instance_name = "AstralGame"
+instance_name = "AstralGame_$apiPort"
 hostname = "$apiPort"
 dhcp = true
 listeners = [
-    "tcp://0.0.0.0:11010",
-    "udp://0.0.0.0:11010",
+    "tcp://0.0.0.0:0",
+    "udp://0.0.0.0:0",
 ] 
 
 [network_identity]

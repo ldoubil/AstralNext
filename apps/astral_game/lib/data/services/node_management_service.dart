@@ -2,36 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:event_bus/event_bus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_core.dart';
 import 'package:astral_game/utils/logger.dart';
+import 'package:astral_game/config/constants.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart' show KVNetworkStatus;
 
 import '../models/enhanced_node_info.dart';
 import 'app_settings_service.dart';
 import 'node_net/node_net_client.dart';
-
-/// 节点加入事件
-class NodeJoinedEvent {
-  final EnhancedNodeInfo node;
-  NodeJoinedEvent(this.node);
-}
-
-/// 节点离开事件
-class NodeLeftEvent {
-  final int peerId;
-  NodeLeftEvent(this.peerId);
-}
-
-/// 节点 IP 变更事件
-class NodeIpChangedEvent {
-  final EnhancedNodeInfo node;
-  final String oldIp;
-  final String newIp;
-  NodeIpChangedEvent(this.node, this.oldIp, this.newIp);
-}
 
 /// 节点管理服务
 ///
@@ -42,7 +22,6 @@ class NodeIpChangedEvent {
 /// - 发送节点事件
 class NodeManagementService {
   final _p2pService = GetIt.I<P2PService>();
-  final _eventBus = GetIt.I<EventBus>();
   final _appSettings = GetIt.I<AppSettingsService>();
 
   /// 用户节点列表
@@ -61,14 +40,12 @@ class NodeManagementService {
   final currentUsername = signal<String>('');
 
   Timer? _pollingTimer;
-  final Map<int, Timer> _ipReadyTimers = {};
+  int _pollTick = 0;
 
   /// 轮询间隔（用户列表需要更及时：1 秒）
   static const Duration _pollingInterval = Duration(seconds: 1);
 
-  /// 节点资料（昵称/头像）获取冷却时间，防止在 1 秒轮询下被高频触发
-  static const Duration _nodeInfoFetchCooldown = Duration(seconds: 30);
-  final Map<int, DateTime> _lastNodeInfoFetchAt = {};
+  // 按需求：不做冷却，轮询时直接刷新昵称/头像
 
   String? get instanceId => currentInstanceId.value;
   bool get isRunning => currentInstanceId.value != null;
@@ -83,10 +60,8 @@ class NodeManagementService {
   /// 停止节点管理
   void stop() {
     _stopPolling();
-    _cancelAllIpReadyTimers();
     currentInstanceId.value = null;
     userNodes.value = [];
-    _lastNodeInfoFetchAt.clear();
     appLogger.i('[NodeManagementService] 已停止');
   }
 
@@ -95,6 +70,9 @@ class NodeManagementService {
     _stopPolling();
     _pollNetworkStatus(instanceId);
     _pollingTimer = Timer.periodic(_pollingInterval, (_) {
+      // 用于确认轮询“确实在每秒触发”（用户侧可从日志观察节拍）
+      _pollTick++;
+      appLogger.d('[NodeManagementService] poll tick=$_pollTick');
       _pollNetworkStatus(instanceId);
     });
   }
@@ -105,26 +83,6 @@ class NodeManagementService {
     _pollingTimer = null;
   }
 
-  /// 取消所有 IP 就绪定时器
-  void _cancelAllIpReadyTimers() {
-    for (final timer in _ipReadyTimers.values) {
-      timer.cancel();
-    }
-    _ipReadyTimers.clear();
-  }
-
-  /// 取消指定节点的 IP 就绪定时器
-  void _cancelIpReadyTimer(int peerId) {
-    _ipReadyTimers[peerId]?.cancel();
-    _ipReadyTimers.remove(peerId);
-  }
-
-  bool _canFetchNodeInfo(int peerId) {
-    final last = _lastNodeInfoFetchAt[peerId];
-    if (last == null) return true;
-    return DateTime.now().difference(last) >= _nodeInfoFetchCooldown;
-  }
-
   /// 轮询网络状态
   ///
   /// 获取最新的网络状态和节点信息
@@ -133,6 +91,17 @@ class NodeManagementService {
       final status = await _p2pService.getNetworkStatus(instanceId);
       final newTotalNodes = status.totalNodes;
       final newNodesList = status.nodes;
+      final rawNodes = newNodesList
+          .map(
+            (n) =>
+                'peerId=${n.peerId},host=${n.hostname},ipv4=${n.ipv4},cost=${n.cost},'
+                'lat=${n.latencyMs.toStringAsFixed(2)},loss=${n.lossRate.toStringAsFixed(2)},'
+                'nat=${n.nat},proto=${n.tunnelProto},connType=${n.connType}',
+          )
+          .join(' | ');
+      appLogger.d(
+        '[NodeManagementService] poll raw(total=$newTotalNodes) [$rawNodes]',
+      );
 
       // 旧项目里网络状态是“持续更新”的；这里如果只在数量变化时更新，
       // 会导致 latency/loss/cost/hops 等字段变化无法及时反映到 UI。
@@ -160,86 +129,30 @@ class NodeManagementService {
         );
       }
 
-      _processNodeChanges(currentNodes, newNodes);
+      // 纯周期获取：每次轮询都全量覆盖列表（不依赖事件驱动）
+      final normalized = newNodes.values.toList()
+        ..sort((a, b) => a.peerId.compareTo(b.peerId));
+
+      userNodes.value = normalized;
+
+      // 每秒打印“本次实际获取到的节点列表”（用于排查多开/路由不稳定等问题）
+      final nodesPreview = normalized
+          .map((n) => '${n.peerId}:${n.hostname}:${_normalizeIpv4(n.ipv4)}')
+          .join(', ');
+      appLogger.d(
+        '[NodeManagementService] poll nodes(total=${normalized.length}) [$nodesPreview]',
+      );
+
+      // 同步拉取资料（昵称/头像），不做冷却；不推送自己的资料。
+      for (final n in normalized) {
+        if (_isPublicServerNode(n)) continue;
+        final ip = _normalizeIpv4(n.ipv4);
+        if (!isValidIp(ip)) continue;
+        _fetchNodeInfo(n);
+      }
     } catch (e, stackTrace) {
       appLogger.e('[NodeManagementService] 轮询网络状态失败: $e', error: e, stackTrace: stackTrace);
     }
-  }
-
-  /// 处理节点变化
-  ///
-  /// 返回 true 表示有实际变化
-  bool _processNodeChanges(
-    Map<int, EnhancedNodeInfo> currentNodes,
-    Map<int, EnhancedNodeInfo> newNodes,
-  ) {
-    final joinedPeerIds = newNodes.keys.toSet().difference(currentNodes.keys.toSet());
-    final leftPeerIds = currentNodes.keys.toSet().difference(newNodes.keys.toSet());
-    final existingPeerIds = currentNodes.keys.toSet().intersection(newNodes.keys.toSet());
-
-    if (joinedPeerIds.isEmpty && leftPeerIds.isEmpty && existingPeerIds.isEmpty) {
-      return false;
-    }
-
-    bool changed = joinedPeerIds.isNotEmpty || leftPeerIds.isNotEmpty;
-
-    // 处理新加入的节点
-    for (final peerId in joinedPeerIds) {
-      final node = newNodes[peerId]!;
-      _eventBus.fire(NodeJoinedEvent(node));
-      _scheduleIpReadyCheck(node);
-      appLogger.i('[NodeManagementService] 节点加入: ${node.hostname} (peerId: $peerId)');
-    }
-
-    // 处理离开的节点
-    for (final peerId in leftPeerIds) {
-      _cancelIpReadyTimer(peerId);
-      _eventBus.fire(NodeLeftEvent(peerId));
-      appLogger.i('[NodeManagementService] 节点离开: peerId: $peerId');
-    }
-
-    // 处理已存在的节点（用于触发 changed）
-    for (final peerId in existingPeerIds) {
-      final currentNode = currentNodes[peerId]!;
-      final newNode = newNodes[peerId]!;
-
-      if (!_isSameNodeSnapshot(currentNode, newNode)) {
-        changed = true;
-      }
-
-      if (currentNode.ipv4 != newNode.ipv4) {
-        changed = true;
-        _eventBus.fire(NodeIpChangedEvent(newNode, currentNode.ipv4, newNode.ipv4));
-        appLogger.i('[NodeManagementService] 节点IP变更: ${currentNode.ipv4} -> ${newNode.ipv4}');
-        if (newNode.ipv4 != '0.0.0.0') {
-          _fetchNodeInfo(newNode);
-        }
-      }
-    }
-
-    // 仅在有变化时赋值（一次性替换为“去重后的规范化列表”）
-    if (changed) {
-      final normalized = newNodes.values.toList()
-        ..sort((a, b) => a.peerId.compareTo(b.peerId));
-      userNodes.value = normalized;
-    }
-    return changed;
-  }
-
-  /// 判断两个节点在 UI 关心的字段上是否“等价”
-  ///
-  /// 目的：当延迟/丢包/跳数等变化时也触发刷新，而不是只在加入/离开/IP变化时刷新。
-  bool _isSameNodeSnapshot(EnhancedNodeInfo a, EnhancedNodeInfo b) {
-    final ah = a.baseInfo.hops;
-    final bh = b.baseInfo.hops;
-    return a.peerId == b.peerId &&
-        a.baseInfo.hostname == b.baseInfo.hostname &&
-        a.baseInfo.ipv4 == b.baseInfo.ipv4 &&
-        a.baseInfo.cost == b.baseInfo.cost &&
-        a.baseInfo.version == b.baseInfo.version &&
-        a.baseInfo.latencyMs == b.baseInfo.latencyMs &&
-        a.baseInfo.lossRate == b.baseInfo.lossRate &&
-        ah.length == bh.length;
   }
 
   /// 从主机名解析端口号
@@ -251,41 +164,25 @@ class NodeManagementService {
     }
   }
 
-  /// 调度 IP 就绪检查
-  ///
-  /// 当节点 IP 为 0.0.0.0 时，等待 IP 分配完成后再获取节点信息
-  void _scheduleIpReadyCheck(EnhancedNodeInfo node) {
-    if (node.ipv4 != '0.0.0.0') {
-      _fetchNodeInfo(node);
-      _pushOwnInfoToNode(node);
-      return;
-    }
+  /// 规范化节点 IPv4（兼容 CIDR: "x.x.x.x/24" -> "x.x.x.x"）
+  String _normalizeIpv4(String raw) {
+    final trimmed = raw.trim();
+    final slash = trimmed.indexOf('/');
+    return (slash >= 0 ? trimmed.substring(0, slash) : trimmed).trim();
+  }
 
-    _ipReadyTimers[node.peerId] = Timer.periodic(
-      const Duration(seconds: 2),
-      (timer) {
-        final currentNode = userNodes.value.firstWhere(
-          (n) => n.peerId == node.peerId,
-          orElse: () => node,
-        );
-
-        if (currentNode.ipv4 != '0.0.0.0') {
-          timer.cancel();
-          _ipReadyTimers.remove(node.peerId);
-          _fetchNodeInfo(currentNode);
-          _pushOwnInfoToNode(currentNode);
-        }
-      },
-    );
+  bool _isPublicServerNode(EnhancedNodeInfo node) {
+    // 公共服务器节点不一定有可直连的虚拟网 IP（可能为空/0.0.0.0），
+    // 且其用途是“中转/目录”，不需要进行 user.getInfo / user.update 探测。
+    return node.hostname.startsWith(AppConstants.publicServerHostname);
   }
 
   /// 获取节点信息（头像和昵称）
   Future<void> _fetchNodeInfo(EnhancedNodeInfo node) async {
-    if (!_canFetchNodeInfo(node.peerId)) return;
-    _lastNodeInfoFetchAt[node.peerId] = DateTime.now();
-
-    final ip = node.ipv4;
+    if (_isPublicServerNode(node)) return;
+    final ip = _normalizeIpv4(node.ipv4);
     final port = node.port ?? 4924;
+    if (!isValidIp(ip)) return;
 
     try {
       final client = GetIt.I<NodeNetClient>();
@@ -304,42 +201,6 @@ class NodeManagementService {
     } catch (e) {
       appLogger.e('[NodeManagementService] 获取节点信息失败 $ip:$port: $e');
     }
-  }
-
-  /// 推送自己的用户信息到指定节点
-  Future<void> _pushOwnInfoToNode(EnhancedNodeInfo node) async {
-    final ip = node.ipv4;
-    final port = node.port ?? 4924;
-
-    if (ip == '0.0.0.0') {
-      appLogger.w('[NodeManagementService] 节点 ${node.hostname} IP 无效，无法推送用户信息');
-      return;
-    }
-
-    final ownName = _appSettings.getUsername();
-    final ownAvatar = _appSettings.getAvatar();
-
-    final params = {
-      'name': ownName,
-      if (ownAvatar != null) 'avatar': base64Encode(ownAvatar),
-    };
-
-    final client = GetIt.I<NodeNetClient>();
-
-    for (int retry = 0; retry < 3; retry++) {
-      try {
-        await client.notify(ip, port, 'user.update', params: params);
-        appLogger.i('[NodeManagementService] 成功推送用户信息到节点 ${node.hostname} ($ip:$port)');
-        return;
-      } catch (e) {
-        appLogger.w('[NodeManagementService] 推送用户信息到节点 ${node.hostname} 失败 (重试 $retry/3): $e');
-        if (retry < 2) {
-          await Future.delayed(const Duration(seconds: 1));
-        }
-      }
-    }
-
-    appLogger.e('[NodeManagementService] 推送用户信息到节点 ${node.hostname} 失败，已达最大重试次数');
   }
 
   /// 批量更新节点信息（头像和/或昵称），单次 signal 触发
@@ -379,7 +240,9 @@ class NodeManagementService {
 
   /// 检查 IP 是否有效
   bool isValidIp(String ip) {
-    return ip != '0.0.0.0';
+    final normalized = _normalizeIpv4(ip);
+    if (normalized.isEmpty) return false;
+    return normalized != '0.0.0.0';
   }
 
   /// 更新当前用户头像

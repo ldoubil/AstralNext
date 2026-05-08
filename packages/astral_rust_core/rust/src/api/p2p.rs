@@ -13,6 +13,7 @@ pub use tokio::task::JoinHandle;
 use uuid::Uuid;
 
 pub static DEFAULT_ET_DNS_ZONE: &str = "as.net.";
+const LOCAL_SYNTHETIC_PEER_ID: u32 = 0;
 
 lazy_static! {
     static ref RT: Runtime = Runtime::new().expect("failed to create tokio runtime");
@@ -377,6 +378,7 @@ pub async fn is_easytier_running(instance_id: String) -> bool {
     MANAGER.list_network_instance_ids().contains(&id)
 }
 
+#[derive(Debug)]
 pub struct NodeHopStats {
     pub peer_id: u32,
     pub target_ip: String,
@@ -385,6 +387,7 @@ pub struct NodeHopStats {
     pub node_name: String,
 }
 
+#[derive(Debug)]
 pub struct KVNodeConnectionStats {
     pub conn_type: String,
     pub rx_bytes: u64,
@@ -393,6 +396,7 @@ pub struct KVNodeConnectionStats {
     pub tx_packets: u64,
 }
 
+#[derive(Debug)]
 pub struct KVNodeInfo {
     pub peer_id: u32,
     pub hostname: String,
@@ -410,6 +414,7 @@ pub struct KVNodeInfo {
     pub cost: i32,
 }
 
+#[derive(Debug)]
 pub struct KVNetworkStatus {
     pub total_nodes: usize,
     pub nodes: Vec<KVNodeInfo>,
@@ -719,12 +724,8 @@ pub async fn get_peer_route_pairs(instance_id: String) -> Result<Vec<PeerRoutePa
     }
 
     if let Some(my_node_info) = &info.my_node_info {
-        let my_peer_id = info
-            .peers
-            .iter()
-            .find(|p| p.conns.iter().any(|c| !c.is_client))
-            .map(|p| p.peer_id)
-            .unwrap_or(0);
+        // 本机补齐节点使用稳定哨兵 peer_id，避免因连接角色变化导致 peer_id 抖动后被去重吞掉。
+        let my_peer_id = LOCAL_SYNTHETIC_PEER_ID;
 
         let my_route = Route {
             peer_id: my_peer_id,
@@ -744,79 +745,37 @@ pub async fn get_peer_route_pairs(instance_id: String) -> Result<Vec<PeerRoutePa
             path_latency_latency_first: None,
         };
 
-        let my_peer_info = info.peers.iter().find(|p| p.peer_id == my_peer_id).cloned();
-
         let my_pair = PeerRoutePair {
             route: Some(my_route),
-            peer: my_peer_info,
+            peer: None,
         };
 
         pairs.push(my_pair);
     }
 
+    // 打印原始结构化数据，便于排查“节点出现后消失”类问题。
+    println!(
+        "[get_peer_route_pairs/raw] instance_id={}, my_node_info={:#?}, peers={:#?}, routes={:#?}, merged_pairs={:#?}",
+        instance_id, info.my_node_info, info.peers, info.routes, pairs
+    );
+
     Ok(pairs)
 }
 
 pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
-    // CLI 同款逻辑：
-    // - peers/routes -> list_peer_route_pair
-    // - 逐条把 PeerRoutePair 映射成 KVNodeInfo
-    // - 本机节点单独补在列表里（类似 CLI show_node_info + list_peer_route_pair）
-    let Ok(info) = get_instance_info(&instance_id).await else {
-        return KVNetworkStatus {
-            total_nodes: 0,
-            nodes: vec![],
-        };
-    };
+    // 对齐旧版 Astral：先用 get_peer_route_pairs() 组装（其中包含本机 pair 补齐逻辑），
+    // 再统一映射为 KVNodeInfo，避免某些时刻本机节点在列表里丢失。
+    let pairs = get_peer_route_pairs(instance_id.clone())
+        .await
+        .unwrap_or_default();
 
-    use easytier::proto::api::instance::list_peer_route_pair;
-    let peer_routes = list_peer_route_pair(info.peers.clone(), info.routes.clone());
+    let running_info = get_instance_info(&instance_id).await.ok();
 
     let mut nodes: Vec<KVNodeInfo> = Vec::new();
-
-    // 先塞入本机节点（对应 CLI 的 show_node_info）
-    if let Some(my_node_info) = &info.my_node_info {
-        let ipv4 = my_node_info
-            .virtual_ipv4
-            .as_ref()
-            .map(|ip| ip.to_string())
-            .unwrap_or_else(|| "0.0.0.0/0".to_string());
-        // 取 peer_id：尽量跟 routes/peers 一致
-        let local_peer_id = info
-            .peers
-            .iter()
-            .find(|p| p.conns.iter().any(|c| !c.is_client))
-            .map(|p| p.peer_id)
-            .unwrap_or(0);
-
-        nodes.push(KVNodeInfo {
-            peer_id: local_peer_id,
-            hostname: my_node_info.hostname.clone(),
-            ipv4,
-            latency_ms: 0.0,
-            nat: my_node_info
-                .stun_info
-                .as_ref()
-                .map_or_else(|| "Unknown".to_string(), |s| {
-                    NatType::try_from(s.udp_nat_type)
-                        .unwrap_or(NatType::Unknown)
-                        .as_str_name()
-                        .to_string()
-                }),
-            hops: vec![],
-            loss_rate: 0.0,
-            connections: vec![],
-            tunnel_proto: "-".to_string(),
-            conn_type: "Local".to_string(),
-            rx_bytes: 0,
-            tx_bytes: 0,
-            version: my_node_info.version.clone(),
-            cost: 0,
-        });
-    }
-
-    for p in peer_routes {
-        let route = p.route.clone().unwrap_or_default();
+    for p in pairs {
+        let Some(route) = p.route.clone() else {
+            continue;
+        };
 
         let lat_ms = if route.cost == 1 {
             p.get_latency_ms().unwrap_or(0.0)
@@ -824,9 +783,7 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
             route.path_latency_latency_first() as f64
         };
 
-        // CLI 输出里 loss 是百分比字符串；这里我们保持 KVNodeInfo.loss_rate 为“百分比数值”
         let loss_percent = p.get_loss_rate().unwrap_or(0.0) * 100.0;
-
         let ipv4 = route
             .ipv4_addr
             .as_ref()
@@ -855,6 +812,13 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
             cost: route.cost,
         };
 
+        if route.inst_id == "local" || route.peer_id == LOCAL_SYNTHETIC_PEER_ID {
+            node_info.conn_type = "Local".to_string();
+            if node_info.tunnel_proto.is_empty() {
+                node_info.tunnel_proto = "-".to_string();
+            }
+        }
+
         if let Some(peer) = &p.peer {
             for conn in &peer.conns {
                 if let Some(stats) = &conn.stats {
@@ -877,11 +841,14 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
         nodes.push(node_info);
     }
 
-    // 排序节点列表（参考 CLI 实现）
-    nodes.sort_by(|a, b| {
-        // 首先按 peer_id 排序
-        a.peer_id.cmp(&b.peer_id)
-    });
+    // 避免同一 peer 在 pair 合并阶段出现重复条目。
+    nodes.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
+    nodes.dedup_by(|a, b| a.peer_id == b.peer_id);
+
+    println!(
+        "[get_network_status/raw] instance_id={}, running_info={:#?}, nodes={:#?}",
+        instance_id, running_info, nodes
+    );
 
     KVNetworkStatus {
         total_nodes: nodes.len(),

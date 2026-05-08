@@ -81,8 +81,8 @@ instance_name = "default"
 dhcp = true
 #ipv4=""   #需将dhcp改为为false后取消ipv4前的注释并填写虚拟ip如100.100.100.1/24
 listeners = [
-    "tcp://0.0.0.0:11010",
-    "udp://0.0.0.0:11010",
+    "tcp://0.0.0.0:0",
+    "udp://0.0.0.0:0",
 ] #监听器用于接受连接
 
 [network_identity]

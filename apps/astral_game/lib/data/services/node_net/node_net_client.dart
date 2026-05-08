@@ -122,10 +122,12 @@ class NodeNetClient {
             body: jsonEncode(request),
           )
           .timeout(timeout);
-     } on TimeoutException {
+    } on TimeoutException {
       appLogger.w('[NodeNetClient] 通知超时: $method -> $ip:$port');
+      throw RpcException(-32000, 'Request timeout');
     } catch (e) {
       appLogger.e('[NodeNetClient] 发送通知失败: $method -> $ip:$port, 错误: $e');
+      rethrow;
     }
   }
 
