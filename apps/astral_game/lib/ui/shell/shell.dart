@@ -1,8 +1,13 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/data/services/update_service.dart';
+import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/data/state/update_state.dart';
 import 'package:astral_game/di.dart';
 import 'package:flutter/material.dart';
+import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../pages/dashboard_page.dart';
@@ -21,10 +26,11 @@ class Shell extends StatefulWidget {
   State<Shell> createState() => _ShellState();
 }
 
-class _ShellState extends State<Shell> {
+class _ShellState extends State<Shell> with WindowListener, TrayListener {
   late final ShellContentController _contentController;
   late final ScreenStateService _screenStateService;
   late final List<NavigationItem> _navigationItems;
+  final TrayManager _trayManager = TrayManager.instance;
 
   @override
   void initState() {
@@ -77,16 +83,97 @@ class _ShellState extends State<Shell> {
         }
       }
     });
+
+    _setupDesktopCloseBehavior();
   }
 
   @override
   void dispose() {
+    if (_isDesktopPlatform) {
+      windowManager.removeListener(this);
+      _trayManager.removeListener(this);
+    }
     _contentController.removeListener(_onContentChanged);
     super.dispose();
   }
 
   void _onContentChanged() {
     setState(() {});
+  }
+
+  bool get _isDesktopPlatform =>
+      Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+
+  Future<void> _setupDesktopCloseBehavior() async {
+    if (!_isDesktopPlatform) return;
+
+    windowManager.addListener(this);
+    _trayManager.addListener(this);
+    await windowManager.setPreventClose(true);
+    await _initTray();
+  }
+
+  Future<void> _initTray() async {
+    final iconPath = Platform.isWindows ? 'assets/logo.png' : 'assets/logo.png';
+    await _trayManager.setIcon(iconPath);
+    if (!Platform.isLinux) {
+      await _trayManager.setToolTip('Astral Game');
+    }
+    await _trayManager.setContextMenu(
+      Menu(
+        items: [
+          MenuItem(key: 'show_window', label: '显示主界面'),
+          MenuItem.separator(),
+          MenuItem(key: 'exit', label: '退出'),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showWindowFromTray() async {
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
+  Future<void> _handleCloseRequested() async {
+    if (!_isDesktopPlatform) return;
+    final closeMinimize = getIt<SettingsState>().closeMinimize.value;
+    if (closeMinimize) {
+      await windowManager.hide();
+      return;
+    }
+    await windowManager.setPreventClose(false);
+    await windowManager.close();
+  }
+
+  @override
+  void onWindowClose() {
+    unawaited(_handleCloseRequested());
+  }
+
+  @override
+  void onTrayIconMouseDown() {
+    unawaited(_showWindowFromTray());
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    unawaited(_trayManager.popUpContextMenu());
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) {
+    switch (menuItem.key) {
+      case 'show_window':
+        unawaited(_showWindowFromTray());
+        break;
+      case 'exit':
+        unawaited(() async {
+          await windowManager.setPreventClose(false);
+          await windowManager.close();
+        }());
+        break;
+    }
   }
 
   void _handleDestinationSelected(int index) {
@@ -129,6 +216,7 @@ class _ShellState extends State<Shell> {
                     height: 44,
                     title: hasOverlay ? overlayTitle! : 'Astral Game',
                     showBackButton: hasOverlay,
+                    onClose: () => unawaited(_handleCloseRequested()),
                     onBack: hasOverlay
                         ? () => _contentController.closeOverlay()
                         : null,
@@ -195,10 +283,12 @@ class _TitleBar extends StatefulWidget {
   final String title;
   final bool showBackButton;
   final VoidCallback? onBack;
+  final VoidCallback onClose;
 
   const _TitleBar({
     required this.height,
     required this.title,
+    required this.onClose,
     this.showBackButton = false,
     this.onBack,
   });
@@ -281,7 +371,7 @@ class _TitleBarState extends State<_TitleBar> {
                 iconSize: 16,
                 hoverColor: colorScheme.errorContainer,
                 iconColor: colorScheme.onPrimaryContainer,
-                onTap: () => windowManager.close(),
+                onTap: widget.onClose,
               ),
             ],
           ),

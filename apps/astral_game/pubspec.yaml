@@ -33,6 +33,7 @@ dependencies:
   http: ^1.2.2
   event_bus: ^2.0.0
   logger: ^2.0.0
+  tray_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:

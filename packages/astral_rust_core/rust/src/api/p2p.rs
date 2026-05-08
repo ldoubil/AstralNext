@@ -753,12 +753,6 @@ pub async fn get_peer_route_pairs(instance_id: String) -> Result<Vec<PeerRoutePa
         pairs.push(my_pair);
     }
 
-    // 打印原始结构化数据，便于排查“节点出现后消失”类问题。
-    println!(
-        "[get_peer_route_pairs/raw] instance_id={}, my_node_info={:#?}, peers={:#?}, routes={:#?}, merged_pairs={:#?}",
-        instance_id, info.my_node_info, info.peers, info.routes, pairs
-    );
-
     Ok(pairs)
 }
 
@@ -768,8 +762,6 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
     let pairs = get_peer_route_pairs(instance_id.clone())
         .await
         .unwrap_or_default();
-
-    let running_info = get_instance_info(&instance_id).await.ok();
 
     let mut nodes: Vec<KVNodeInfo> = Vec::new();
     for p in pairs {
@@ -844,11 +836,6 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
     // 避免同一 peer 在 pair 合并阶段出现重复条目。
     nodes.sort_by(|a, b| a.peer_id.cmp(&b.peer_id));
     nodes.dedup_by(|a, b| a.peer_id == b.peer_id);
-
-    println!(
-        "[get_network_status/raw] instance_id={}, running_info={:#?}, nodes={:#?}",
-        instance_id, running_info, nodes
-    );
 
     KVNetworkStatus {
         total_nodes: nodes.len(),

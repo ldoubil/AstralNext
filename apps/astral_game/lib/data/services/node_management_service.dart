@@ -91,17 +91,6 @@ class NodeManagementService {
       final status = await _p2pService.getNetworkStatus(instanceId);
       final newTotalNodes = status.totalNodes;
       final newNodesList = status.nodes;
-      final rawNodes = newNodesList
-          .map(
-            (n) =>
-                'peerId=${n.peerId},host=${n.hostname},ipv4=${n.ipv4},cost=${n.cost},'
-                'lat=${n.latencyMs.toStringAsFixed(2)},loss=${n.lossRate.toStringAsFixed(2)},'
-                'nat=${n.nat},proto=${n.tunnelProto},connType=${n.connType}',
-          )
-          .join(' | ');
-      appLogger.d(
-        '[NodeManagementService] poll raw(total=$newTotalNodes) [$rawNodes]',
-      );
 
       // 旧项目里网络状态是“持续更新”的；这里如果只在数量变化时更新，
       // 会导致 latency/loss/cost/hops 等字段变化无法及时反映到 UI。
