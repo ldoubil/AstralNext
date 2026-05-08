@@ -374,6 +374,12 @@ class _PublicServerDialogState extends State<_PublicServerDialog> {
   String? _error;
   final Map<String, int?> _latencies = {};
 
+  Color _getLatencyColor(int latencyMs, ColorScheme colorScheme) {
+    if (latencyMs <= 80) return AppColors.online;
+    if (latencyMs <= 160) return Colors.orange;
+    return AppColors.error;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -482,19 +488,88 @@ class _PublicServerDialogState extends State<_PublicServerDialog> {
                           final url = (server.decryptedUrl ?? '').trim();
                           final ms = url.isEmpty ? null : _latencies[url];
 
-                          return ListTile(
-                            title: Text(server.name),
-                            subtitle: Text(
-                              '公共服务器${ms != null ? ' · ${ms}ms' : ''}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: added
-                                ? Icon(Icons.check_circle, color: colorScheme.outline)
-                                : FilledButton.tonal(
-                                    onPressed: () => _addServer(server),
-                                    child: const Text('添加'),
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: SizedBox(
+                                width: 56,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 4,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: ms != null
+                                            ? _getLatencyColor(ms, colorScheme)
+                                            : colorScheme.outline,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        ms != null ? '${ms}ms' : '--',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelMedium
+                                            ?.copyWith(
+                                              color: colorScheme.outline,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              title: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      server.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.primary
+                                          .withValues(alpha: 0.10),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      '公共服务器',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: colorScheme.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: const Text(
+                                '公共服务器',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: added
+                                  ? Icon(Icons.check_circle,
+                                      color: colorScheme.outline)
+                                  : FilledButton.tonal(
+                                      onPressed: () => _addServer(server),
+                                      child: const Text('添加'),
+                                    ),
+                            ),
                           );
                         },
                       ),
