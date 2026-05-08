@@ -587,7 +587,7 @@ pub fn create_server_with_flags(
         cfg.set_hostname(Some(username));
         cfg.set_dhcp(enable_dhcp);
         for c in cidrs {
-            cfg.add_proxy_cidr(c.parse().unwrap(), None);
+            let _ = cfg.add_proxy_cidr(c.parse().unwrap(), None);
         }
         let mut old = cfg.get_port_forwards();
 
@@ -758,406 +758,111 @@ pub async fn get_peer_route_pairs(instance_id: String) -> Result<Vec<PeerRoutePa
 }
 
 pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
-    // 尝试获取 peer_route_pairs
-    let pairs = match get_peer_route_pairs(instance_id.clone()).await {
-        Ok(pairs) => pairs,
-        Err(_) => {
-            if let Ok(info) = get_instance_info(&instance_id).await {
-                use easytier::proto::api::instance::list_peer_route_pair;
-                let mut pairs = list_peer_route_pair(info.peers.clone(), info.routes.clone());
-                
-                let mut route_peer_ids: std::collections::HashSet<u32> = pairs
-                    .iter()
-                    .filter_map(|p| p.route.as_ref().map(|r| r.peer_id))
-                    .collect();
-
-                for peer in &info.peers {
-                    if !route_peer_ids.contains(&peer.peer_id) {
-                        pairs.push(PeerRoutePair {
-                            route: None,
-                            peer: Some(peer.clone()),
-                        });
-                        route_peer_ids.insert(peer.peer_id);
-                    }
-                }
-                
-                if let Some(my_node_info) = &info.my_node_info {
-                    let my_peer_id = info
-                        .peers
-                        .iter()
-                        .find(|p| p.conns.iter().any(|c| !c.is_client))
-                        .map(|p| p.peer_id)
-                        .unwrap_or(0);
-
-                    let my_route = Route {
-                        peer_id: my_peer_id,
-                        ipv4_addr: my_node_info.virtual_ipv4.clone(),
-                        ipv6_addr: None,
-                        next_hop_peer_id: my_peer_id,
-                        cost: 0,
-                        path_latency: 0,
-                        proxy_cidrs: vec![],
-                        hostname: my_node_info.hostname.clone(),
-                        stun_info: my_node_info.stun_info.clone(),
-                        inst_id: "local".to_string(),
-                        version: my_node_info.version.clone(),
-                        feature_flag: None,
-                        next_hop_peer_id_latency_first: None,
-                        cost_latency_first: None,
-                        path_latency_latency_first: None,
-                    };
-
-                    let my_peer_info = info.peers.iter().find(|p| p.peer_id == my_peer_id).cloned();
-
-                    let my_pair = PeerRoutePair {
-                        route: Some(my_route),
-                        peer: my_peer_info,
-                    };
-
-                    pairs.push(my_pair);
-                }
-                
-                pairs
-            } else {
-                // 如果实例不存在，返回空列表
-                vec![]
-            }
-        }
+    // CLI 同款逻辑：
+    // - peers/routes -> list_peer_route_pair
+    // - 逐条把 PeerRoutePair 映射成 KVNodeInfo
+    // - 本机节点单独补在列表里（类似 CLI show_node_info + list_peer_route_pair）
+    let Ok(info) = get_instance_info(&instance_id).await else {
+        return KVNetworkStatus {
+            total_nodes: 0,
+            nodes: vec![],
+        };
     };
 
-    let running_info = get_instance_info(&instance_id).await.ok();
-    let local_peer_id = running_info
-        .as_ref()
-        .and_then(|info| {
-            info.peers
-                .iter()
-                .find(|p| p.conns.iter().any(|c| !c.is_client))
-                .map(|p| p.peer_id)
-        })
-        .unwrap_or(0);
+    use easytier::proto::api::instance::list_peer_route_pair;
+    let peer_routes = list_peer_route_pair(info.peers.clone(), info.routes.clone());
 
-    // 使用 HashSet 跟踪已添加的 peer_id，确保每个节点只添加一次
-    let mut added_peer_ids = std::collections::HashSet::new();
-    let mut nodes = Vec::new();
-    for pair in pairs.iter() {
-        if let Some(route) = &pair.route {
-            if added_peer_ids.contains(&route.peer_id) {
-                continue;
-            }
-            added_peer_ids.insert(route.peer_id);
-            
-            let cost = route.cost;
-            let ipv4 = route
-                .ipv4_addr
+    let mut nodes: Vec<KVNodeInfo> = Vec::new();
+
+    // 先塞入本机节点（对应 CLI 的 show_node_info）
+    if let Some(my_node_info) = &info.my_node_info {
+        let ipv4 = my_node_info
+            .virtual_ipv4
+            .as_ref()
+            .map(|ip| ip.to_string())
+            .unwrap_or_else(|| "0.0.0.0/0".to_string());
+        // 取 peer_id：尽量跟 routes/peers 一致
+        let local_peer_id = info
+            .peers
+            .iter()
+            .find(|p| p.conns.iter().any(|c| !c.is_client))
+            .map(|p| p.peer_id)
+            .unwrap_or(0);
+
+        nodes.push(KVNodeInfo {
+            peer_id: local_peer_id,
+            hostname: my_node_info.hostname.clone(),
+            ipv4,
+            latency_ms: 0.0,
+            nat: my_node_info
+                .stun_info
                 .as_ref()
-                .and_then(|addr| addr.address.as_ref())
-                .map(|a| {
-                    format!(
-                        "{}.{}.{}.{}",
-                        (a.addr >> 24) & 0xFF,
-                        (a.addr >> 16) & 0xFF,
-                        (a.addr >> 8) & 0xFF,
-                        a.addr & 0xFF
-                    )
-                })
-                .unwrap_or_else(|| "0.0.0.0".to_string());
+                .map_or_else(|| "Unknown".to_string(), |s| {
+                    NatType::try_from(s.udp_nat_type)
+                        .unwrap_or(NatType::Unknown)
+                        .as_str_name()
+                        .to_string()
+                }),
+            hops: vec![],
+            loss_rate: 0.0,
+            connections: vec![],
+            tunnel_proto: "-".to_string(),
+            conn_type: "Local".to_string(),
+            rx_bytes: 0,
+            tx_bytes: 0,
+            version: my_node_info.version.clone(),
+            cost: 0,
+        });
+    }
 
-            let mut node_info = KVNodeInfo {
-                peer_id: route.peer_id,
-                hostname: route.hostname.clone(),
-                hops: {
-                    fn collect_hops(
-                        pairs: &[PeerRoutePair],
-                        current_peer_id: u32,
-                        mut path: Vec<NodeHopStats>,
-                        visited: &mut std::collections::HashSet<u32>,
-                    ) -> Vec<NodeHopStats> {
-                        if visited.contains(&current_peer_id) {
-                            return path;
-                        }
-                        visited.insert(current_peer_id);
+    for p in peer_routes {
+        let route = p.route.clone().unwrap_or_default();
 
-                        if let Some(pair) = pairs.iter().find(|p| {
-                            p.route
-                                .as_ref()
-                                .map_or(false, |r| r.peer_id == current_peer_id)
-                        }) {
-                            if let Some(route) = &pair.route {
-                                let ip = route
-                                    .ipv4_addr
-                                    .as_ref()
-                                    .and_then(|addr| addr.address.as_ref())
-                                    .map(|a| {
-                                        format!(
-                                            "{}.{}.{}.{}",
-                                            (a.addr >> 24) & 0xFF,
-                                            (a.addr >> 16) & 0xFF,
-                                            (a.addr >> 8) & 0xFF,
-                                            a.addr & 0xFF
-                                        )
-                                    })
-                                    .unwrap_or_default();
+        let lat_ms = if route.cost == 1 {
+            p.get_latency_ms().unwrap_or(0.0)
+        } else {
+            route.path_latency_latency_first() as f64
+        };
 
-                                let (latency, loss) = pair.peer.as_ref().map_or((0.0, 0.0), |p| {
-                                    let min_latency = p
-                                        .conns
-                                        .iter()
-                                        .filter_map(|c| c.stats.as_ref().map(|s| s.latency_us))
-                                        .min()
-                                        .unwrap_or(0) as f64
-                                        / 1000.0;
+        // CLI 输出里 loss 是百分比字符串；这里我们保持 KVNodeInfo.loss_rate 为“百分比数值”
+        let loss_percent = p.get_loss_rate().unwrap_or(0.0) * 100.0;
 
-                                    let avg_loss = p.conns.iter().map(|c| c.loss_rate).sum::<f32>()
-                                        / p.conns.len().max(1) as f32;
+        let ipv4 = route
+            .ipv4_addr
+            .as_ref()
+            .and_then(|ip| ip.address.clone())
+            .map(|ip| ip.to_string())
+            .unwrap_or_default();
 
-                                    (min_latency, avg_loss as f64)
-                                });
+        let mut node_info = KVNodeInfo {
+            peer_id: route.peer_id,
+            hostname: route.hostname.clone(),
+            ipv4,
+            latency_ms: lat_ms,
+            nat: p.get_udp_nat_type(),
+            hops: vec![],
+            loss_rate: loss_percent as f32,
+            connections: vec![],
+            tunnel_proto: p.get_conn_protos().unwrap_or_default().join(","),
+            conn_type: p.get_udp_nat_type(),
+            rx_bytes: p.get_rx_bytes().unwrap_or(0),
+            tx_bytes: p.get_tx_bytes().unwrap_or(0),
+            version: if route.version.is_empty() {
+                "unknown".to_string()
+            } else {
+                route.version
+            },
+            cost: route.cost,
+        };
 
-                                path.push(NodeHopStats {
-                                    peer_id: current_peer_id,
-                                    target_ip: ip,
-                                    latency_ms: latency,
-                                    packet_loss: loss as f32,
-                                    node_name: route.hostname.clone(),
-                                });
-
-                                if route.next_hop_peer_id != current_peer_id
-                                    && route.next_hop_peer_id != 0
-                                {
-                                    return collect_hops(
-                                        pairs,
-                                        route.next_hop_peer_id,
-                                        path,
-                                        visited,
-                                    );
-                                }
-                            }
-                        }
-                        path
-                    }
-
-                    let mut hops = Vec::new();
-                    if let Some(route) = &pair.route {
-                        let mut visited = std::collections::HashSet::new();
-                        let target_ip = route
-                            .ipv4_addr
-                            .as_ref()
-                            .and_then(|addr| addr.address.as_ref())
-                            .map(|a| {
-                                format!(
-                                    "{}.{}.{}.{}",
-                                    (a.addr >> 24) & 0xFF,
-                                    (a.addr >> 16) & 0xFF,
-                                    (a.addr >> 8) & 0xFF,
-                                    a.addr & 0xFF
-                                )
-                            })
-                            .unwrap_or_default();
-
-                        if let Some(info) = &running_info {
-                            if let Some(local_node) = &info.my_node_info {
-                                hops.push(NodeHopStats {
-                                    peer_id: local_peer_id,
-                                    target_ip: local_node
-                                        .virtual_ipv4
-                                        .as_ref()
-                                        .and_then(|addr| addr.address.as_ref())
-                                        .map(|a| {
-                                            format!(
-                                                "{}.{}.{}.{}",
-                                                (a.addr >> 24) & 0xFF,
-                                                (a.addr >> 16) & 0xFF,
-                                                (a.addr >> 8) & 0xFF,
-                                                a.addr & 0xFF
-                                            )
-                                        })
-                                        .unwrap_or_else(|| local_node.hostname.clone()),
-                                    latency_ms: 0.0,
-                                    packet_loss: 0.0,
-                                    node_name: local_node.hostname.clone(),
-                                });
-
-                                if let Some(local_route) =
-                                    info.routes.iter().find(|r| r.peer_id == route.peer_id)
-                                {
-                                    let mut next_hops = collect_hops(
-                                        pairs.as_slice(),
-                                        local_route.next_hop_peer_id,
-                                        Vec::new(),
-                                        &mut visited,
-                                    );
-                                    hops.append(&mut next_hops);
-
-                                    let last_node_is_target = hops
-                                        .last()
-                                        .map_or(false, |last| last.target_ip == target_ip);
-
-                                    if !last_node_is_target && !visited.contains(&route.peer_id) {
-                                        let (latency, loss) =
-                                            pair.peer.as_ref().map_or((0.0, 0.0), |p| {
-                                                let min_latency = p
-                                                    .conns
-                                                    .iter()
-                                                    .filter_map(|c| {
-                                                        c.stats
-                                                            .as_ref()
-                                                            .map(|s| s.latency_us)
-                                                    })
-                                                    .min()
-                                                    .unwrap_or(0) as f64
-                                                    / 1000.0;
-
-                                                let avg_loss = p
-                                                    .conns
-                                                    .iter()
-                                                    .map(|c| c.loss_rate)
-                                                    .sum::<f32>()
-                                                    / p.conns.len().max(1) as f32;
-
-                                                (min_latency, avg_loss as f64)
-                                            });
-
-                                        hops.push(NodeHopStats {
-                                            peer_id: route.peer_id,
-                                            target_ip: target_ip.clone(),
-                                            latency_ms: latency,
-                                            packet_loss: loss as f32,
-                                            node_name: route.hostname.clone(),
-                                        });
-                                    }
-                                }
-                            }
-                        }
-
-                        if hops.len() <= 1 {
-                            if !hops.iter().any(|h| h.target_ip == target_ip) {
-                                let (latency, loss) = pair.peer.as_ref().map_or((0.0, 0.0), |p| {
-                                    let min_latency = p
-                                        .conns
-                                        .iter()
-                                        .filter_map(|c| c.stats.as_ref().map(|s| s.latency_us))
-                                        .min()
-                                        .unwrap_or(0) as f64
-                                        / 1000.0;
-
-                                    let avg_loss = p.conns.iter().map(|c| c.loss_rate).sum::<f32>()
-                                        / p.conns.len().max(1) as f32;
-
-                                    (min_latency, avg_loss as f64)
-                                });
-
-                                hops.push(NodeHopStats {
-                                    peer_id: route.peer_id,
-                                    target_ip: target_ip,
-                                    latency_ms: latency,
-                                    packet_loss: loss as f32,
-                                    node_name: route.hostname.clone(),
-                                });
-                            }
-                        }
-                    }
-                    hops
-                },
-                latency_ms: if route.cost == 1 {
-                    pair.get_latency_ms().unwrap_or(0.0)
-                } else {
-                    route.path_latency_latency_first() as f64
-                },
-                ipv4,
-                loss_rate: if let Some(peer) = &pair.peer {
-                    let mut total_loss_rate = 0.0;
-                    for conn in &peer.conns {
-                        total_loss_rate += conn.loss_rate;
-                    }
-                    total_loss_rate
-                } else {
-                    0.0
-                },
-                nat: route.stun_info.as_ref().map_or_else(
-                    || "Unknown".to_string(),
-                    |stun| {
-                        let nat_type =
-                            NatType::try_from(stun.udp_nat_type).unwrap_or(NatType::Unknown);
-                        format!("{:?}", nat_type)
-                    },
-                ),
-                connections: Vec::new(),
-                version: route.version.clone(),
-                cost,
-                conn_type: pair.get_udp_nat_type(),
-                tunnel_proto: pair
-                    .get_conn_protos()
-                    .unwrap_or_default()
-                    .join(",")
-                    .to_string(),
-                rx_bytes: pair.get_rx_bytes().unwrap_or_default(),
-                tx_bytes: pair.get_tx_bytes().unwrap_or_default(),
-            };
-
-            if let Some(peer) = &pair.peer {
-                for conn in &peer.conns {
-                    if let Some(stats) = &conn.stats {
-                        let conn_type = if let Some(tunnel) = &conn.tunnel {
-                            tunnel.tunnel_type.clone()
-                        } else {
-                            "unknown".to_string()
-                        };
-
-                        node_info.connections.push(KVNodeConnectionStats {
-                            conn_type,
-                            rx_bytes: stats.rx_bytes,
-                            tx_bytes: stats.tx_bytes,
-                            rx_packets: stats.rx_packets,
-                            tx_packets: stats.tx_packets,
-                        });
-                    }
-                }
-            }
-
-            nodes.push(node_info);
-        } else if let Some(peer) = &pair.peer {
-            if added_peer_ids.contains(&peer.peer_id) {
-                continue;
-            }
-            added_peer_ids.insert(peer.peer_id);
-
-            let (latency, loss) = {
-                let min_latency = peer
-                    .conns
-                    .iter()
-                    .filter_map(|c| c.stats.as_ref().map(|s| s.latency_us))
-                    .min()
-                    .unwrap_or(0) as f64
-                    / 1000.0;
-                let avg_loss = peer.conns.iter().map(|c| c.loss_rate).sum::<f32>()
-                    / peer.conns.len().max(1) as f32;
-                (min_latency, avg_loss as f64)
-            };
-
-            let mut node_info = KVNodeInfo {
-                peer_id: peer.peer_id,
-                hostname: String::new(),
-                ipv4: "0.0.0.0".to_string(),
-                latency_ms: latency,
-                nat: "Unknown".to_string(),
-                hops: vec![],
-                loss_rate: loss as f32,
-                connections: Vec::new(),
-                tunnel_proto: String::new(),
-                conn_type: String::new(),
-                rx_bytes: 0,
-                tx_bytes: 0,
-                version: String::new(),
-                cost: -1,
-            };
-
+        if let Some(peer) = &p.peer {
             for conn in &peer.conns {
                 if let Some(stats) = &conn.stats {
-                    let conn_type = if let Some(tunnel) = &conn.tunnel {
-                        tunnel.tunnel_type.clone()
-                    } else {
-                        "unknown".to_string()
-                    };
+                    let conn_type = conn
+                        .tunnel
+                        .as_ref()
+                        .map(|t| t.tunnel_type.clone())
+                        .unwrap_or_else(|| "unknown".to_string());
                     node_info.connections.push(KVNodeConnectionStats {
                         conn_type,
                         rx_bytes: stats.rx_bytes,
@@ -1167,9 +872,9 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
                     });
                 }
             }
-
-            nodes.push(node_info);
         }
+
+        nodes.push(node_info);
     }
 
     // 排序节点列表（参考 CLI 实现）

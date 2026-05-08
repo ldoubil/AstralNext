@@ -7,6 +7,13 @@ import 'package:astral_game/utils/logger.dart';
 /// 方法处理器类型（使用动态参数）
 typedef MethodHandler = FutureOr<dynamic> Function(dynamic params);
 
+class _TokenBucket {
+  double tokens;
+  DateTime lastRefill;
+
+  _TokenBucket({required this.tokens, required this.lastRefill});
+}
+
 /// JSON-RPC 异常
 class RpcException implements Exception {
   final int code;
@@ -27,11 +34,28 @@ class NodeNetServer {
   final Map<String, MethodHandler> _methods = {};
   final List<void Function(String method, dynamic params)> _notificationListeners = [];
 
+  /// 会话鉴权 token（为空表示不校验）
+  String? _authToken;
+
+  /// 最大请求体大小（字节）
+  static const int maxBodyBytes = 1024 * 1024; // 1MB
+
+  /// 简单限流：每个 IP 每秒允许的请求数（突发容量为 2 倍）
+  static const double _rateLimitPerSecond = 30;
+  static const double _rateLimitBurst = 60;
+  final Map<String, _TokenBucket> _bucketsByIp = {};
+
   /// 获取监听端口
   int get port => _httpServer?.port ?? 0;
 
   /// 是否正在运行
   bool get isRunning => _httpServer != null;
+
+  /// 设置/清除鉴权 token（建议在连接建立/断开时调用）
+  void setAuthToken(String? token) {
+    final trimmed = token?.trim();
+    _authToken = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
 
   /// 注册方法
   void register(String method, MethodHandler handler) {
@@ -75,7 +99,53 @@ class NodeNetServer {
   /// 处理 HTTP 请求
   Future<void> _handleRequest(HttpRequest request) async {
     try {
-      final body = await utf8.decoder.bind(request).join();
+      if (request.method.toUpperCase() != 'POST') {
+        request.response.statusCode = HttpStatus.methodNotAllowed;
+        return;
+      }
+
+      if (request.uri.path != '/rpc') {
+        request.response.statusCode = HttpStatus.notFound;
+        return;
+      }
+
+      final contentType = request.headers.contentType;
+      final mime = contentType?.mimeType.toLowerCase();
+      if (mime != 'application/json') {
+        request.response.statusCode = HttpStatus.unsupportedMediaType;
+        return;
+      }
+
+      final remoteIp = request.connectionInfo?.remoteAddress.address ?? 'unknown';
+      if (!_allowRequest(remoteIp)) {
+        request.response.statusCode = HttpStatus.tooManyRequests;
+        _sendResponse(
+          request,
+          _buildError(-32029, 'Rate limit exceeded', {'ip': remoteIp}, null),
+        );
+        return;
+      }
+
+      final expectedToken = _authToken;
+      if (expectedToken != null) {
+        final got = request.headers.value('x-astral-token')?.trim();
+        if (got == null || got.isEmpty || got != expectedToken) {
+          request.response.statusCode = HttpStatus.unauthorized;
+          _sendResponse(
+            request,
+            _buildError(-32001, 'Unauthorized', null, null),
+          );
+          return;
+        }
+      }
+
+      String body;
+      try {
+        body = await _readBodyWithLimit(request, maxBodyBytes);
+      } on RpcException catch (e) {
+        _sendResponse(request, _buildError(e.code, e.message, e.data, null));
+        return;
+      }
 
       dynamic json;
       try {
@@ -88,9 +158,12 @@ class NodeNetServer {
       request.response.headers.contentType = ContentType.json;
 
       if (json is List) {
-        final results = await Future.wait(
-          json.map((r) => _processRequest(r as Map<String, dynamic>)),
-        );
+        final results = await Future.wait(json.map((r) async {
+          if (r is! Map) {
+            return _buildError(-32600, 'Invalid Request', null, null);
+          }
+          return _processRequest(Map<String, dynamic>.from(r));
+        }));
         final responses = results.where((r) => r != null).toList();
         if (responses.isNotEmpty) {
           request.response.write(jsonEncode(responses));
@@ -98,7 +171,7 @@ class NodeNetServer {
           request.response.statusCode = HttpStatus.noContent;
         }
       } else if (json is Map) {
-        final response = await _processRequest(json as Map<String, dynamic>);
+        final response = await _processRequest(Map<String, dynamic>.from(json));
         if (response != null) {
           request.response.write(jsonEncode(response));
         } else {
@@ -113,6 +186,45 @@ class NodeNetServer {
     } finally {
       await request.response.close();
     }
+  }
+
+  bool _allowRequest(String ip) {
+    final now = DateTime.now();
+    final bucket = _bucketsByIp[ip] ?? _TokenBucket(tokens: _rateLimitBurst, lastRefill: now);
+
+    final elapsedMs = now.difference(bucket.lastRefill).inMilliseconds;
+    if (elapsedMs > 0) {
+      final refill = (elapsedMs / 1000.0) * _rateLimitPerSecond;
+      bucket.tokens = (bucket.tokens + refill).clamp(0, _rateLimitBurst);
+      bucket.lastRefill = now;
+    }
+
+    if (bucket.tokens < 1) {
+      _bucketsByIp[ip] = bucket;
+      return false;
+    }
+
+    bucket.tokens -= 1;
+    _bucketsByIp[ip] = bucket;
+    return true;
+  }
+
+  Future<String> _readBodyWithLimit(HttpRequest request, int maxBytes) async {
+    final contentLength = request.contentLength;
+    if (contentLength > maxBytes) {
+      request.response.statusCode = HttpStatus.requestEntityTooLarge;
+      throw RpcException(-32020, 'Request body too large', data: {'maxBytes': maxBytes});
+    }
+
+    final bytes = <int>[];
+    await for (final chunk in request) {
+      bytes.addAll(chunk);
+      if (bytes.length > maxBytes) {
+        request.response.statusCode = HttpStatus.requestEntityTooLarge;
+        throw RpcException(-32020, 'Request body too large', data: {'maxBytes': maxBytes});
+      }
+    }
+    return utf8.decode(bytes);
   }
 
   /// 处理单个 JSON-RPC 请求

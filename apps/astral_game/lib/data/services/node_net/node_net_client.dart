@@ -12,9 +12,16 @@ import 'node_net_server.dart';
 class NodeNetClient {
   final http.Client _httpClient = http.Client();
   int _requestId = 0;
+  String? _authToken;
 
   /// 默认超时时间
   static const Duration defaultTimeout = Duration(seconds: 5);
+
+  /// 设置/清除鉴权 token（建议在连接建立/断开时调用）
+  void setAuthToken(String? token) {
+    final trimmed = token?.trim();
+    _authToken = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
 
   /// 调用方法（等待响应）
   ///
@@ -23,12 +30,14 @@ class NodeNetClient {
   /// [method] 方法名
   /// [params] 参数
   /// [timeout] 超时时间
+  /// [authToken] 会话鉴权 token（不传则使用已设置的默认 token）
   Future<dynamic> call(
     String ip,
     int port,
     String method, {
     dynamic params,
     Duration timeout = defaultTimeout,
+    String? authToken,
   }) async {
     final id = ++_requestId;
     final request = {
@@ -39,10 +48,16 @@ class NodeNetClient {
     };
 
     try {
+      final token = (authToken ?? _authToken)?.trim();
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null && token.isNotEmpty) {
+        headers['x-astral-token'] = token;
+      }
+
       final response = await _httpClient
           .post(
             Uri.http('$ip:$port', '/rpc'),
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: jsonEncode(request),
           )
           .timeout(timeout);
@@ -78,12 +93,14 @@ class NodeNetClient {
   /// [port] 目标节点端口
   /// [method] 方法名
   /// [params] 参数
+  /// [authToken] 会话鉴权 token（不传则使用已设置的默认 token）
   Future<void> notify(
     String ip,
     int port,
     String method, {
     dynamic params,
     Duration timeout = defaultTimeout,
+    String? authToken,
   }) async {
     final request = {
       'jsonrpc': '2.0',
@@ -92,10 +109,16 @@ class NodeNetClient {
     };
 
     try {
+      final token = (authToken ?? _authToken)?.trim();
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null && token.isNotEmpty) {
+        headers['x-astral-token'] = token;
+      }
+
       await _httpClient
           .post(
             Uri.http('$ip:$port', '/rpc'),
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: jsonEncode(request),
           )
           .timeout(timeout);

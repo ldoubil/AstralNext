@@ -2,9 +2,12 @@ import 'package:astral_game/utils/logger.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/services/node_net/node_net_client.dart';
+import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/data/models/room_mod.dart';
 import 'package:astral_rust_core/p2p_service.dart';
+import 'package:get_it/get_it.dart';
 
 /// 连接服务
 ///
@@ -25,10 +28,31 @@ class ConnectionService {
   );
 
   bool _isConnecting = false;
-  String? _lastServerFingerprintMismatch;
 
   bool get isConnecting => _isConnecting;
-  String? get lastServerFingerprintMismatch => _lastServerFingerprintMismatch;
+
+  /// 检测分享码中的服务器指纹是否与本地启用服务器一致
+  ///
+  /// 返回：
+  /// - `null`：无指纹/无法比较/一致
+  /// - 非空字符串：不一致时给 UI 展示的提示文案
+  String? serverFingerprintMismatchMessage(String shareCode) {
+    final trimmed = shareCode.trim();
+    if (trimmed.isEmpty) return null;
+
+    final parts = _p2pConfig.parseRoomShareCode(trimmed);
+    if (parts == null) return null;
+
+    final remoteFp = parts.serverFingerprint;
+    if (remoteFp.isEmpty || remoteFp == '00000000') return null;
+    final localFp = _p2pConfig.enabledServersFingerprint();
+    if (localFp.isEmpty) return null; // 本地没有启用服务器，没法对比
+
+    if (remoteFp != localFp) {
+      return '服务器列表与创建方不一致（remote=$remoteFp local=$localFp）';
+    }
+    return null;
+  }
 
   /// 连接到指定房间
   ///
@@ -44,6 +68,10 @@ class ConnectionService {
     _isConnecting = true;
 
     try {
+      // 连接建立前设置本地 RPC 会话鉴权 token（供其他节点调用）
+      GetIt.I<NodeNetServer>().setAuthToken(roomPassword);
+      GetIt.I<NodeNetClient>().setAuthToken(roomPassword);
+
       final configToml = _p2pConfig.buildTomlConfig(roomName, roomPassword);
       appLogger.i('[ConnectionService] 正在连接房间: $roomName');
 
@@ -64,6 +92,9 @@ class ConnectionService {
       }
     } catch (e, stackTrace) {
       appLogger.e('[ConnectionService] 连接失败: $e', error: e, stackTrace: stackTrace);
+      // 若连接失败，清除 token，避免残留
+      GetIt.I<NodeNetServer>().setAuthToken(null);
+      GetIt.I<NodeNetClient>().setAuthToken(null);
       return false;
     } finally {
       _isConnecting = false;
@@ -83,18 +114,27 @@ class ConnectionService {
     }
     _nodeManagement.setStopped();
     _roomState.setConnected(false);
+    GetIt.I<NodeNetServer>().setAuthToken(null);
+    GetIt.I<NodeNetClient>().setAuthToken(null);
   }
 
   /// 创建新房间
   ///
-  /// 自动生成短房间码，并保存到持久化存储
+  /// 要求传入房间名，并生成会话 token（用于房间密码与 RPC 鉴权）
   /// 返回创建的房间信息
-  Future<RoomMod> createRoom() async {
-    _lastServerFingerprintMismatch = null;
-    final serverFp = _p2pConfig.enabledServersFingerprint();
-    final roomCode = _p2pConfig.generateRoomCode();
-    final shareCode = serverFp.isEmpty ? roomCode : '$serverFp-$roomCode';
-    return await _createAndPersistRoom(shareCode: shareCode, roomSecret: roomCode);
+  Future<RoomMod> createRoom({required String roomName}) async {
+    final fp = _p2pConfig.shareFingerprint();
+    final token = _p2pConfig.generateRoomCode();
+    final shareCode = _p2pConfig.buildRoomShareCode(
+      roomName: roomName,
+      token: token,
+      serverFingerprint: fp,
+    );
+    return await _createAndPersistRoom(
+      shareCode: shareCode,
+      roomName: roomName,
+      token: token,
+    );
   }
 
   /// 加入已有房间
@@ -102,46 +142,42 @@ class ConnectionService {
   /// [shareCode] 房间分享码（推荐：`服务器指纹-房间码`；也兼容只输入房间码）
   /// 返回房间信息
   Future<RoomMod> joinRoom(String shareCode) async {
-    _lastServerFingerprintMismatch = null;
     final trimmed = shareCode.trim();
     if (trimmed.isEmpty) {
-      return await _createAndPersistRoom(shareCode: '', roomSecret: '');
+      return await _createAndPersistRoom(shareCode: '', roomName: '', token: '');
     }
 
-    String? remoteFp;
-    String roomSecret = trimmed;
-    final dash = trimmed.indexOf('-');
-    if (dash > 0 && dash < trimmed.length - 1) {
-      remoteFp = trimmed.substring(0, dash);
-      roomSecret = trimmed.substring(dash + 1);
+    final parts = _p2pConfig.parseRoomShareCode(trimmed);
+    if (parts == null) {
+      return await _createAndPersistRoom(shareCode: trimmed, roomName: '', token: trimmed);
     }
 
-    final localFp = _p2pConfig.enabledServersFingerprint();
-    if (remoteFp != null && localFp.isNotEmpty && remoteFp != localFp) {
-      _lastServerFingerprintMismatch = '服务器列表与创建方不一致（remote=$remoteFp local=$localFp）';
-      appLogger.w(
-        '[ConnectionService] 服务器指纹不一致：remote=$remoteFp local=$localFp（仍尝试加入）',
-      );
-    }
-
-    return await _createAndPersistRoom(shareCode: trimmed, roomSecret: roomSecret);
+    return await _createAndPersistRoom(
+      shareCode: trimmed,
+      roomName: parts.roomName,
+      token: parts.token,
+    );
   }
 
   /// 创建并持久化房间
   Future<RoomMod> _createAndPersistRoom({
     required String shareCode,
-    required String roomSecret,
+    required String roomName,
+    required String token,
   }) async {
-    final safePrefix = roomSecret.isEmpty
+    final safeRoomName = roomName.trim();
+    final safeToken = token.trim();
+    final safePrefix = safeToken.isEmpty
         ? 'unknown'
-        : roomSecret.substring(0, roomSecret.length < 6 ? roomSecret.length : 6);
-    final roomName = 'Room_$safePrefix';
-    final roomPassword = roomSecret;
+        : safeToken.substring(0, safeToken.length < 6 ? safeToken.length : 6);
+
+    final finalRoomName = safeRoomName.isEmpty ? 'Room_$safePrefix' : safeRoomName;
+    final roomPassword = safeToken;
 
     final room = RoomMod(
       id: DateTime.now().millisecondsSinceEpoch,
-      name: roomName,
-      roomName: roomName,
+      name: finalRoomName,
+      roomName: finalRoomName,
       host: 'localhost',
       port: 11010,
       password: roomPassword,

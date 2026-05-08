@@ -5,7 +5,6 @@ import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
-import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
 import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/data/models/room_mod.dart';
@@ -27,11 +26,36 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   final NodeManagementService _nodeManagement = GetIt.I<NodeManagementService>();
   final ConnectionService _connectionService = GetIt.I<ConnectionService>();
-  final P2PConfigService _p2pConfig = GetIt.I<P2PConfigService>();
   final ScreenStateService _screenStateService = GetIt.I<ScreenStateService>();
   final RoomState _roomState = getIt<RoomState>();
   
   String? _currentRoomShareCode;
+
+  Future<bool> _confirmMismatchIfNeeded(String shareCode) async {
+    final mismatch = _connectionService.serverFingerprintMismatchMessage(shareCode);
+    if (mismatch == null || mismatch.isEmpty || !mounted) return true;
+
+    final shouldContinue = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('服务器配置不一致'),
+        content: Text(
+          '$mismatch\n\n继续加入可能导致无法连接或延迟异常。是否仍要继续加入？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('继续加入'),
+          ),
+        ],
+      ),
+    );
+    return shouldContinue == true;
+  }
 
   /// 处理设置按钮点击
   void _handleSettings() {
@@ -68,7 +92,38 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _handleCreateRoom() async {
     if (_connectionService.isConnecting) return;
 
-    final room = await _connectionService.createRoom();
+    final TextEditingController nameController = TextEditingController();
+
+    final roomName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('创建房间'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: '房间名（必填）',
+            hintText: '例如：周五开黑 / 1号桌',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              final v = nameController.text.trim();
+              if (v.isNotEmpty) Navigator.pop(context, v);
+            },
+            child: const Text('创建并连接'),
+          ),
+        ],
+      ),
+    );
+
+    if (roomName == null || roomName.trim().isEmpty) return;
+
+    final room = await _connectionService.createRoom(roomName: roomName.trim());
     setState(() {
       _currentRoomShareCode = room.shareCode;
     });
@@ -95,7 +150,7 @@ class _DashboardPageState extends State<DashboardPage> {
           controller: uuidController,
           decoration: const InputDecoration(
             labelText: '房间分享码',
-            hintText: '例如：8位指纹-10位房间码（也可只填房间码）',
+            hintText: '例如：8位指纹-10位token-房间名（也兼容旧格式）',
           ),
         ),
         actions: [
@@ -116,44 +171,13 @@ class _DashboardPageState extends State<DashboardPage> {
     );
 
     if (result != null && result.isNotEmpty) {
+      final ok = await _confirmMismatchIfNeeded(result);
+      if (!ok) return;
+
       final room = await _connectionService.joinRoom(result);
       setState(() {
-        _currentRoomShareCode = result;
+        _currentRoomShareCode = room.shareCode;
       });
-
-      final mismatch = _connectionService.lastServerFingerprintMismatch;
-      if (mismatch != null && mismatch.isNotEmpty && mounted) {
-        final shouldContinue = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('服务器配置不一致'),
-            content: Text(
-              '$mismatch\n\n继续加入可能导致无法连接或延迟异常。是否仍要继续加入？',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('继续加入'),
-              ),
-            ],
-          ),
-        );
-
-        if (shouldContinue != true) {
-          // 回滚刚保存的房间记录，避免污染历史列表。
-          _connectionService.removeRoom(room.id);
-          if (mounted) {
-            setState(() {
-              _currentRoomShareCode = null;
-            });
-          }
-          return;
-        }
-      }
 
       final success = await _connectionService.connectToRoom(room.roomName, room.password);
       if (!success && mounted) {
@@ -171,48 +195,12 @@ class _DashboardPageState extends State<DashboardPage> {
     final index = _roomState.rooms.indexWhere((r) => r.shareCode == shareCode);
     if (index != -1) {
       final room = _roomState.rooms[index];
+      final ok = await _confirmMismatchIfNeeded(shareCode);
+      if (!ok) return;
+
       setState(() {
         _currentRoomShareCode = shareCode;
       });
-
-      // 从分享码解析远端指纹并做一致性校验（顺序无关）
-      final trimmed = shareCode.trim();
-      String? remoteFp;
-      final dash = trimmed.indexOf('-');
-      if (dash > 0 && dash < trimmed.length - 1) {
-        remoteFp = trimmed.substring(0, dash);
-      }
-      final localFp = _p2pConfig.enabledServersFingerprint();
-      if (remoteFp != null && localFp.isNotEmpty && remoteFp != localFp && mounted) {
-        final shouldContinue = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('服务器配置不一致'),
-            content: Text(
-              '服务器列表与创建方不一致（remote=$remoteFp local=$localFp）\n\n继续加入可能导致无法连接或延迟异常。是否仍要继续加入？',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('继续加入'),
-              ),
-            ],
-          ),
-        );
-
-        if (shouldContinue != true) {
-          if (mounted) {
-            setState(() {
-              _currentRoomShareCode = null;
-            });
-          }
-          return;
-        }
-      }
       
       final success = await _connectionService.connectToRoom(room.roomName, room.password);
       if (!success && mounted) {

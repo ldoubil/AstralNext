@@ -10,6 +10,18 @@ import 'package:astral_game/data/state/server_state.dart';
 import 'package:astral_game/utils/logger.dart';
 import 'package:pointycastle/export.dart';
 
+class RoomShareCodeParts {
+  final String serverFingerprint;
+  final String token;
+  final String roomName;
+
+  const RoomShareCodeParts({
+    required this.serverFingerprint,
+    required this.token,
+    required this.roomName,
+  });
+}
+
 class P2PConfigService {
   final AppSettingsService _appSettings;
   final ServerState _serverState;
@@ -53,6 +65,77 @@ class P2PConfigService {
     final hex = _toHex(digestBytes);
     if (length <= 0) return '';
     return hex.substring(0, length.clamp(1, hex.length));
+  }
+
+  /// 获取“可用于分享码”的服务器指纹
+  ///
+  /// - 当本地没有启用服务器，返回占位值（避免分享码结构不一致）
+  String shareFingerprint({int length = 8}) {
+    final fp = enabledServersFingerprint(length: length);
+    if (fp.isEmpty) return '00000000'.substring(0, length.clamp(1, 8));
+    return fp;
+  }
+
+  /// 构建房间分享码：`服务器哈希-token-房间名`
+  ///
+  /// - 兼容：历史上 `服务器哈希-token`（无房间名）与 `token`（无服务器哈希）
+  String buildRoomShareCode({
+    required String roomName,
+    required String token,
+    String? serverFingerprint,
+  }) {
+    final fp = (serverFingerprint == null || serverFingerprint.trim().isEmpty)
+        ? shareFingerprint()
+        : serverFingerprint.trim();
+    final safeToken = token.trim();
+    final safeRoomName = roomName.trim();
+    return '$fp-$safeToken-$safeRoomName';
+  }
+
+  /// 解析房间分享码
+  ///
+  /// 支持：
+  /// - `fp-token-roomName`
+  /// - `fp-token`（旧格式）
+  /// - `token`（旧格式）
+  RoomShareCodeParts? parseRoomShareCode(String shareCode) {
+    final trimmed = shareCode.trim();
+    if (trimmed.isEmpty) return null;
+
+    final firstDash = trimmed.indexOf('-');
+    if (firstDash <= 0 || firstDash >= trimmed.length - 1) {
+      // token only
+      final token = trimmed;
+      final prefix = token.substring(0, token.length < 6 ? token.length : 6);
+      return RoomShareCodeParts(
+        serverFingerprint: '00000000',
+        token: token,
+        roomName: 'Room_$prefix',
+      );
+    }
+
+    final secondDash = trimmed.indexOf('-', firstDash + 1);
+    final fp = trimmed.substring(0, firstDash);
+    if (secondDash == -1) {
+      // old: fp-token
+      final token = trimmed.substring(firstDash + 1);
+      final prefix = token.substring(0, token.length < 6 ? token.length : 6);
+      return RoomShareCodeParts(
+        serverFingerprint: fp,
+        token: token,
+        roomName: 'Room_$prefix',
+      );
+    }
+
+    // new: fp-token-roomName (roomName may contain '-')
+    final token = trimmed.substring(firstDash + 1, secondDash);
+    final roomName = trimmed.substring(secondDash + 1).trim();
+    final prefix = token.substring(0, token.length < 6 ? token.length : 6);
+    return RoomShareCodeParts(
+      serverFingerprint: fp,
+      token: token,
+      roomName: roomName.isEmpty ? 'Room_$prefix' : roomName,
+    );
   }
 
   /// 构建 TOML 配置文件

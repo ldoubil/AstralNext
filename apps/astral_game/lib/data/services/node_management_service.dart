@@ -64,8 +64,12 @@ class NodeManagementService {
   Timer? _pollingTimer;
   final Map<int, Timer> _ipReadyTimers = {};
 
-  /// 轮询间隔（优化为 3 秒）
-  static const Duration _pollingInterval = Duration(seconds: 3);
+  /// 轮询间隔（用户列表需要更及时：1 秒）
+  static const Duration _pollingInterval = Duration(seconds: 1);
+
+  /// 节点资料（昵称/头像）获取冷却时间，防止在 1 秒轮询下被高频触发
+  static const Duration _nodeInfoFetchCooldown = Duration(seconds: 30);
+  final Map<int, DateTime> _lastNodeInfoFetchAt = {};
 
   String? get instanceId => currentInstanceId.value;
   bool get isRunning => currentInstanceId.value != null;
@@ -83,6 +87,7 @@ class NodeManagementService {
     _cancelAllIpReadyTimers();
     currentInstanceId.value = null;
     userNodes.value = [];
+    _lastNodeInfoFetchAt.clear();
     appLogger.i('[NodeManagementService] 已停止');
   }
 
@@ -115,38 +120,47 @@ class NodeManagementService {
     _ipReadyTimers.remove(peerId);
   }
 
+  bool _canFetchNodeInfo(int peerId) {
+    final last = _lastNodeInfoFetchAt[peerId];
+    if (last == null) return true;
+    return DateTime.now().difference(last) >= _nodeInfoFetchCooldown;
+  }
+
   /// 轮询网络状态
   ///
   /// 获取最新的网络状态和节点信息
   Future<void> _pollNetworkStatus(String instanceId) async {
     try {
       final status = await _p2pService.getNetworkStatus(instanceId);
-
       final newTotalNodes = status.totalNodes;
       final newNodesList = status.nodes;
-      final prevStatus = networkStatus.value;
-      if (prevStatus == null ||
-          prevStatus.totalNodes != newTotalNodes ||
-          prevStatus.nodes.length != newNodesList.length) {
-        networkStatus.value = KVNetworkStatus(
-          totalNodes: newTotalNodes,
-          nodes: List.from(newNodesList),
-        );
-      }
+
+      // 旧项目里网络状态是“持续更新”的；这里如果只在数量变化时更新，
+      // 会导致 latency/loss/cost/hops 等字段变化无法及时反映到 UI。
+      networkStatus.value = KVNetworkStatus(
+        totalNodes: newTotalNodes,
+        nodes: List.from(newNodesList),
+      );
 
       final currentNodes = Map<int, EnhancedNodeInfo>.fromEntries(
         userNodes.value.map((node) => MapEntry(node.peerId, node)),
       );
 
+      // 每次轮询都“重建一份规范化节点表”，避免历史列表里混入重复项后无法被增量逻辑清理。
+      // 去重主键：peerId（Rust 侧也会去重，但这里兜底保证 UI 列表不出现重复条目）。
       final newNodes = <int, EnhancedNodeInfo>{};
       for (final node in newNodesList) {
-        if (!node.hostname.contains(AppConstants.publicServerHostname)) {
-          final port = _parsePortFromHostname(node.hostname);
-          newNodes[node.peerId] = EnhancedNodeInfo(
-            baseInfo: node,
-            port: port,
-          );
-        }
+        if (_isPublicServerHostname(node.hostname)) continue;
+
+        final port = _parsePortFromHostname(node.hostname);
+        final prev = currentNodes[node.peerId];
+        newNodes[node.peerId] = EnhancedNodeInfo(
+          baseInfo: node,
+          port: port,
+          // 合并已有用户资料，避免每次重建都丢失 avatar/customName
+          customName: prev?.customName,
+          avatar: prev?.avatar,
+        );
       }
 
       _processNodeChanges(currentNodes, newNodes);
@@ -172,13 +186,9 @@ class NodeManagementService {
 
     bool changed = joinedPeerIds.isNotEmpty || leftPeerIds.isNotEmpty;
 
-    // 构建新的节点列表，一次性赋值避免竞态
-    final updatedNodes = List<EnhancedNodeInfo>.from(userNodes.value);
-
     // 处理新加入的节点
     for (final peerId in joinedPeerIds) {
       final node = newNodes[peerId]!;
-      updatedNodes.add(node);
       _eventBus.fire(NodeJoinedEvent(node));
       _scheduleIpReadyCheck(node);
       appLogger.i('[NodeManagementService] 节点加入: ${node.hostname} (peerId: $peerId)');
@@ -186,16 +196,19 @@ class NodeManagementService {
 
     // 处理离开的节点
     for (final peerId in leftPeerIds) {
-      updatedNodes.removeWhere((n) => n.peerId == peerId);
       _cancelIpReadyTimer(peerId);
       _eventBus.fire(NodeLeftEvent(peerId));
       appLogger.i('[NodeManagementService] 节点离开: peerId: $peerId');
     }
 
-    // 处理已存在的节点
+    // 处理已存在的节点（用于触发 changed）
     for (final peerId in existingPeerIds) {
       final currentNode = currentNodes[peerId]!;
       final newNode = newNodes[peerId]!;
+
+      if (!_isSameNodeSnapshot(currentNode, newNode)) {
+        changed = true;
+      }
 
       if (currentNode.ipv4 != newNode.ipv4) {
         changed = true;
@@ -205,18 +218,36 @@ class NodeManagementService {
           _fetchNodeInfo(newNode);
         }
       }
-
-      final index = updatedNodes.indexWhere((n) => n.peerId == peerId);
-      if (index != -1) {
-        updatedNodes[index] = updatedNodes[index].copyWith(baseInfo: newNode.baseInfo);
-      }
     }
 
-    // 仅在有变化时赋值
+    // 仅在有变化时赋值（一次性替换为“去重后的规范化列表”）
     if (changed) {
-      userNodes.value = updatedNodes;
+      final normalized = newNodes.values.toList()
+        ..sort((a, b) => a.peerId.compareTo(b.peerId));
+      userNodes.value = normalized;
     }
     return changed;
+  }
+
+  bool _isPublicServerHostname(String hostname) {
+    final prefix = '${AppConstants.publicServerHostname}_';
+    return hostname == AppConstants.publicServerHostname || hostname.startsWith(prefix);
+  }
+
+  /// 判断两个节点在 UI 关心的字段上是否“等价”
+  ///
+  /// 目的：当延迟/丢包/跳数等变化时也触发刷新，而不是只在加入/离开/IP变化时刷新。
+  bool _isSameNodeSnapshot(EnhancedNodeInfo a, EnhancedNodeInfo b) {
+    final ah = a.baseInfo.hops;
+    final bh = b.baseInfo.hops;
+    return a.peerId == b.peerId &&
+        a.baseInfo.hostname == b.baseInfo.hostname &&
+        a.baseInfo.ipv4 == b.baseInfo.ipv4 &&
+        a.baseInfo.cost == b.baseInfo.cost &&
+        a.baseInfo.version == b.baseInfo.version &&
+        a.baseInfo.latencyMs == b.baseInfo.latencyMs &&
+        a.baseInfo.lossRate == b.baseInfo.lossRate &&
+        ah.length == bh.length;
   }
 
   /// 从主机名解析端口号
@@ -258,6 +289,9 @@ class NodeManagementService {
 
   /// 获取节点信息（头像和昵称）
   Future<void> _fetchNodeInfo(EnhancedNodeInfo node) async {
+    if (!_canFetchNodeInfo(node.peerId)) return;
+    _lastNodeInfoFetchAt[node.peerId] = DateTime.now();
+
     final ip = node.ipv4;
     final port = node.port ?? 4924;
 
