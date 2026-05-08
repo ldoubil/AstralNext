@@ -28,6 +28,7 @@ class DashboardNarrowLayout extends StatefulWidget {
   final VoidCallback onShareRoom;
   final VoidCallback onDisconnect;
   final void Function(RoomMod) onRemoveRoom;
+  final void Function(String) onJoinHistory;
 
   const DashboardNarrowLayout({
     super.key,
@@ -40,6 +41,7 @@ class DashboardNarrowLayout extends StatefulWidget {
     required this.onShareRoom,
     required this.onDisconnect,
     required this.onRemoveRoom,
+    required this.onJoinHistory,
   });
 
   @override
@@ -321,7 +323,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
                       ] else ...[
                         ...history.map((room) => DashboardDismissibleHistoryItem(
                           room: room,
-                          onJoin: () {},
+                          onJoin: () => widget.onJoinHistory(room.shareCode),
                           onRemove: widget.onRemoveRoom,
                         )),
                       ],
