@@ -103,7 +103,9 @@ class _ShellState extends State<Shell> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    final isCompact = _screenStateService.isNarrow;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 600;
+    _screenStateService.updateScreenWidth(screenWidth);
 
     final hasOverlay = _contentController.hasOverlay;
     final overlayTitle = _contentController.overlayTitle;
