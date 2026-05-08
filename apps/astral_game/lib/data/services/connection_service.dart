@@ -25,8 +25,10 @@ class ConnectionService {
   );
 
   bool _isConnecting = false;
+  String? _lastServerFingerprintMismatch;
 
   bool get isConnecting => _isConnecting;
+  String? get lastServerFingerprintMismatch => _lastServerFingerprintMismatch;
 
   /// 连接到指定房间
   ///
@@ -85,25 +87,56 @@ class ConnectionService {
 
   /// 创建新房间
   ///
-  /// 自动生成 UUID 和房间配置，保存到持久化存储
+  /// 自动生成短房间码，并保存到持久化存储
   /// 返回创建的房间信息
   Future<RoomMod> createRoom() async {
-    final uuid = _p2pConfig.generateUuid();
-    return await _createAndPersistRoom(uuid);
+    _lastServerFingerprintMismatch = null;
+    final serverFp = _p2pConfig.enabledServersFingerprint();
+    final roomCode = _p2pConfig.generateRoomCode();
+    final shareCode = serverFp.isEmpty ? roomCode : '$serverFp-$roomCode';
+    return await _createAndPersistRoom(shareCode: shareCode, roomSecret: roomCode);
   }
 
   /// 加入已有房间
   ///
-  /// [uuid] 房间 UUID
+  /// [shareCode] 房间分享码（推荐：`服务器指纹-房间码`；也兼容只输入房间码）
   /// 返回房间信息
-  Future<RoomMod> joinRoom(String uuid) async {
-    return await _createAndPersistRoom(uuid);
+  Future<RoomMod> joinRoom(String shareCode) async {
+    _lastServerFingerprintMismatch = null;
+    final trimmed = shareCode.trim();
+    if (trimmed.isEmpty) {
+      return await _createAndPersistRoom(shareCode: '', roomSecret: '');
+    }
+
+    String? remoteFp;
+    String roomSecret = trimmed;
+    final dash = trimmed.indexOf('-');
+    if (dash > 0 && dash < trimmed.length - 1) {
+      remoteFp = trimmed.substring(0, dash);
+      roomSecret = trimmed.substring(dash + 1);
+    }
+
+    final localFp = _p2pConfig.enabledServersFingerprint();
+    if (remoteFp != null && localFp.isNotEmpty && remoteFp != localFp) {
+      _lastServerFingerprintMismatch = '服务器列表与创建方不一致（remote=$remoteFp local=$localFp）';
+      appLogger.w(
+        '[ConnectionService] 服务器指纹不一致：remote=$remoteFp local=$localFp（仍尝试加入）',
+      );
+    }
+
+    return await _createAndPersistRoom(shareCode: trimmed, roomSecret: roomSecret);
   }
 
   /// 创建并持久化房间
-  Future<RoomMod> _createAndPersistRoom(String uuid) async {
-    final roomName = 'Room_${uuid.substring(0, 8)}';
-    final roomPassword = uuid;
+  Future<RoomMod> _createAndPersistRoom({
+    required String shareCode,
+    required String roomSecret,
+  }) async {
+    final safePrefix = roomSecret.isEmpty
+        ? 'unknown'
+        : roomSecret.substring(0, roomSecret.length < 6 ? roomSecret.length : 6);
+    final roomName = 'Room_$safePrefix';
+    final roomPassword = roomSecret;
 
     final room = RoomMod(
       id: DateTime.now().millisecondsSinceEpoch,
@@ -112,14 +145,14 @@ class ConnectionService {
       host: 'localhost',
       port: 11010,
       password: roomPassword,
-      uuid: uuid,
+      uuid: shareCode,
       createdAt: DateTime.now(),
     );
 
     try {
       await _roomPersistence.saveRooms([..._roomState.rooms, room]);
       await _roomState.loadFromPersistence();
-      appLogger.i('[ConnectionService] 已创建/加入房间: $roomName, UUID: $uuid');
+      appLogger.i('[ConnectionService] 已创建/加入房间: $roomName, shareCode: $shareCode');
     } catch (e, stackTrace) {
       appLogger.e('[ConnectionService] 保存房间失败: $e', error: e, stackTrace: stackTrace);
     }

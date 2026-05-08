@@ -92,8 +92,8 @@ class _DashboardPageState extends State<DashboardPage> {
         content: TextField(
           controller: uuidController,
           decoration: const InputDecoration(
-            labelText: '房间UUID',
-            hintText: '请输入房间UUID',
+            labelText: '房间分享码',
+            hintText: '例如：8位指纹-10位房间码（也可只填房间码）',
           ),
         ),
         actions: [
@@ -118,6 +118,13 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() {
         _currentRoomUuid = result;
       });
+
+      final mismatch = _connectionService.lastServerFingerprintMismatch;
+      if (mismatch != null && mismatch.isNotEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mismatch)),
+        );
+      }
 
       final success = await _connectionService.connectToRoom(room.roomName, room.password);
       if (!success && mounted) {

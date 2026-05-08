@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:math';
 
 import 'package:get_it/get_it.dart';
@@ -6,6 +8,7 @@ import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:astral_game/data/services/public_server_service.dart';
 import 'package:astral_game/data/state/server_state.dart';
 import 'package:astral_game/utils/logger.dart';
+import 'package:pointycastle/export.dart';
 
 class P2PConfigService {
   final AppSettingsService _appSettings;
@@ -13,23 +16,43 @@ class P2PConfigService {
 
   P2PConfigService(this._appSettings, this._serverState);
 
-  /// 生成 UUID v4
-  String generateUuid() {
-    final random = Random();
-    final values = List<int>.generate(16, (_) => random.nextInt(256));
-    values[6] = (values[6] & 0x0F) | 0x40;
-    values[8] = (values[8] & 0x3F) | 0x80;
-    
-    const hex = '0123456789abcdef';
+  /// 生成“房间码”（更短，适合作为分享码/房间密钥）
+  ///
+  /// 注意：这里用 `Random.secure()`，用于“当密码用”的场景。
+  String generateRoomCode({int length = 10}) {
+    const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+    final random = Random.secure();
     final buffer = StringBuffer();
-    for (int i = 0; i < 16; i++) {
-      if (i == 4 || i == 6 || i == 8 || i == 10) {
-        buffer.write('-');
-      }
-      buffer.write(hex[values[i] >> 4]);
-      buffer.write(hex[values[i] & 0x0F]);
+    for (var i = 0; i < length; i++) {
+      buffer.write(alphabet[random.nextInt(alphabet.length)]);
     }
     return buffer.toString();
+  }
+
+  /// 启用服务器列表“指纹”（顺序无关）
+  ///
+  /// 用于：快速判断双方启用服务器是否一致（不是机密信息）。
+  /// 规则：
+  /// - 只取启用服务器的“完整 URI”
+  /// - 去空格、做基础规范化
+  /// - 排序后拼接，再计算 MD5，最后截断为短串
+  String enabledServersFingerprint({int length = 8}) {
+    final enabledServers = _serverState.getEnabledServers();
+    final normalizedUris = enabledServers
+        .map((server) {
+          final url = server.encrypted ? _decryptUrl(server.url) ?? server.url : server.url;
+          return _normalizeFullUri(url);
+        })
+        .whereType<String>()
+        .where((u) => u.isNotEmpty)
+        .toList()
+      ..sort();
+
+    final joined = normalizedUris.join('\n');
+    final digestBytes = _md5(utf8.encode(joined));
+    final hex = _toHex(digestBytes);
+    if (length <= 0) return '';
+    return hex.substring(0, length.clamp(1, hex.length));
   }
 
   /// 构建 TOML 配置文件
@@ -83,5 +106,38 @@ disable-p2p = $disableP2p
   /// 解密加密的服务器 URL
   String? _decryptUrl(String encryptedUrl) {
     return PublicServerService().decryptUrl(encryptedUrl);
+  }
+
+  String? _normalizeFullUri(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final hasScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(trimmed);
+    if (!hasScheme) return null;
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.scheme.isEmpty || uri.host.isEmpty) return null;
+
+    final scheme = uri.scheme.toLowerCase();
+    final host = uri.host.toLowerCase();
+    final portPart = uri.hasPort ? ':${uri.port}' : '';
+    final path = (uri.path.isEmpty || uri.path == '/') ? '' : uri.path;
+    final query = uri.hasQuery ? '?${uri.query}' : '';
+    final fragment = uri.hasFragment ? '#${uri.fragment}' : '';
+    return '$scheme://$host$portPart$path$query$fragment';
+  }
+
+  Uint8List _md5(List<int> bytes) {
+    final d = Digest('MD5');
+    return d.process(Uint8List.fromList(bytes));
+  }
+
+  String _toHex(Uint8List bytes) {
+    const hex = '0123456789abcdef';
+    final buffer = StringBuffer();
+    for (final b in bytes) {
+      buffer.write(hex[b >> 4]);
+      buffer.write(hex[b & 0x0F]);
+    }
+    return buffer.toString();
   }
 }
