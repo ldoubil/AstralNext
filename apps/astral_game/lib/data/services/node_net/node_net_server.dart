@@ -35,7 +35,7 @@ class NodeNetServer {
   final List<void Function(String method, dynamic params)> _notificationListeners = [];
 
   /// JSON-RPC 日志开关：`true` 会输出每次请求的概览（可能较频繁）
-  static const bool _rpcAccessLog = true;
+  static const bool _rpcAccessLog = false;
 
   /// 会话鉴权 token（为空表示不校验）
   String? _authToken;
@@ -50,6 +50,9 @@ class NodeNetServer {
 
   /// 获取监听端口
   int get port => _httpServer?.port ?? 0;
+
+  /// 已注册的方法数量
+  int get methodsCount => _methods.length;
 
   /// 是否正在运行
   bool get isRunning => _httpServer != null;
@@ -81,7 +84,10 @@ class NodeNetServer {
 
     try {
       _httpServer = await HttpServer.bind(InternetAddress.anyIPv4, 0);
-      appLogger.i('[NodeNetServer] 服务已启动，端口: ${_httpServer!.port}');
+      final authEnabled = (_authToken != null && _authToken!.isNotEmpty);
+      appLogger.i(
+        '[JsonRpc] 服务已创建并监听 0.0.0.0:${_httpServer!.port} methods=$methodsCount auth=${authEnabled ? "on" : "off"}',
+      );
 
       _httpServer!.listen(_handleRequest);
     } catch (e, stackTrace) {

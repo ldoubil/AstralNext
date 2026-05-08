@@ -18,7 +18,7 @@ class NodeNetClient {
   static const Duration defaultTimeout = Duration(seconds: 5);
 
   /// JSON-RPC 客户端日志（调用成功也会打印，可能较频繁）
-  static const bool _rpcClientLog = true;
+  static const bool _rpcClientLog = false;
 
   /// 设置/清除鉴权 token（建议在连接建立/断开时调用）
   void setAuthToken(String? token) {

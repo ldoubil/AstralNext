@@ -20,6 +20,7 @@ import 'package:astral_game/data/services/update_service.dart';
 import 'package:astral_game/data/services/vpn_manager.dart';
 import 'package:astral_game/data/state/vpn_state.dart';
 import 'package:astral_game/ui/shell/shell_content_controller.dart';
+import 'package:astral_game/utils/logger.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart';
 import 'package:event_bus/event_bus.dart';
@@ -145,5 +146,19 @@ Future<void> _initNodeNetServer() async {
   server.registerAll(NodeMethods(nodeManagement).methods);
   server.registerAll(MessageMethods().methods);
 
-  await server.start();
+  try {
+    await server.start();
+    // 仅输出“服务创建/监听”关键信息，避免每次 RPC 调用刷屏
+    appLogger.i(
+      '[JsonRpc] NodeNetServer ready port=${server.port} methods=${server.methodsCount}',
+    );
+  } catch (e, stackTrace) {
+    // 创建失败必须输出，便于定位端口绑定/权限/Socket 等问题
+    appLogger.e(
+      '[JsonRpc] NodeNetServer create failed: $e',
+      error: e,
+      stackTrace: stackTrace,
+    );
+    rethrow;
+  }
 }
