@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:astral_game/config/constants.dart';
 import 'package:event_bus/event_bus.dart';
 import 'package:get_it/get_it.dart';
 import 'package:signals/signals_core.dart';
@@ -150,8 +149,6 @@ class NodeManagementService {
       // 去重主键：peerId（Rust 侧也会去重，但这里兜底保证 UI 列表不出现重复条目）。
       final newNodes = <int, EnhancedNodeInfo>{};
       for (final node in newNodesList) {
-        if (_isPublicServerHostname(node.hostname)) continue;
-
         final port = _parsePortFromHostname(node.hostname);
         final prev = currentNodes[node.peerId];
         newNodes[node.peerId] = EnhancedNodeInfo(
@@ -227,11 +224,6 @@ class NodeManagementService {
       userNodes.value = normalized;
     }
     return changed;
-  }
-
-  bool _isPublicServerHostname(String hostname) {
-    final prefix = '${AppConstants.publicServerHostname}_';
-    return hostname == AppConstants.publicServerHostname || hostname.startsWith(prefix);
   }
 
   /// 判断两个节点在 UI 关心的字段上是否“等价”
