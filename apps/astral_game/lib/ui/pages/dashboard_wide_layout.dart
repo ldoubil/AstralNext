@@ -110,21 +110,21 @@ class DashboardWideLayout extends StatelessWidget {
   }
 
   Widget _buildRightPanel(BuildContext context) {
-    return Watch((context) {
-      final isConnected = nodeManagement.isRunning;
-      final status = nodeManagement.networkStatus.value;
-      final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? AppConstants.defaultVirtualIp;
-      final username = nodeManagement.currentUsername.value;
-      final avatar = nodeManagement.currentUserAvatar.value;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          height: constraints.maxHeight,
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Watch((context) {
+                final isConnected = nodeManagement.isRunning;
+                final status = nodeManagement.networkStatus.value;
+                final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? AppConstants.defaultVirtualIp;
+                final username = nodeManagement.currentUsername.value;
+                final avatar = nodeManagement.currentUserAvatar.value;
 
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          return SizedBox(
-            height: constraints.maxHeight,
-            child: SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: DashboardMainCard(
+                return DashboardMainCard(
                   isConnected: isConnected,
                   username: username,
                   userAvatar: avatar,
@@ -135,13 +135,13 @@ class DashboardWideLayout extends StatelessWidget {
                   onJoinRoomTap: onJoinRoom,
                   onShareRoomTap: onShareRoom,
                   onDisconnectTap: onDisconnect,
-                ),
-              ),
+                );
+              }),
             ),
-          );
-        },
-      );
-    });
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildJoinHistory(BuildContext context, {required bool shrinkWrap}) {

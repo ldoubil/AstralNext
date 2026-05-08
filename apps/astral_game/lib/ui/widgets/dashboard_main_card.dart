@@ -234,6 +234,16 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                         fontSize: 12,
                         color: colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: disableP2p,
+                onChanged: (value) {
+                  settingsState.disableP2p.value = value;
+                  settingsState.saveToPersistence();
+                },
               ),
             ],
           ),
@@ -309,16 +319,6 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
             ),
           ),
         ],
-              Switch(
-                value: disableP2p,
-                onChanged: (value) {
-                  settingsState.disableP2p.value = value;
-                  settingsState.saveToPersistence();
-                },
-              ),
-            ],
-          ),
-        ),
 
       ],
     );
