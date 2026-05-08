@@ -16,7 +16,7 @@ class DashboardWideLayout extends StatelessWidget {
   final NodeManagementService nodeManagement;
   final ConnectionService connectionService;
   final ScreenStateService screenStateService;
-  final String? currentRoomUuid;
+  final String? currentRoomShareCode;
   final VoidCallback onSettings;
   final VoidCallback onCreateRoom;
   final VoidCallback onJoinRoom;
@@ -29,7 +29,7 @@ class DashboardWideLayout extends StatelessWidget {
     required this.nodeManagement,
     required this.connectionService,
     required this.screenStateService,
-    required this.currentRoomUuid,
+    required this.currentRoomShareCode,
     required this.onSettings,
     required this.onCreateRoom,
     required this.onJoinRoom,
@@ -129,7 +129,7 @@ class DashboardWideLayout extends StatelessWidget {
                   username: username,
                   userAvatar: avatar,
                   virtualIp: virtualIp,
-                  roomUuid: currentRoomUuid,
+                  roomShareCode: currentRoomShareCode,
                   onSettingsTap: onSettings,
                   onCreateRoomTap: onCreateRoom,
                   onJoinRoomTap: onJoinRoom,
@@ -162,7 +162,7 @@ class DashboardWideLayout extends StatelessWidget {
             .map(
               (room) => DashboardHistoryItem(
                 room: room,
-                onJoin: () => onJoinHistory(room.uuid),
+                onJoin: () => onJoinHistory(room.shareCode),
               ),
             )
             .toList(),
@@ -186,7 +186,7 @@ class DashboardWideLayout extends StatelessWidget {
         itemCount: history.length,
         itemBuilder: (context, index) => DashboardHistoryItem(
           room: history[index],
-          onJoin: () => onJoinHistory(history[index].uuid),
+          onJoin: () => onJoinHistory(history[index].shareCode),
         ),
       );
     });

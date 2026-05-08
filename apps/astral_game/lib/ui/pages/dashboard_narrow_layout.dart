@@ -21,7 +21,7 @@ enum PanelState {
 class DashboardNarrowLayout extends StatefulWidget {
   final NodeManagementService nodeManagement;
   final ConnectionService connectionService;
-  final String? currentRoomUuid;
+  final String? currentRoomShareCode;
   final VoidCallback onSettings;
   final VoidCallback onCreateRoom;
   final VoidCallback onJoinRoom;
@@ -33,7 +33,7 @@ class DashboardNarrowLayout extends StatefulWidget {
     super.key,
     required this.nodeManagement,
     required this.connectionService,
-    required this.currentRoomUuid,
+    required this.currentRoomShareCode,
     required this.onSettings,
     required this.onCreateRoom,
     required this.onJoinRoom,
@@ -234,7 +234,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
         username: username,
         userAvatar: avatar,
         virtualIp: virtualIp,
-        roomUuid: widget.currentRoomUuid,
+        roomShareCode: widget.currentRoomShareCode,
         onSettingsTap: widget.onSettings,
         onCreateRoomTap: widget.onCreateRoom,
         onJoinRoomTap: widget.onJoinRoom,

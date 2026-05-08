@@ -18,18 +18,22 @@ class InputValidator {
     return null;
   }
 
-  /// 验证 UUID
+  /// 验证房间分享码
   ///
-  /// 检查是否为有效的 UUID 格式
-  static String? validateUuid(String? value) {
-    if (value == null || value.isEmpty) {
-      return '请输入 UUID';
+  /// 支持两种格式：
+  /// - `指纹-房间码`（例如：8位hex指纹-10位房间码）
+  /// - `房间码`（只输入房间码）
+  static String? validateShareCode(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) {
+      return '请输入房间分享码';
     }
-    final uuidRegex = RegExp(
-      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-    );
-    if (!uuidRegex.hasMatch(value)) {
-      return '请输入有效的 UUID';
+
+    // 指纹：8位 hex；房间码：不含易混字符的 base58-ish 字符集（长度 6-20 做宽松兼容）
+    final withFp = RegExp(r'^[0-9a-fA-F]{8}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz]{6,20}$');
+    final roomOnly = RegExp(r'^[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz]{6,20}$');
+    if (!withFp.hasMatch(v) && !roomOnly.hasMatch(v)) {
+      return '分享码格式不正确';
     }
     return null;
   }

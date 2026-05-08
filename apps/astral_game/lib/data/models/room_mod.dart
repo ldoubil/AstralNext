@@ -5,7 +5,8 @@ class RoomMod {
   final String host;
   final int port;
   final String password;
-  final String uuid;
+  /// 分享码（例如：`指纹-房间码` 或仅房间码）
+  final String shareCode;
   final DateTime createdAt;
 
   const RoomMod({
@@ -15,7 +16,7 @@ class RoomMod {
     required this.host,
     required this.port,
     required this.password,
-    required this.uuid,
+    required this.shareCode,
     required this.createdAt,
   });
 
@@ -26,7 +27,8 @@ class RoomMod {
         'host': host,
         'port': port,
         'password': password,
-        'uuid': uuid,
+        // 新字段名
+        'share_code': shareCode,
         'created_at': createdAt.toIso8601String(),
       };
 
@@ -37,7 +39,7 @@ class RoomMod {
         host: json['host'] as String? ?? '',
         port: (json['port'] as num?)?.toInt() ?? 0,
         password: json['password'] as String? ?? '',
-        uuid: json['uuid'] as String? ?? '',
+        shareCode: json['share_code'] as String? ?? '',
         createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
       );
 }

@@ -31,7 +31,7 @@ class AppConstants {
   static const Duration pingTimeout = Duration(seconds: 5);
   static const int maxPingLatencyMs = 800;
 
-  // UUID 显示长度
+  // 分享码/房间码 显示长度（用于 UI 截断预览）
   static const int uuidDisplayLength = 8;
 
   // 主机名过滤

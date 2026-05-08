@@ -145,7 +145,7 @@ class ConnectionService {
       host: 'localhost',
       port: 11010,
       password: roomPassword,
-      uuid: shareCode,
+      shareCode: shareCode,
       createdAt: DateTime.now(),
     );
 

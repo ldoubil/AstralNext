@@ -26,13 +26,24 @@ class _DashboardDismissibleHistoryItemState
     extends State<DashboardDismissibleHistoryItem> {
   bool isHovered = false;
 
+  String _shareCodePreview(String shareCode) {
+    final trimmed = shareCode.trim();
+    if (trimmed.isEmpty) return '本地房间';
+    final dash = trimmed.indexOf('-');
+    final roomCode = (dash > 0 && dash < trimmed.length - 1)
+        ? trimmed.substring(dash + 1)
+        : trimmed;
+    if (roomCode.length <= 8) return roomCode;
+    return roomCode.substring(0, 8);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
     return Dismissible(
-      key: Key(widget.room.uuid),
+      key: Key(widget.room.shareCode),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
@@ -55,7 +66,7 @@ class _DashboardDismissibleHistoryItemState
             builder: (context, setState) {
               return InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: widget.room.uuid.isNotEmpty ? widget.onJoin : null,
+                onTap: widget.room.shareCode.isNotEmpty ? widget.onJoin : null,
                 onHover: (hovering) {
                   setState(() => isHovered = hovering);
                 },
@@ -98,7 +109,7 @@ class _DashboardDismissibleHistoryItemState
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              widget.room.uuid.substring(0, 8),
+                              _shareCodePreview(widget.room.shareCode),
                               style: textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
@@ -141,6 +152,22 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
   bool isHovered = false;
   final _connectionService = getIt<ConnectionService>();
 
+  String _shareCodeDisplay(String shareCode) {
+    final trimmed = shareCode.trim();
+    if (trimmed.isEmpty) return '本地房间';
+    final dash = trimmed.indexOf('-');
+    final fp = (dash > 0 && dash < trimmed.length - 1) ? trimmed.substring(0, dash) : null;
+    final roomCode =
+        (dash > 0 && dash < trimmed.length - 1) ? trimmed.substring(dash + 1) : trimmed;
+
+    // 显示：优先展示房间码；如果有指纹，附带一小段用于识别。
+    final roomPart = roomCode.length > AppConstants.uuidDisplayLength
+        ? '${roomCode.substring(0, AppConstants.uuidDisplayLength)}...'
+        : roomCode;
+    if (fp == null || fp.isEmpty) return roomPart;
+    return '$roomPart  (fp:$fp)';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -155,7 +182,7 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: widget.room.uuid.isNotEmpty ? widget.onJoin : null,
+                onTap: widget.room.shareCode.isNotEmpty ? widget.onJoin : null,
               onHover: (hovering) {
                 setState(() => isHovered = hovering);
               },
@@ -198,9 +225,7 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
                           ),
                           const SizedBox(height: 2),
                               Text(
-                                widget.room.uuid.length >= AppConstants.uuidDisplayLength
-                                    ? '${widget.room.uuid.substring(0, AppConstants.uuidDisplayLength)}...'
-                                    : (widget.room.uuid.isNotEmpty ? widget.room.uuid : '本地房间'),
+                                _shareCodeDisplay(widget.room.shareCode),
                             style: textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -220,10 +245,10 @@ class _DashboardHistoryItemState extends State<DashboardHistoryItem> {
                               size: 18,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            onPressed: widget.room.uuid.isNotEmpty
+                            onPressed: widget.room.shareCode.isNotEmpty
                                 ? () async {
                                     await Clipboard.setData(
-                                      ClipboardData(text: widget.room.uuid),
+                                      ClipboardData(text: widget.room.shareCode),
                                     );
                                     if (mounted) {
                                       ScaffoldMessenger.of(

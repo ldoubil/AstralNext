@@ -29,7 +29,7 @@ class _DashboardPageState extends State<DashboardPage> {
   final ScreenStateService _screenStateService = GetIt.I<ScreenStateService>();
   final RoomState _roomState = getIt<RoomState>();
   
-  String? _currentRoomUuid;
+  String? _currentRoomShareCode;
 
   /// 处理设置按钮点击
   void _handleSettings() {
@@ -44,8 +44,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// 处理分享房间
   Future<void> _handleShareRoom() async {
-    if (_currentRoomUuid != null) {
-      await Clipboard.setData(ClipboardData(text: _currentRoomUuid!));
+    if (_currentRoomShareCode != null) {
+      await Clipboard.setData(ClipboardData(text: _currentRoomShareCode!));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('房间号已复制到剪贴板')),
@@ -58,7 +58,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _handleDisconnect() async {
     await _connectionService.disconnect();
     setState(() {
-      _currentRoomUuid = null;
+      _currentRoomShareCode = null;
     });
   }
 
@@ -68,7 +68,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     final room = await _connectionService.createRoom();
     setState(() {
-      _currentRoomUuid = room.uuid;
+      _currentRoomShareCode = room.shareCode;
     });
 
     final success = await _connectionService.connectToRoom(room.roomName, room.password);
@@ -116,14 +116,41 @@ class _DashboardPageState extends State<DashboardPage> {
     if (result != null && result.isNotEmpty) {
       final room = await _connectionService.joinRoom(result);
       setState(() {
-        _currentRoomUuid = result;
+        _currentRoomShareCode = result;
       });
 
       final mismatch = _connectionService.lastServerFingerprintMismatch;
       if (mismatch != null && mismatch.isNotEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(mismatch)),
+        final shouldContinue = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('服务器配置不一致'),
+            content: Text(
+              '$mismatch\n\n继续加入可能导致无法连接或延迟异常。是否仍要继续加入？',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('继续加入'),
+              ),
+            ],
+          ),
         );
+
+        if (shouldContinue != true) {
+          // 回滚刚保存的房间记录，避免污染历史列表。
+          _connectionService.removeRoom(room.id);
+          if (mounted) {
+            setState(() {
+              _currentRoomShareCode = null;
+            });
+          }
+          return;
+        }
       }
 
       final success = await _connectionService.connectToRoom(room.roomName, room.password);
@@ -136,14 +163,14 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   /// 处理从历史记录加入房间
-  void _handleJoinHistory(String uuid) async {
-    if (uuid.isEmpty || _connectionService.isConnecting) return;
+  void _handleJoinHistory(String shareCode) async {
+    if (shareCode.isEmpty || _connectionService.isConnecting) return;
     
-    final index = _roomState.rooms.indexWhere((r) => r.uuid == uuid);
+    final index = _roomState.rooms.indexWhere((r) => r.shareCode == shareCode);
     if (index != -1) {
       final room = _roomState.rooms[index];
       setState(() {
-        _currentRoomUuid = uuid;
+        _currentRoomShareCode = shareCode;
       });
       
       final success = await _connectionService.connectToRoom(room.roomName, room.password);
@@ -170,7 +197,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ? DashboardNarrowLayout(
                 nodeManagement: _nodeManagement,
                 connectionService: _connectionService,
-                currentRoomUuid: _currentRoomUuid,
+                currentRoomShareCode: _currentRoomShareCode,
                 onSettings: _handleSettings,
                 onCreateRoom: _handleCreateRoom,
                 onJoinRoom: _handleJoinRoom,
@@ -184,7 +211,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   nodeManagement: _nodeManagement,
                   connectionService: _connectionService,
                   screenStateService: _screenStateService,
-                  currentRoomUuid: _currentRoomUuid,
+                  currentRoomShareCode: _currentRoomShareCode,
                   onSettings: _handleSettings,
                   onCreateRoom: _handleCreateRoom,
                   onJoinRoom: _handleJoinRoom,

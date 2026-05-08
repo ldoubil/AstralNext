@@ -13,7 +13,7 @@ class DashboardMainCard extends StatefulWidget {
   final String username;
   final Uint8List? userAvatar;
   final String virtualIp;
-  final String? roomUuid;
+  final String? roomShareCode;
   final VoidCallback? onSettingsTap;
   final VoidCallback? onCreateRoomTap;
   final VoidCallback? onJoinRoomTap;
@@ -28,7 +28,7 @@ class DashboardMainCard extends StatefulWidget {
     this.username = '玩家',
     this.userAvatar,
     this.virtualIp = AppConstants.defaultVirtualIp,
-    this.roomUuid,
+    this.roomShareCode,
     this.onSettingsTap,
     this.onCreateRoomTap,
     this.onJoinRoomTap,
