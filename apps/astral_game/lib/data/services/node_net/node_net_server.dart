@@ -45,16 +45,6 @@ class NodeNetServer {
     appLogger.i('[NodeNetServer] 批量注册 ${methods.length} 个方法');
   }
 
-  /// 监听通知
-  void onNotification(void Function(String method, dynamic params) listener) {
-    _notificationListeners.add(listener);
-  }
-
-  /// 移除通知监听
-  void removeNotification(void Function(String method, dynamic params) listener) {
-    _notificationListeners.remove(listener);
-  }
-
   /// 启动服务
   Future<void> start() async {
     if (_httpServer != null) {

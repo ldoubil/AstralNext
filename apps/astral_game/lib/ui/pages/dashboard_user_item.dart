@@ -70,7 +70,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
           color: _isHovered
               ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.brMedium,
           border: Border.all(
             color: _isHovered ? colorScheme.outline.withValues(alpha: 0.2) : Colors.transparent,
             width: 1,
@@ -110,7 +110,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: AppRadius.brSmall,
                             ),
                             child: Text(
                               platformName,
@@ -143,7 +143,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: AppColors.online,
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: AppRadius.brSmall,
                             ),
                             child: Text(
                               '直连',
@@ -175,7 +175,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: colorScheme.tertiaryContainer,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: AppRadius.brSmall,
                         ),
                         child: Text(
                           'ID: ${node.peerId}',

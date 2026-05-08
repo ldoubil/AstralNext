@@ -255,7 +255,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
       return Card(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.brLarge,
            side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
         ),
         child: ClipRect(
@@ -338,7 +338,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
 
   Widget _buildUserListInline(BuildContext context) {
     return Watch((context) {
-      final enhancedNodes = widget.nodeManagement.enhancedUserNodes.value;
+      final enhancedNodes = widget.nodeManagement.userNodes.value;
 
       if (enhancedNodes.isEmpty) {
         return Center(

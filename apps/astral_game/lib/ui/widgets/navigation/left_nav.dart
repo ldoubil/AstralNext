@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/ui/widgets/navigation/navigation_item.dart';
 
 class LeftNav extends StatefulWidget {
@@ -79,7 +80,7 @@ class _LeftNavState extends State<LeftNav> with SingleTickerProviderStateMixin {
         height: _itemHeight,
         margin: EdgeInsets.symmetric(vertical: _itemMargin, horizontal: 8),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: AppRadius.brLarge,
           onTap: () => widget.onSelected(index),
           child: Center(
             child: Column(
@@ -93,10 +94,9 @@ class _LeftNavState extends State<LeftNav> with SingleTickerProviderStateMixin {
                 const SizedBox(height: 4),
                 Text(
                   item.label,
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: foreground,
-                    fontSize: 12,
                   ),
                 ),
               ],
@@ -134,7 +134,7 @@ class _LeftNavState extends State<LeftNav> with SingleTickerProviderStateMixin {
                       child: Container(
                         decoration: BoxDecoration(
                           color: colorScheme.primary.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(14),
+          borderRadius: AppRadius.brLarge,
                         ),
                       ),
                     );
@@ -166,7 +166,7 @@ class _BrandBadge extends StatelessWidget {
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: AppRadius.brLarge,
       ),
       clipBehavior: Clip.antiAlias,
       child: Image.asset(

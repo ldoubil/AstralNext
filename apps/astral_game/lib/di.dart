@@ -17,6 +17,8 @@ import 'package:astral_game/data/state/server_state.dart';
 import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/data/state/update_state.dart';
 import 'package:astral_game/data/services/update_service.dart';
+import 'package:astral_game/data/services/vpn_manager.dart';
+import 'package:astral_game/data/state/vpn_state.dart';
 import 'package:astral_game/ui/shell/shell_content_controller.dart';
 import 'package:astral_rust_core/p2p_service.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart';
@@ -106,6 +108,11 @@ Future<void> setupDI() async {
   getIt.registerSingleton<UpdateState>(UpdateState());
   getIt.registerLazySingleton<UpdateService>(
     () => UpdateService(getIt<UpdateState>()),
+  );
+
+  getIt.registerSingleton<VpnState>(VpnState());
+  getIt.registerLazySingleton<VpnManager>(
+    () => VpnManager(getIt<VpnState>(), getIt<P2PService>()),
   );
   
   await _initNodeNetServer();

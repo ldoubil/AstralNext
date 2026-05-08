@@ -18,7 +18,6 @@ Future<void> main() async {
     
     WindowOptions windowOptions = const WindowOptions(
       size: Size(940, 560),
-      // minimumSize: Size(800, 500),
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,

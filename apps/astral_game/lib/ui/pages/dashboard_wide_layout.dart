@@ -59,7 +59,7 @@ class DashboardWideLayout extends StatelessWidget {
       return Card(
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.brLarge,
            side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
         ),
         child: Padding(
@@ -88,7 +88,7 @@ class DashboardWideLayout extends StatelessWidget {
               isNarrow
                   ? (isRunning
                         ? UserListWidget(
-                            users: nodeManagement.enhancedUserNodes.value,
+                            users: nodeManagement.userNodes.value,
                             p2pStore: nodeManagement,
                             shrinkWrap: true,
                           )
@@ -96,7 +96,7 @@ class DashboardWideLayout extends StatelessWidget {
                   : Expanded(
                       child: isRunning
                           ? UserListWidget(
-                              users: nodeManagement.enhancedUserNodes.value,
+                              users: nodeManagement.userNodes.value,
                               p2pStore: nodeManagement,
                               physics: const AlwaysScrollableScrollPhysics(),
                             )

@@ -49,9 +49,6 @@ class NodeManagementService {
   /// 用户节点列表
   final userNodes = signal<List<EnhancedNodeInfo>>([]);
   
-  /// 增强的用户节点列表（包含额外信息）
-  final enhancedUserNodes = signal<List<EnhancedNodeInfo>>([]);
-  
   /// 当前实例 ID
   final currentInstanceId = signal<String?>(null);
   
@@ -86,7 +83,6 @@ class NodeManagementService {
     _cancelAllIpReadyTimers();
     currentInstanceId.value = null;
     userNodes.value = [];
-    enhancedUserNodes.value = [];
     appLogger.i('[NodeManagementService] 已停止');
   }
 
@@ -153,10 +149,7 @@ class NodeManagementService {
         }
       }
 
-      final changed = _processNodeChanges(currentNodes, newNodes);
-      if (changed) {
-        enhancedUserNodes.value = List.from(userNodes.value);
-      }
+      _processNodeChanges(currentNodes, newNodes);
     } catch (e, stackTrace) {
       appLogger.e('[NodeManagementService] 轮询网络状态失败: $e', error: e, stackTrace: stackTrace);
     }
@@ -336,11 +329,6 @@ class NodeManagementService {
     }).toList();
   }
 
-  /// 更新节点自定义名称
-  void updateNodeCustomName(int peerId, String name) {
-    _updateNodeInfo(peerId, name: name);
-  }
-
   /// 初始化用户信息
   ///
   /// 从持久化存储加载用户名和头像
@@ -366,16 +354,6 @@ class NodeManagementService {
   /// 检查 IP 是否有效
   bool isValidIp(String ip) {
     return ip != '0.0.0.0';
-  }
-
-  /// 检查是否为服务器节点
-  bool isServerNode(String hostname) {
-    return hostname.contains(AppConstants.publicServerHostname);
-  }
-
-  /// 检查是否为有效用户节点
-  bool isValidUserNode(String ip, String hostname) {
-    return isValidIp(ip) && !isServerNode(hostname);
   }
 
   /// 更新当前用户头像

@@ -29,11 +29,4 @@ class PlatformVersionParser {
     return versionString.split('|')[0].trim();
   }
 
-  static IconData getPlatformIcon(String versionString) {
-    return parsePlatformInfo(versionString).$2;
-  }
-
-  static String getPlatformName(String versionString) {
-    return parsePlatformInfo(versionString).$1;
-  }
 }

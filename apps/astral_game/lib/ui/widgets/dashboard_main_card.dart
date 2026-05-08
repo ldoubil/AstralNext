@@ -195,7 +195,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: AppRadius.brMedium,
             border: Border.all(
               color: colorScheme.outline.withValues(alpha: 0.2),
             ),
@@ -225,16 +225,14 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                   children: [
                     Text(
                       '强制中转',
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w500,
                         color: colorScheme.onSurface,
                       ),
                     ),
                     Text(
                       '禁用P2P直连',
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
@@ -259,7 +257,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: AppRadius.brMedium,
               border: Border.all(
                 color: colorScheme.outline.withValues(alpha: 0.2),
               ),
@@ -289,8 +287,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                     children: [
                       Text(
                         '防火墙',
-                        style: TextStyle(
-                          fontSize: 14,
+                        style: textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w500,
                           color: colorScheme.onSurface,
                         ),
@@ -299,8 +296,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                         _isLoadingFirewall
                             ? '加载中...'
                             : (_firewallEnabled ? '已启用' : '已禁用'),
-                        style: TextStyle(
-                          fontSize: 12,
+                        style: textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
@@ -358,7 +354,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                   onPressed: widget.onShareRoomTap,
                   style: FilledButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: AppRadius.brMedium,
                     ),
                   ),
                   child: const Row(
@@ -379,7 +375,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                   onPressed: widget.onDisconnectTap,
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: AppRadius.brMedium,
                     ),
                   ),
                   child: const Row(
@@ -404,7 +400,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                   onPressed: widget.onCreateRoomTap,
                   style: FilledButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: AppRadius.brMedium,
                     ),
                   ),
                   child: const Row(
@@ -425,7 +421,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
                   onPressed: widget.onJoinRoomTap,
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: AppRadius.brMedium,
                     ),
                   ),
                   child: const Row(
@@ -451,7 +447,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.brLarge,
         side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
       ),
       child: Padding(

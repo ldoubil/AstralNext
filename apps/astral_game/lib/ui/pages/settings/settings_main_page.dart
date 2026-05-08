@@ -5,6 +5,7 @@ import 'package:astral_game/ui/shell/shell_content_controller.dart';
 import 'package:astral_game/ui/widgets/avatar_widget.dart';
 import 'package:astral_game/utils/image_picker_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:astral_game/config/constants.dart';
 import 'package:get_it/get_it.dart';
 import '../../../data/services/node_management_service.dart';
 import 'general_settings_page.dart';
@@ -68,7 +69,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
         Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.brLarge,
             side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
           ),
           child: Padding(
@@ -96,7 +97,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
                           labelText: '名字',
                           hintText: '请输入您的名字',
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: AppRadius.brMedium,
                           ),
                           prefixIcon: Icon(Icons.person_outline, color: colorScheme.primary),
                         ),
@@ -192,7 +193,7 @@ class _SettingsMainPageState extends State<SettingsMainPage> {
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.brMedium,
         side: BorderSide(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)),
       ),
       child: ListTile(

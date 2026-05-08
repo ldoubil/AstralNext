@@ -87,7 +87,6 @@ class AppSettingsService {
     if (savedUsername != null && savedUsername.isNotEmpty) {
       return savedUsername;
     }
-    // TODO: 获取系统用户名作为默认值
     return '玩家';
   }
 
