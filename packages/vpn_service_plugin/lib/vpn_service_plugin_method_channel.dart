@@ -10,6 +10,10 @@ class MethodChannelVpnServicePlugin extends VpnServicePluginPlatform {
   StreamController<String>? _stoppedController;
   StreamSubscription? _eventSubscription;
 
+  MethodChannelVpnServicePlugin() {
+    VpnServicePluginPlatform.instance = this;
+  }
+
   @override
   Future<String> prepare() async {
     try {
