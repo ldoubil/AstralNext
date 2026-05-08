@@ -84,18 +84,15 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                 Ok(e) => match e {
                     GlobalCtxEvent::PeerAdded(p) => {
                         let msg = format!("peer added. peer_id: {}", p);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::PeerRemoved(p) => {
                         let msg = format!("peer removed. peer_id: {}", p);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::PeerConnAdded(p) => {
                         let conn_info = peer_conn_info_to_string(p);
                         let msg = format!("peer connection added. conn_info: {}", conn_info);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::PeerConnRemoved(p) => {
@@ -103,18 +100,15 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                             "peer connection removed. conn_info: {}",
                             peer_conn_info_to_string(p)
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::ListenerAddFailed(p, msg) => {
                         let msg = format!("listener add failed. listener: {}, msg: {}", p, msg);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::ListenerAcceptFailed(p, msg) => {
                         let msg =
                             format!("listener accept failed. listener: {}, msg: {}", p, msg);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::ListenerAdded(p) => {
@@ -122,13 +116,11 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                             continue;
                         }
                         let msg = format!("listener added. listener: {}", p);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::ConnectionAccepted(local, remote) => {
                         let msg =
                             format!("connection accepted. local: {}, remote: {}", local, remote);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::ConnectionError(local, remote, err) => {
@@ -136,22 +128,18 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                             "connection error. local: {}, remote: {}, err: {}",
                             local, remote, err
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::TunDeviceReady(dev) => {
                         let msg = format!("tun device ready. dev: {}", dev);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::TunDeviceError(err) => {
                         let msg = format!("tun device error. err: {}", err);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::Connecting(dst) => {
                         let msg = format!("connecting to peer. dst: {}", dst);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::ConnectError(dst, ip_version, err) => {
@@ -159,12 +147,10 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                             "connect error. dst: {}, ip_version: {}, err: {}",
                             dst, ip_version, err
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::VpnPortalStarted(portal) => {
                         let msg = format!("vpn portal started. portal: {}", portal);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::VpnPortalClientConnected(portal, client_addr) => {
@@ -172,7 +158,6 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                             "vpn portal client connected. portal: {}, client_addr: {}",
                             portal, client_addr
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::VpnPortalClientDisconnected(portal, client_addr) => {
@@ -180,22 +165,18 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                             "vpn portal client disconnected. portal: {}, client_addr: {}",
                             portal, client_addr
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::DhcpIpv4Changed(old, new) => {
                         let msg = format!("dhcp ip changed. old: {:?}, new: {:?}", old, new);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::DhcpIpv4Conflicted(ip) => {
                         let msg = format!("dhcp ip conflict. ip: {:?}", ip);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::PortForwardAdded(cfg) => {
                         let msg = format!("port forward added. cfg: {:?}", cfg);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
                     GlobalCtxEvent::ConfigPatched(_) => {}
@@ -206,7 +187,6 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                     match err {
                         tokio::sync::broadcast::error::RecvError::Closed => {
                             let msg = "event channel closed; stop handling events";
-                            println!("{}", msg);
                             let _ = send_udp_to_localhost_with_instance_id(&instance_id, msg);
                             break;
                         }
@@ -229,18 +209,15 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                 Ok(e) => match e {
                     GlobalCtxEvent::PeerAdded(p) => {
                         let msg = format!("peer added. peer_id: {}", p);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::PeerRemoved(p) => {
                         let msg = format!("peer removed. peer_id: {}", p);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::PeerConnAdded(p) => {
                         let conn_info = peer_conn_info_to_string(p);
                         let msg = format!("peer connection added. conn_info: {}", conn_info);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::PeerConnRemoved(p) => {
@@ -248,18 +225,15 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                             "peer connection removed. conn_info: {}",
                             peer_conn_info_to_string(p)
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::ListenerAddFailed(p, msg) => {
                         let msg = format!("listener add failed. listener: {}, msg: {}", p, msg);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::ListenerAcceptFailed(p, msg) => {
                         let msg =
                             format!("listener accept failed. listener: {}, msg: {}", p, msg);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::ListenerAdded(p) => {
@@ -267,13 +241,11 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                             continue;
                         }
                         let msg = format!("listener added. listener: {}", p);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::ConnectionAccepted(local, remote) => {
                         let msg =
                             format!("connection accepted. local: {}, remote: {}", local, remote);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::ConnectionError(local, remote, err) => {
@@ -281,22 +253,18 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                             "connection error. local: {}, remote: {}, err: {}",
                             local, remote, err
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::TunDeviceReady(dev) => {
                         let msg = format!("tun device ready. dev: {}", dev);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::TunDeviceError(err) => {
                         let msg = format!("tun device error. err: {}", err);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::Connecting(dst) => {
                         let msg = format!("connecting to peer. dst: {}", dst);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::ConnectError(dst, ip_version, err) => {
@@ -304,12 +272,10 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                             "connect error. dst: {}, ip_version: {}, err: {}",
                             dst, ip_version, err
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::VpnPortalStarted(portal) => {
                         let msg = format!("vpn portal started. portal: {}", portal);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::VpnPortalClientConnected(portal, client_addr) => {
@@ -317,7 +283,6 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                             "vpn portal client connected. portal: {}, client_addr: {}",
                             portal, client_addr
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::VpnPortalClientDisconnected(portal, client_addr) => {
@@ -325,22 +290,18 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                             "vpn portal client disconnected. portal: {}, client_addr: {}",
                             portal, client_addr
                         );
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::DhcpIpv4Changed(old, new) => {
                         let msg = format!("dhcp ip changed. old: {:?}, new: {:?}", old, new);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::DhcpIpv4Conflicted(ip) => {
                         let msg = format!("dhcp ip conflict. ip: {:?}", ip);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::PortForwardAdded(cfg) => {
                         let msg = format!("port forward added. cfg: {:?}", cfg);
-                        println!("{}", msg);
                         let _ = send_udp_to_localhost(&msg);
                     }
                     GlobalCtxEvent::ConfigPatched(_) => {}
@@ -351,7 +312,6 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                     match err {
                         tokio::sync::broadcast::error::RecvError::Closed => {
                             let msg = "event channel closed; stop handling events";
-                            println!("{}", msg);
                             let _ = send_udp_to_localhost(msg);
                             break;
                         }
@@ -542,7 +502,6 @@ pub fn create_server(config_toml: String, watch_event: bool) -> JoinHandle<Resul
             listeners,
             peers
         );
-        println!("{}", config_msg);
         let _ = send_udp_to_localhost_with_instance_id(&instance_id_str, &config_msg);
 
         MANAGER
