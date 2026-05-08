@@ -134,6 +134,9 @@ class ServerStatusState {
   }
 
   Future<bool> _checkServerOnline(ServerMod server) async {
+    // 加密服务器无法直接 ping
+    if (server.encrypted) return false;
+
     try {
       final latency = await PingUtil.ping(server.url);
       return latency != null;

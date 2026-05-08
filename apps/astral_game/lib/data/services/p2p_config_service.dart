@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:get_it/get_it.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/node_net/node_net_server.dart';
+import 'package:astral_game/data/services/public_server_service.dart';
 import 'package:astral_game/data/state/server_state.dart';
 
 class P2PConfigService {
@@ -42,7 +43,10 @@ class P2PConfigService {
     if (enabledServers.isNotEmpty) {
       peerBlock = enabledServers.map((server) {
         final protocol = server.udp ? 'udp' : server.tcp ? 'tcp' : 'tcp';
-        return '[[peer]]\nuri = "${_escapeString("$protocol://${server.url}")}"';
+        final url = server.encrypted
+            ? _decryptUrl(server.url) ?? server.url
+            : server.url;
+        return '[[peer]]\nuri = "${_escapeString("$protocol://$url")}"';
       }).join('\n\n');
     }
     
@@ -66,4 +70,9 @@ disable-p2p = $disableP2p
 
   /// 转义字符串中的特殊字符
   String _escapeString(String s) => s.replaceAll('\\', r'\\').replaceAll('"', r'\"');
+
+  /// 解密加密的服务器 URL
+  String? _decryptUrl(String encryptedUrl) {
+    return PublicServerService().decryptUrl(encryptedUrl);
+  }
 }

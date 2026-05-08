@@ -47,4 +47,12 @@ class AppConstants {
       'https://api.github.com/repos/$githubOwner/$githubRepo/releases?per_page=20';
   static const String githubReleasesPage =
       'https://github.com/$githubOwner/$githubRepo/releases';
+
+  // 公共服务器列表
+  static const String publicServerListUrl =
+      'https://astral.fan/new_server.json';
+
+  // RSA 私钥（用于解密公共服务器 URL）
+  static const String rsaPrivateKey =
+      'MIICXgIBAAKBgQC5U+V1qzALy81qf9Ug14XgqKphjX15Rq9ufEGm5ZOWzDDgBWhLGKxYrtd9CVbGp+QPATXIS6cQolMm//3VJ90dbqWcH/IjDP7kSkMANjM5YB3qWvODnhRCglng/p+1NmlOP04wAMFn7gR8cHzYaCrK9jC9O+0ro7QwCsMYdmQdFwIDAQABAoGAAP3eEfVBObKR4/St+VHg0tUP2coN/FNfLzdM5+faq7ranhj8OAR4X0FKzCrklHovas/dQTf73l7H/ZRjXQGsduS/uo1qSweXcj5SMgX0/DuxrDPsOQD27TNLvyr7VbMqm2imFNDhVIMxn7JbGE6bpmRbPjjMcM83qD6dyksNe7ECQQDew/qFidtCPyCTAwVhgci/do+U9lrbtwKpVlnVPoKUxETLajdum2pcXdNKUgsM0TmUmX3u6NpJt0LdcRaW98WnAkEA1PoQynfiEs4WPmEClXEX//0BrRcgyqTvYnWib7lL4dO8UQ54SKSXnbI4vjGeSgbpRqXbSvDC0YjInBcK2Nm7EQJBAKH2eVHYDjtXLHbWrnXbZ7qVGAWlLCAtKlk2ODBLt6M0JBSFUHIxux4W9YVGq1QRVr0M8Dvgvrzz6kCYdWUkFmcCQQCARdy3FV1kVhuvll4oA+WgmJHZ3oQxiQVlF9St1byOVyik6UIo/nkS0bS7WMctbtwxYNOjXz73VJr+6CHwWbMBAkEA3psQGdgNQnfUS8AtB7VyobzhjAdK2PVKjlxULtjPhIXSlPwdlKUr1IOqxnUqFH/x0DEXU8SlPDinDQPKeOsZbg==';
 }

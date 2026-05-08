@@ -3,6 +3,7 @@ class ServerMod {
   final String name;
   final String url;
   final bool enable;
+  final bool encrypted;
 
   // 协议开关
   final bool tcp;
@@ -34,6 +35,7 @@ class ServerMod {
   ServerMod({
     int? id,
     this.enable = false,
+    this.encrypted = false,
     required this.name,
     required this.url,
     this.tcp = false,
@@ -54,6 +56,7 @@ class ServerMod {
     String? name,
     String? url,
     bool? enable,
+    bool? encrypted,
     bool? tcp,
     bool? faketcp,
     bool? udp,
@@ -72,6 +75,7 @@ class ServerMod {
       name: name ?? this.name,
       url: url ?? this.url,
       enable: enable ?? this.enable,
+      encrypted: encrypted ?? this.encrypted,
       tcp: tcp ?? this.tcp,
       faketcp: faketcp ?? this.faketcp,
       udp: udp ?? this.udp,
@@ -92,6 +96,7 @@ class ServerMod {
         'name': name,
         'url': url,
         'enable': enable,
+        'encrypted': encrypted,
         'tcp': tcp,
         'faketcp': faketcp,
         'udp': udp,
@@ -111,6 +116,7 @@ class ServerMod {
         name: json['name'] as String? ?? '',
         url: json['url'] as String? ?? '',
         enable: json['enable'] as bool? ?? false,
+        encrypted: json['encrypted'] as bool? ?? false,
         tcp: json['tcp'] as bool? ?? false,
         faketcp: json['faketcp'] as bool? ?? false,
         udp: json['udp'] as bool? ?? false,

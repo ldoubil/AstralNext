@@ -4,6 +4,7 @@ import 'package:astral_game/di.dart';
 import 'package:astral_game/data/state/server_state.dart';
 import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/data/models/server_mod.dart';
+import 'package:astral_game/data/services/public_server_service.dart';
 
 import 'server_dialog.dart';
 import 'blocked_servers.dart';
@@ -126,7 +127,9 @@ class _ServersMainPageState extends State<ServersMainPage> {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               subtitle: Text(
-                BlockedServers.isBlocked(server.url) ? '***' : server.url,
+                (BlockedServers.isBlocked(server.url) || server.encrypted)
+                    ? '***'
+                    : server.url,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -146,7 +149,7 @@ class _ServersMainPageState extends State<ServersMainPage> {
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'edit') {
-                        if (BlockedServers.isBlocked(server.url)) {
+                        if (BlockedServers.isBlocked(server.url) || server.encrypted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('此服务器不可编辑'),
@@ -221,11 +224,22 @@ class _ServersMainPageState extends State<ServersMainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
       body: _buildBody(context),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showAddServerDialog(context),
-        child: const Icon(Icons.add),
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'public_servers',
+            onPressed: () => _showPublicServersDialog(context),
+            child: const Icon(Icons.public),
+          ),
+          const SizedBox(width: 16),
+          FloatingActionButton(
+            heroTag: 'add_server',
+            onPressed: () => showAddServerDialog(context),
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }
@@ -251,6 +265,141 @@ class _ServersMainPageState extends State<ServersMainPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showPublicServersDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _PublicServerDialog(
+        serverState: _serverState,
+      ),
+    );
+  }
+}
+
+class _PublicServerDialog extends StatefulWidget {
+  final ServerState serverState;
+
+  const _PublicServerDialog({required this.serverState});
+
+  @override
+  State<_PublicServerDialog> createState() => _PublicServerDialogState();
+}
+
+class _PublicServerDialogState extends State<_PublicServerDialog> {
+  final _service = PublicServerService();
+  List<PublicServer> _servers = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServers();
+  }
+
+  Future<void> _loadServers() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final servers = await _service.fetchServers();
+      if (mounted) {
+        setState(() {
+          _servers = servers;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = '加载失败: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  bool _isAlreadyAdded(String encryptedUrl) {
+    return widget.serverState.servers.value.any((s) => s.url == encryptedUrl);
+  }
+
+  void _addServer(PublicServer server) {
+    widget.serverState.addServer(
+      ServerMod(
+        name: server.name,
+        url: server.encryptedUrl,
+        encrypted: true,
+        enable: true,
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已添加 "${server.name}"')),
+    );
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      title: const Text('公共服务器'),
+      content: SizedBox(
+        width: 400,
+        height: 300,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+                        const SizedBox(height: 12),
+                        Text(_error!, style: TextStyle(color: colorScheme.error)),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: _loadServers,
+                          child: const Text('重试'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _servers.isEmpty
+                    ? const Center(child: Text('暂无公共服务器'))
+                    : ListView.builder(
+                        itemCount: _servers.length,
+                        itemBuilder: (context, index) {
+                          final server = _servers[index];
+                          final added = _isAlreadyAdded(server.encryptedUrl);
+
+                          return ListTile(
+                            title: Text(server.name),
+                            subtitle: Text(
+                              server.encryptedUrl,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: added
+                                ? Icon(Icons.check_circle, color: colorScheme.outline)
+                                : FilledButton.tonal(
+                                    onPressed: () => _addServer(server),
+                                    child: const Text('添加'),
+                                  ),
+                          );
+                        },
+                      ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+      ],
     );
   }
 }
