@@ -17,10 +17,16 @@ abstract class VpnServicePluginPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String> prepare() => throw UnimplementedError('prepare() not implemented');
-  Future<void> startVpn({required String ipv4Addr, int mtu = 1500}) =>
-      throw UnimplementedError('startVpn() not implemented');
-  Future<void> stopVpn() => throw UnimplementedError('stopVpn() not implemented');
+  Future<String> prepare() =>
+      throw UnimplementedError('prepare() not implemented');
+  Future<void> startVpn({
+    required String ipv4Addr,
+    int mtu = 1500,
+    List<String> routes = const [],
+    List<String> disallowedApplications = const [],
+  }) => throw UnimplementedError('startVpn() not implemented');
+  Future<void> stopVpn() =>
+      throw UnimplementedError('stopVpn() not implemented');
   Stream<Map<String, dynamic>> get onVpnServiceStarted =>
       throw UnimplementedError('onVpnServiceStarted not implemented');
   Stream<String> get onVpnServiceStopped =>
@@ -32,7 +38,12 @@ class _UnsupportedPlatform extends VpnServicePluginPlatform {
   Future<String> prepare() async => 'error_no_activity';
 
   @override
-  Future<void> startVpn({required String ipv4Addr, int mtu = 1500}) async {}
+  Future<void> startVpn({
+    required String ipv4Addr,
+    int mtu = 1500,
+    List<String> routes = const [],
+    List<String> disallowedApplications = const [],
+  }) async {}
 
   @override
   Future<void> stopVpn() async {}

@@ -52,8 +52,18 @@ class VpnServicePlugin {
     }
   }
 
-  Future<void> startVpn({required String ipv4Addr, int mtu = 1500}) {
-    return _platform.startVpn(ipv4Addr: ipv4Addr, mtu: mtu);
+  Future<void> startVpn({
+    required String ipv4Addr,
+    int mtu = 1500,
+    List<String> routes = const [],
+    List<String> disallowedApplications = const [],
+  }) {
+    return _platform.startVpn(
+      ipv4Addr: ipv4Addr,
+      mtu: mtu,
+      routes: routes,
+      disallowedApplications: disallowedApplications,
+    );
   }
 
   Future<void> stopVpn() => _platform.stopVpn();
@@ -61,6 +71,5 @@ class VpnServicePlugin {
   Stream<Map<String, dynamic>> get onVpnServiceStarted =>
       _platform.onVpnServiceStarted;
 
-  Stream<String> get onVpnServiceStopped =>
-      _platform.onVpnServiceStopped;
+  Stream<String> get onVpnServiceStopped => _platform.onVpnServiceStopped;
 }

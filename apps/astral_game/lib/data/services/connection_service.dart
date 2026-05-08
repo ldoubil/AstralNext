@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:astral_game/utils/logger.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
+import 'package:astral_game/data/services/vpn_manager.dart';
 import 'package:astral_game/data/services/node_net/node_net_client.dart';
 import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:astral_game/data/state/room_state.dart';
@@ -18,6 +21,7 @@ class ConnectionService {
   final NodeManagementService _nodeManagement;
   final RoomPersistenceService _roomPersistence;
   final RoomState _roomState;
+  final VpnManager _vpnManager;
 
   ConnectionService(
     this._p2pService,
@@ -25,6 +29,7 @@ class ConnectionService {
     this._nodeManagement,
     this._roomPersistence,
     this._roomState,
+    this._vpnManager,
   );
 
   bool _isConnecting = false;
@@ -72,6 +77,15 @@ class ConnectionService {
       GetIt.I<NodeNetServer>().setAuthToken(roomPassword);
       GetIt.I<NodeNetClient>().setAuthToken(roomPassword);
 
+      if (Platform.isAndroid) {
+        _vpnManager.startListening();
+        if (!await _vpnManager.ensurePermission()) {
+          appLogger.w('[ConnectionService] Android VPN 权限未授予，取消连接');
+          _clearNodeNetAuthToken();
+          return false;
+        }
+      }
+
       final configToml = _p2pConfig.buildTomlConfig(roomName, roomPassword);
       appLogger.i('[ConnectionService] 正在连接房间: $roomName');
 
@@ -82,16 +96,41 @@ class ConnectionService {
 
       final isRunning = await _p2pService.isEasytierRunning(instanceId);
       if (isRunning) {
+        if (Platform.isAndroid) {
+          final vpnIp = await _waitForVirtualIpv4(instanceId);
+          if (vpnIp == null) {
+            appLogger.e('[ConnectionService] Android VPN 启动失败：未获取到有效虚拟 IP');
+            await _p2pService.closeServer(instanceId);
+            _clearNodeNetAuthToken();
+            return false;
+          }
+
+          final vpnStarted = await _vpnManager.start(
+            instanceId: instanceId,
+            ipv4Addr: vpnIp,
+          );
+          if (!vpnStarted) {
+            await _p2pService.closeServer(instanceId);
+            _clearNodeNetAuthToken();
+            return false;
+          }
+        }
+
         _nodeManagement.setRunning(instanceId);
         _roomState.setConnected(true);
         appLogger.i('[ConnectionService] 连接成功，实例ID: $instanceId');
         return true;
       } else {
         appLogger.e('[ConnectionService] 连接失败：实例启动异常');
+        _clearNodeNetAuthToken();
         return false;
       }
     } catch (e, stackTrace) {
-      appLogger.e('[ConnectionService] 连接失败: $e', error: e, stackTrace: stackTrace);
+      appLogger.e(
+        '[ConnectionService] 连接失败: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
       // 若连接失败，清除 token，避免残留
       GetIt.I<NodeNetServer>().setAuthToken(null);
       GetIt.I<NodeNetClient>().setAuthToken(null);
@@ -104,16 +143,45 @@ class ConnectionService {
   /// 断开当前连接
   Future<void> disconnect() async {
     final instanceId = _nodeManagement.instanceId;
+    if (Platform.isAndroid) {
+      await _vpnManager.stop();
+    }
     if (instanceId != null) {
       try {
         await _p2pService.closeServer(instanceId);
         appLogger.i('[ConnectionService] 已断开连接，实例ID: $instanceId');
       } catch (e, stackTrace) {
-        appLogger.e('[ConnectionService] 断开连接时发生错误: $e', error: e, stackTrace: stackTrace);
+        appLogger.e(
+          '[ConnectionService] 断开连接时发生错误: $e',
+          error: e,
+          stackTrace: stackTrace,
+        );
       }
     }
     _nodeManagement.setStopped();
     _roomState.setConnected(false);
+    _clearNodeNetAuthToken();
+  }
+
+  Future<String?> _waitForVirtualIpv4(String instanceId) async {
+    for (var i = 0; i < 20; i++) {
+      final ips = await _p2pService.getIps(instanceId);
+      for (final ip in ips) {
+        if (_isValidVirtualIpv4(ip)) return ip;
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    return null;
+  }
+
+  bool _isValidVirtualIpv4(String ip) {
+    final normalized = ip.split('/').first.trim();
+    return normalized.isNotEmpty &&
+        normalized != '0.0.0.0' &&
+        normalized.split('.').length == 4;
+  }
+
+  void _clearNodeNetAuthToken() {
     GetIt.I<NodeNetServer>().setAuthToken(null);
     GetIt.I<NodeNetClient>().setAuthToken(null);
   }
@@ -144,12 +212,20 @@ class ConnectionService {
   Future<RoomMod> joinRoom(String shareCode) async {
     final trimmed = shareCode.trim();
     if (trimmed.isEmpty) {
-      return await _createAndPersistRoom(shareCode: '', roomName: '', token: '');
+      return await _createAndPersistRoom(
+        shareCode: '',
+        roomName: '',
+        token: '',
+      );
     }
 
     final parts = _p2pConfig.parseRoomShareCode(trimmed);
     if (parts == null) {
-      return await _createAndPersistRoom(shareCode: trimmed, roomName: '', token: trimmed);
+      return await _createAndPersistRoom(
+        shareCode: trimmed,
+        roomName: '',
+        token: trimmed,
+      );
     }
 
     return await _createAndPersistRoom(
@@ -171,7 +247,9 @@ class ConnectionService {
         ? 'unknown'
         : safeToken.substring(0, safeToken.length < 6 ? safeToken.length : 6);
 
-    final finalRoomName = safeRoomName.isEmpty ? 'Room_$safePrefix' : safeRoomName;
+    final finalRoomName = safeRoomName.isEmpty
+        ? 'Room_$safePrefix'
+        : safeRoomName;
     final roomPassword = safeToken;
 
     final room = RoomMod(
@@ -188,9 +266,15 @@ class ConnectionService {
     try {
       await _roomPersistence.saveRooms([..._roomState.rooms, room]);
       await _roomState.loadFromPersistence();
-      appLogger.i('[ConnectionService] 已创建/加入房间: $roomName, shareCode: $shareCode');
+      appLogger.i(
+        '[ConnectionService] 已创建/加入房间: $roomName, shareCode: $shareCode',
+      );
     } catch (e, stackTrace) {
-      appLogger.e('[ConnectionService] 保存房间失败: $e', error: e, stackTrace: stackTrace);
+      appLogger.e(
+        '[ConnectionService] 保存房间失败: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
 
     return room;

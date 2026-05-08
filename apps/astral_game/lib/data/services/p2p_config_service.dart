@@ -7,6 +7,7 @@ import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:astral_game/data/services/public_server_service.dart';
 import 'package:astral_game/data/state/server_state.dart';
+import 'package:astral_game/data/state/vpn_state.dart';
 import 'package:astral_game/utils/logger.dart';
 import 'package:pointycastle/export.dart';
 
@@ -25,8 +26,9 @@ class RoomShareCodeParts {
 class P2PConfigService {
   final AppSettingsService _appSettings;
   final ServerState _serverState;
+  final VpnState _vpnState;
 
-  P2PConfigService(this._appSettings, this._serverState);
+  P2PConfigService(this._appSettings, this._serverState, this._vpnState);
 
   /// 生成“房间码”（更短，适合作为分享码/房间密钥）
   ///
@@ -50,15 +52,18 @@ class P2PConfigService {
   /// - 排序后拼接，再计算 MD5，最后截断为短串
   String enabledServersFingerprint({int length = 8}) {
     final enabledServers = _serverState.getEnabledServers();
-    final normalizedUris = enabledServers
-        .map((server) {
-          final url = server.encrypted ? _decryptUrl(server.url) ?? server.url : server.url;
-          return _normalizeFullUri(url);
-        })
-        .whereType<String>()
-        .where((u) => u.isNotEmpty)
-        .toList()
-      ..sort();
+    final normalizedUris =
+        enabledServers
+            .map((server) {
+              final url = server.encrypted
+                  ? _decryptUrl(server.url) ?? server.url
+                  : server.url;
+              return _normalizeFullUri(url);
+            })
+            .whereType<String>()
+            .where((u) => u.isNotEmpty)
+            .toList()
+          ..sort();
 
     final joined = normalizedUris.join('\n');
     final digestBytes = _md5(utf8.encode(joined));
@@ -142,29 +147,40 @@ class P2PConfigService {
   String buildTomlConfig(String roomName, String roomPassword) {
     final disableP2p = _appSettings.isDisableP2p();
     final enabledServers = _serverState.getEnabledServers();
-    
+
     final nodeNetServer = GetIt.I<NodeNetServer>();
     final apiPort = nodeNetServer.port;
-    
+
     String peerBlock = '';
     if (enabledServers.isNotEmpty) {
-      peerBlock = enabledServers.map((server) {
-        final url = server.encrypted
-            ? _decryptUrl(server.url) ?? server.url
-            : server.url;
+      peerBlock = enabledServers
+          .map((server) {
+            final url = server.encrypted
+                ? _decryptUrl(server.url) ?? server.url
+                : server.url;
 
-        // 服务器地址现在支持“完整 URI”（例如 tcp://host:port、udp://host:port、ws://...）
-        // 如果已经带 scheme，则不要再拼装协议前缀，避免出现 tcp://tcp//... 这类错误。
-        final trimmed = url.trim();
-        final hasScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(trimmed);
-        if (hasScheme) {
-          return '[[peer]]\nuri = "${_escapeString(trimmed)}"';
-        }
-        appLogger.w('[P2PConfigService] 跳过无效服务器地址（必须是完整 URI）: $trimmed');
-        return '';
-      }).where((s) => s.isNotEmpty).join('\n\n');
+            // 服务器地址现在支持“完整 URI”（例如 tcp://host:port、udp://host:port、ws://...）
+            // 如果已经带 scheme，则不要再拼装协议前缀，避免出现 tcp://tcp//... 这类错误。
+            final trimmed = url.trim();
+            final hasScheme = RegExp(
+              r'^[a-zA-Z][a-zA-Z0-9+.-]*://',
+            ).hasMatch(trimmed);
+            if (hasScheme) {
+              return '[[peer]]\nuri = "${_escapeString(trimmed)}"';
+            }
+            appLogger.w('[P2PConfigService] 跳过无效服务器地址（必须是完整 URI）: $trimmed');
+            return '';
+          })
+          .where((s) => s.isNotEmpty)
+          .join('\n\n');
     }
-    
+
+    final proxyBlock = _vpnState.customRoutes.value
+        .map((route) => route.trim())
+        .where(_isValidCidrLike)
+        .map((route) => '[[proxy_network]]\ncidr = "${_escapeString(route)}"')
+        .join('\n\n');
+
     return '''
 instance_name = "AstralGame_$apiPort"
 hostname = "$apiPort"
@@ -178,13 +194,14 @@ listeners = [
 network_name = "${_escapeString(roomName)}" 
 network_secret = "${_escapeString(roomPassword)}" 
 
-${peerBlock.isNotEmpty ? '$peerBlock\n\n' : ''}[flags]
+${peerBlock.isNotEmpty ? '$peerBlock\n\n' : ''}${proxyBlock.isNotEmpty ? '$proxyBlock\n\n' : ''}[flags]
 disable-p2p = $disableP2p
 ''';
   }
 
   /// 转义字符串中的特殊字符
-  String _escapeString(String s) => s.replaceAll('\\', r'\\').replaceAll('"', r'\"');
+  String _escapeString(String s) =>
+      s.replaceAll('\\', r'\\').replaceAll('"', r'\"');
 
   /// 解密加密的服务器 URL
   String? _decryptUrl(String encryptedUrl) {
@@ -222,5 +239,13 @@ disable-p2p = $disableP2p
       buffer.write(hex[b & 0x0F]);
     }
     return buffer.toString();
+  }
+
+  bool _isValidCidrLike(String route) {
+    final parts = route.split('/');
+    if (parts.length != 2) return false;
+    final prefix = int.tryParse(parts[1]);
+    if (prefix == null || prefix < 0 || prefix > 32) return false;
+    return RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(parts[0]);
   }
 }

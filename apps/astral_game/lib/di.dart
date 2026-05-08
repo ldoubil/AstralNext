@@ -33,50 +33,56 @@ final getIt = GetIt.instance;
 Future<void> setupDI() async {
   final prefs = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(prefs);
-  getIt.registerLazySingleton<Logger>(() => Logger(
-        printer: PrettyPrinter(
-          methodCount: 0,
-          errorMethodCount: 5,
-          lineLength: 80,
-          colors: true,
-          printEmojis: false,
-          dateTimeFormat: DateTimeFormat.none,
-        ),
-      ));
+  getIt.registerLazySingleton<Logger>(
+    () => Logger(
+      printer: PrettyPrinter(
+        methodCount: 0,
+        errorMethodCount: 5,
+        lineLength: 80,
+        colors: true,
+        printEmojis: false,
+        dateTimeFormat: DateTimeFormat.none,
+      ),
+    ),
+  );
   getIt.registerSingleton<AppSettingsService>(AppSettingsService(prefs));
   getIt.registerSingleton<ShellContentController>(ShellContentController());
-  
+
   getIt.registerSingleton<ScreenStateService>(ScreenStateService());
 
   getIt.registerLazySingleton<P2PService>(() => P2PService());
   await getIt<P2PService>().ensureInitialized();
   await initApp();
-  
+
   getIt.registerSingleton<EventBus>(EventBus());
-  
-  getIt.registerLazySingleton<NodeManagementService>(() => NodeManagementService());
-  
+
+  getIt.registerLazySingleton<NodeManagementService>(
+    () => NodeManagementService(),
+  );
+  getIt.registerSingleton<VpnState>(VpnState());
+
   getIt.registerSingleton<NodeNetServer>(NodeNetServer());
   getIt.registerSingleton<NodeNetClient>(NodeNetClient());
-  
+
   getIt.registerLazySingleton<P2PConfigService>(
     () => P2PConfigService(
       getIt<AppSettingsService>(),
       getIt<ServerState>(),
+      getIt<VpnState>(),
     ),
   );
-  
+
   getIt.registerLazySingleton<ServerState>(() => ServerState());
   getIt.registerLazySingleton<ServerStatusState>(() => ServerStatusState());
   getIt.registerLazySingleton<ServerPersistenceService>(
     () => ServerPersistenceService(),
   );
-  
+
   getIt.registerLazySingleton<SettingsState>(() => SettingsState());
   getIt<SettingsState>().loadFromPersistence();
-  
+
   getIt.registerLazySingleton<RoomState>(() => RoomState());
-  
+
   final serverState = getIt<ServerState>();
   final serverPersistence = getIt<ServerPersistenceService>();
   serverState.setPersistenceCallbacks(
@@ -95,13 +101,16 @@ Future<void> setupDI() async {
     ),
   );
 
-  getIt.registerLazySingleton<ConnectionService>(() => ConnectionService(
-    getIt<P2PService>(),
-    getIt<P2PConfigService>(),
-    getIt<NodeManagementService>(),
-    getIt<RoomPersistenceService>(),
-    getIt<RoomState>(),
-  ));
+  getIt.registerLazySingleton<ConnectionService>(
+    () => ConnectionService(
+      getIt<P2PService>(),
+      getIt<P2PConfigService>(),
+      getIt<NodeManagementService>(),
+      getIt<RoomPersistenceService>(),
+      getIt<RoomState>(),
+      getIt<VpnManager>(),
+    ),
+  );
 
   getIt.registerLazySingleton<FirewallService>(() => FirewallService());
 
@@ -110,11 +119,10 @@ Future<void> setupDI() async {
     () => UpdateService(getIt<UpdateState>()),
   );
 
-  getIt.registerSingleton<VpnState>(VpnState());
   getIt.registerLazySingleton<VpnManager>(
     () => VpnManager(getIt<VpnState>(), getIt<P2PService>()),
   );
-  
+
   await _initNodeNetServer();
 }
 
@@ -132,10 +140,10 @@ Future<void> _initNodeNetServer() async {
   final server = getIt<NodeNetServer>();
   final appSettings = getIt<AppSettingsService>();
   final nodeManagement = getIt<NodeManagementService>();
-  
+
   server.registerAll(UserMethods(appSettings).methods);
   server.registerAll(NodeMethods(nodeManagement).methods);
   server.registerAll(MessageMethods().methods);
-  
+
   await server.start();
 }

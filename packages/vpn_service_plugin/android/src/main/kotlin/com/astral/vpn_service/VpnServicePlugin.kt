@@ -30,6 +30,7 @@ class VpnServicePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
+        TauriVpnService.setPlugin(this)
         methodChannel = MethodChannel(binding.binaryMessenger, "vpn_service")
         methodChannel.setMethodCallHandler(this)
         eventChannel = EventChannel(binding.binaryMessenger, "vpn_service_events")
@@ -90,9 +91,14 @@ class VpnServicePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private fun handleStartVpn(call: MethodCall, result: Result) {
         val ipv4Addr = call.argument<String>("ipv4Addr") ?: "100.100.100.0/24"
         val mtu = call.argument<Int>("mtu") ?: 1500
+        val routes = call.argument<List<String>>("routes")?.toTypedArray() ?: emptyArray()
+        val disallowedApplications =
+            call.argument<List<String>>("disallowedApplications")?.toTypedArray() ?: emptyArray()
         val intent = Intent(context, TauriVpnService::class.java)
         intent.putExtra("ipv4_addr", ipv4Addr)
         intent.putExtra("mtu", mtu)
+        intent.putExtra("routes", routes)
+        intent.putExtra("disallowed_applications", disallowedApplications)
         try {
             context?.startService(intent)
             result.success("started")
@@ -115,6 +121,7 @@ class VpnServicePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         methodChannel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
+        TauriVpnService.clearPlugin(this)
         pendingPrepareResult = null
     }
 

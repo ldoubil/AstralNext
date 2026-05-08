@@ -25,10 +25,17 @@ class MethodChannelVpnServicePlugin extends VpnServicePluginPlatform {
   }
 
   @override
-  Future<void> startVpn({required String ipv4Addr, int mtu = 1500}) async {
+  Future<void> startVpn({
+    required String ipv4Addr,
+    int mtu = 1500,
+    List<String> routes = const [],
+    List<String> disallowedApplications = const [],
+  }) async {
     await _methodChannel.invokeMethod('startVpn', {
       'ipv4Addr': ipv4Addr,
       'mtu': mtu,
+      'routes': routes,
+      'disallowedApplications': disallowedApplications,
     });
   }
 

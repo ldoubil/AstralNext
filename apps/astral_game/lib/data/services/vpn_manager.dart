@@ -18,6 +18,7 @@ class VpnManager {
   StreamSubscription<Map<String, dynamic>>? _startedSubscription;
   StreamSubscription<String>? _stoppedSubscription;
   String? _currentInstanceId;
+  bool _isListening = false;
 
   /// 是否为 Android 平台
   bool get _isAndroid => Platform.isAndroid;
@@ -100,15 +101,21 @@ class VpnManager {
 
     try {
       vpnState.setConnecting(true);
-      vpnState.setIpv4Addr(ipv4Addr);
+      final finalIpv4Addr = _withDefaultPrefix(ipv4Addr);
+      vpnState.setIpv4Addr(finalIpv4Addr);
       vpnState.setMtu(mtu);
       _currentInstanceId = instanceId;
 
-      await VpnServicePlugin.instance.startVpn(ipv4Addr: ipv4Addr, mtu: mtu);
+      await VpnServicePlugin.instance.startVpn(
+        ipv4Addr: finalIpv4Addr,
+        mtu: mtu,
+        routes: vpnState.customRoutes.value,
+        disallowedApplications: const ['com.example.astral_game'],
+      );
 
       vpnState.setRunning(true);
       vpnState.setConnecting(false);
-      appLogger.i('[VpnManager] VPN 已启动: $ipv4Addr');
+      appLogger.i('[VpnManager] VPN 已启动: $finalIpv4Addr');
       return true;
     } catch (e) {
       vpnState.setConnecting(false);
@@ -154,6 +161,8 @@ class VpnManager {
 
   /// 监听 VPN 服务事件
   void startListening() {
+    if (_isListening) return;
+    _isListening = true;
     _startedSubscription?.cancel();
     _stoppedSubscription?.cancel();
 
@@ -184,5 +193,12 @@ class VpnManager {
     _stoppedSubscription?.cancel();
     _startedSubscription = null;
     _stoppedSubscription = null;
+    _isListening = false;
+  }
+
+  String _withDefaultPrefix(String ipv4Addr) {
+    final trimmed = ipv4Addr.trim();
+    if (trimmed.isEmpty) return '100.100.100.0/24';
+    return trimmed.contains('/') ? trimmed : '$trimmed/24';
   }
 }
