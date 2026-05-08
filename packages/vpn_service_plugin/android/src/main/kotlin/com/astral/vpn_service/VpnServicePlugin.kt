@@ -7,6 +7,7 @@ import android.net.VpnService
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
+import io.flutter.plugin.common.PluginRegistry.ActivityResultListener
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -20,6 +21,12 @@ class VpnServicePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private var context: Context? = null
     private var eventSink: EventChannel.EventSink? = null
     private var pendingPrepareResult: Result? = null
+    private var activityBinding: ActivityPluginBinding? = null
+    private val activityResultListener: ActivityResultListener =
+        ActivityResultListener { requestCode: Int, resultCode: Int, data: Intent? ->
+            onActivityResult(requestCode, resultCode, data)
+            requestCode == VPN_REQUEST_CODE
+        }
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
@@ -112,22 +119,26 @@ class VpnServicePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activityBinding = binding
         activity = binding.activity
-        binding.addRequestListener(VPN_REQUEST_CODE) { requestCode, resultCode, data ->
-            onActivityResult(requestCode, resultCode, data)
-            true
-        }
+        binding.addActivityResultListener(activityResultListener)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
+        activityBinding?.removeActivityResultListener(activityResultListener)
+        activityBinding = null
         activity = null
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        activityBinding = binding
         activity = binding.activity
+        binding.addActivityResultListener(activityResultListener)
     }
 
     override fun onDetachedFromActivity() {
+        activityBinding?.removeActivityResultListener(activityResultListener)
+        activityBinding = null
         activity = null
     }
 

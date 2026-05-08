@@ -1,122 +1,22 @@
-import 'dart:async';
-import 'dart:typed_data';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/ui/shell/shell_content_controller.dart';
-import 'package:astral_game/ui/widgets/avatar_widget.dart';
-import 'package:astral_game/utils/image_picker_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:astral_game/config/constants.dart';
-import 'package:get_it/get_it.dart';
-import '../../../data/services/node_management_service.dart';
 import 'general_settings_page.dart';
 import 'network_settings_page.dart';
 import 'cloud_backup_settings_page.dart';
 import 'about_page.dart';
 
-class SettingsMainPage extends StatefulWidget {
+class SettingsMainPage extends StatelessWidget {
   const SettingsMainPage({super.key});
-
-  @override
-  State<SettingsMainPage> createState() => _SettingsMainPageState();
-}
-
-class _SettingsMainPageState extends State<SettingsMainPage> {
-  final NodeManagementService _p2pStore = GetIt.I<NodeManagementService>();
-  final TextEditingController _usernameController = TextEditingController();
-  Uint8List? _currentAvatar;
-  Timer? _debounceTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _usernameController.text = _p2pStore.currentUsername.value;
-    _currentAvatar = _p2pStore.currentUserAvatar.value;
-  }
-
-  @override
-  void dispose() {
-    _usernameController.dispose();
-    _debounceTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    final bytes = await ImagePickerHelper.pickImageFromGallery();
-
-    if (bytes != null) {
-      await _p2pStore.updateCurrentUserAvatar(bytes);
-      
-      setState(() {
-        _currentAvatar = bytes;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('头像已更新')),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final contentController = getIt<ShellContentController>();
-    final colorScheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.brLarge,
-            side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: _pickImage,
-                      child: AvatarWidget(
-                        avatar: _currentAvatar,
-                        size: 56,
-                        shape: AvatarShape.roundedSquare,
-                        borderRadius: 16,
-                        showBorder: false,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _usernameController,
-                        decoration: InputDecoration(
-                          labelText: '名字',
-                          hintText: '请输入您的名字',
-                          border: OutlineInputBorder(
-                            borderRadius: AppRadius.brMedium,
-                          ),
-                          prefixIcon: Icon(Icons.person_outline, color: colorScheme.primary),
-                        ),
-                        onChanged: (value) {
-                          // 使用防抖，避免频繁写入
-                          _debounceTimer?.cancel();
-                          _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-                            // 即时保存用户名到 NodeManagementService（会持久化）
-                            _p2pStore.updateCurrentUsername(value);
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
         _buildSectionHeader(context, '通用设置'),
         const SizedBox(height: 8),
         _buildSettingsCard(

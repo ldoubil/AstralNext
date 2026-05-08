@@ -1,7 +1,10 @@
 import 'package:astral_game/config/theme.dart';
 import 'package:astral_game/di.dart';
+import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/ui/shell/shell.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:signals/signals_flutter.dart';
 
 class AstralGameApp extends StatefulWidget {
   const AstralGameApp({super.key});
@@ -42,13 +45,30 @@ class _AstralGameAppState extends State<AstralGameApp> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Astral Game',
-      debugShowCheckedModeBanner: false,
-      theme: AstralGameTheme.light(),
-      darkTheme: AstralGameTheme.dark(),
-      themeMode: ThemeMode.system,
-      home: const Shell(),
+    final settingsState = getIt<SettingsState>();
+
+    return DynamicColorBuilder(
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        return Watch((context) {
+          final seed = settingsState.seedColor.value;
+          final useDynamic = settingsState.useDynamicColor.value;
+
+          return MaterialApp(
+            title: 'Astral Game',
+            debugShowCheckedModeBanner: false,
+            theme: AstralGameTheme.light(
+              seedColor: seed,
+              dynamicScheme: useDynamic ? lightDynamic : null,
+            ),
+            darkTheme: AstralGameTheme.dark(
+              seedColor: seed,
+              dynamicScheme: useDynamic ? darkDynamic : null,
+            ),
+            themeMode: settingsState.themeMode.value,
+            home: const Shell(),
+          );
+        });
+      },
     );
   }
 }

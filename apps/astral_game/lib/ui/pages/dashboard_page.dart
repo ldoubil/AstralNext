@@ -10,8 +10,8 @@ import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/data/models/room_mod.dart';
 import 'package:astral_game/ui/pages/dashboard_wide_layout.dart';
 import 'package:astral_game/ui/pages/dashboard_narrow_layout.dart';
-import 'package:astral_game/ui/pages/settings/settings_main_page.dart';
-import 'package:astral_game/ui/shell/shell_content_controller.dart';
+import 'package:astral_game/ui/widgets/avatar_widget.dart';
+import 'package:astral_game/utils/image_picker_helper.dart';
 
 /// 仪表盘页面
 ///
@@ -59,11 +59,85 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// 处理设置按钮点击
   void _handleSettings() {
-    if (mounted) {
-      final contentController = getIt<ShellContentController>();
-      contentController.showOverlay(
-        title: '设置',
-        contentBuilder: (_) => const SettingsMainPage(),
+    _showEditProfileDialog();
+  }
+
+  Future<void> _showEditProfileDialog() async {
+    if (!mounted) return;
+
+    final nameController = TextEditingController(
+      text: _nodeManagement.currentUsername.value,
+    );
+    var avatar = _nodeManagement.currentUserAvatar.value;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('编辑资料'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final bytes = await ImagePickerHelper.pickImageFromGallery();
+                      if (bytes == null) return;
+                      setState(() => avatar = bytes);
+                    },
+                    child: AvatarWidget(
+                      avatar: avatar,
+                      size: 72,
+                      shape: AvatarShape.circle,
+                      borderWidth: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: '昵称',
+                      hintText: '请输入昵称',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    // 清空头像：长按头像更直观，这里先给个入口
+                    await _nodeManagement.updateCurrentUserAvatar(null);
+                    if (mounted) Navigator.pop(context, true);
+                  },
+                  child: const Text('清除头像'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isNotEmpty) {
+                      await _nodeManagement.updateCurrentUsername(name);
+                    }
+                    await _nodeManagement.updateCurrentUserAvatar(avatar);
+                    if (mounted) Navigator.pop(context, true);
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('资料已更新')),
       );
     }
   }

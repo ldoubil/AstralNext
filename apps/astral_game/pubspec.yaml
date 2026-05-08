@@ -19,6 +19,7 @@ dependencies:
   pointycastle: ^3.9.1
   window_manager: ^0.4.3
   flex_color_scheme: ^8.4.0
+  dynamic_color: ^1.7.0
   get_it: ^9.2.0
   signals: ^6.3.0
   signals_flutter: ^6.3.0
@@ -44,3 +45,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
+    # Windows 托盘图标优先用 .ico
+    - assets/icon.ico

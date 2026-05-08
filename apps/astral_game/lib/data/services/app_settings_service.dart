@@ -17,6 +17,9 @@ class AppSettingsService {
   static const String _keyCloseMinimize = 'close_minimize';
   static const String _keyUserListSimple = 'user_list_simple';
   static const String _keyEnableBannerCarousel = 'enable_banner_carousel';
+  static const String _keyThemeMode = 'theme_mode';
+  static const String _keyUseDynamicColor = 'use_dynamic_color';
+  static const String _keySeedColor = 'seed_color';
 
   // 网络设置
   static const String _keyDefaultProtocol = 'default_protocol';
@@ -30,6 +33,23 @@ class AppSettingsService {
   final SharedPreferences _prefs;
 
   AppSettingsService(this._prefs);
+
+  // ---- 主题/外观 ----
+
+  /// 主题模式：system / light / dark
+  String getThemeMode() => _prefs.getString(_keyThemeMode) ?? 'system';
+  Future<void> setThemeMode(String value) async =>
+      await _prefs.setString(_keyThemeMode, value);
+
+  /// 是否启用系统动态取色（Material You）
+  bool getUseDynamicColor() => _prefs.getBool(_keyUseDynamicColor) ?? false;
+  Future<void> setUseDynamicColor(bool value) async =>
+      await _prefs.setBool(_keyUseDynamicColor, value);
+
+  /// 自定义主题主色（ARGB int）。未设置时返回默认值。
+  int getSeedColor() => _prefs.getInt(_keySeedColor) ?? 0xFF1B4DD7;
+  Future<void> setSeedColor(int argb) async =>
+      await _prefs.setInt(_keySeedColor, argb);
 
   // ---- WebDAV 配置 ----
 

@@ -7,6 +7,8 @@ import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/data/state/update_state.dart';
 import 'package:astral_game/di.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:path_provider/path_provider.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -114,7 +116,23 @@ class _ShellState extends State<Shell> with WindowListener, TrayListener {
   }
 
   Future<void> _initTray() async {
-    final iconPath = Platform.isWindows ? 'assets/logo.png' : 'assets/logo.png';
+    // tray_manager 需要“文件路径”，直接传 asset 路径在 Windows 上常见会无图标。
+    // 旧版在 Windows 使用 .ico；这里优先尝试 .ico，否则回退到从 asset 导出 png。
+    final String iconPath;
+    if (Platform.isWindows) {
+      iconPath = await _ensureTrayIconFile(
+        preferredAssetPath: 'assets/icon.ico',
+        fallbackAssetPath: 'assets/logo.png',
+        outputFileName: 'astral_game_tray_icon',
+      );
+    } else {
+      iconPath = await _ensureTrayIconFile(
+        preferredAssetPath: 'assets/logo.png',
+        fallbackAssetPath: 'assets/logo.png',
+        outputFileName: 'astral_game_tray_icon',
+      );
+    }
+
     await _trayManager.setIcon(iconPath);
     if (!Platform.isLinux) {
       await _trayManager.setToolTip('Astral Game');
@@ -128,6 +146,29 @@ class _ShellState extends State<Shell> with WindowListener, TrayListener {
         ],
       ),
     );
+  }
+
+  Future<String> _ensureTrayIconFile({
+    required String preferredAssetPath,
+    required String fallbackAssetPath,
+    required String outputFileName,
+  }) async {
+    final tmpDir = await getTemporaryDirectory();
+
+    Future<String> writeAsset(String assetPath, String ext) async {
+      final bytes = await rootBundle.load(assetPath);
+      final file = File('${tmpDir.path}${Platform.pathSeparator}$outputFileName$ext');
+      await file.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+      return file.path;
+    }
+
+    try {
+      final ext = preferredAssetPath.toLowerCase().endsWith('.ico') ? '.ico' : '.png';
+      return await writeAsset(preferredAssetPath, ext);
+    } catch (_) {
+      final ext = fallbackAssetPath.toLowerCase().endsWith('.ico') ? '.ico' : '.png';
+      return await writeAsset(fallbackAssetPath, ext);
+    }
   }
 
   Future<void> _showWindowFromTray() async {

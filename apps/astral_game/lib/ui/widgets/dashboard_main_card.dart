@@ -158,7 +158,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
         ),
         IconButton(
           icon: Icon(
-            Icons.settings_outlined,
+            Icons.edit_outlined,
             color: colorScheme.onSurfaceVariant,
           ),
           onPressed: widget.onSettingsTap,

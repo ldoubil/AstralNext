@@ -2,7 +2,7 @@ import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 
 class AstralGameTheme {
-  static const Color _seedColor = Color(0xFF1B4DD7);
+  static const Color defaultSeedColor = Color(0xFF1B4DD7);
   static const Color _lightSurface = Color(0xFFFFFFFF);
   static const Color _darkSurface = Color(0xFF0F1115);
 
@@ -119,9 +119,23 @@ class AstralGameTheme {
     );
   }
 
-  static ThemeData light() {
-    final ThemeData base = FlexColorScheme.light(
-      colors: FlexSchemeColor.from(primary: _seedColor),
+  static ThemeData light({
+    Color seedColor = defaultSeedColor,
+    ColorScheme? dynamicScheme,
+  }) {
+    final ThemeData base = dynamicScheme != null
+        ? FlexThemeData.light(
+            colorScheme: dynamicScheme,
+            useMaterial3: true,
+            surfaceMode: FlexSurfaceMode.level,
+            blendLevel: 0,
+            scaffoldBackground: _lightSurface,
+            surface: _lightSurface,
+            appBarElevation: 0,
+            subThemesData: _subThemesData,
+          )
+        : FlexColorScheme.light(
+            colors: FlexSchemeColor.from(primary: seedColor),
       usedColors: 1,
       keyColors: const FlexKeyColors(
         useSecondary: true,
@@ -134,14 +148,28 @@ class AstralGameTheme {
       surface: _lightSurface,
       appBarElevation: 0,
       subThemesData: _subThemesData,
-    ).toTheme;
+          ).toTheme;
 
     return _applyCommonTheme(base, _lightSurface);
   }
 
-  static ThemeData dark() {
-    final ThemeData base = FlexColorScheme.dark(
-      colors: FlexSchemeColor.from(primary: _seedColor),
+  static ThemeData dark({
+    Color seedColor = defaultSeedColor,
+    ColorScheme? dynamicScheme,
+  }) {
+    final ThemeData base = dynamicScheme != null
+        ? FlexThemeData.dark(
+            colorScheme: dynamicScheme,
+            useMaterial3: true,
+            surfaceMode: FlexSurfaceMode.level,
+            blendLevel: 0,
+            scaffoldBackground: _darkSurface,
+            surface: _darkSurface,
+            appBarElevation: 0,
+            subThemesData: _subThemesData,
+          )
+        : FlexColorScheme.dark(
+            colors: FlexSchemeColor.from(primary: seedColor),
       usedColors: 1,
       keyColors: const FlexKeyColors(
         useSecondary: true,
@@ -154,7 +182,7 @@ class AstralGameTheme {
       surface: _darkSurface,
       appBarElevation: 0,
       subThemesData: _subThemesData,
-    ).toTheme;
+          ).toTheme;
 
     return _applyCommonTheme(base, _darkSurface);
   }
