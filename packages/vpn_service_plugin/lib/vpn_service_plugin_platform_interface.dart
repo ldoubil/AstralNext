@@ -1,5 +1,7 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
+import 'vpn_service_plugin_method_channel.dart';
+
 abstract class VpnServicePluginPlatform extends PlatformInterface {
   VpnServicePluginPlatform() : super(token: _token);
 
@@ -14,19 +16,12 @@ abstract class VpnServicePluginPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  /// 检查/请求 VPN 权限
-  ///
-  /// 返回字符串状态：'granted' / 'denied' / 'error_no_activity' / 'error_start_activity'
   Future<String> prepare() => throw UnimplementedError('prepare() not implemented');
-
   Future<void> startVpn({required String ipv4Addr, int mtu = 1500}) =>
       throw UnimplementedError('startVpn() not implemented');
-
   Future<void> stopVpn() => throw UnimplementedError('stopVpn() not implemented');
-
   Stream<Map<String, dynamic>> get onVpnServiceStarted =>
       throw UnimplementedError('onVpnServiceStarted not implemented');
-
   Stream<String> get onVpnServiceStopped =>
       throw UnimplementedError('onVpnServiceStopped not implemented');
 }

@@ -15,7 +15,7 @@ class MethodChannelVpnServicePlugin extends VpnServicePluginPlatform {
     try {
       final result = await _methodChannel.invokeMethod<String>('prepareVpn');
       return result ?? 'unknown';
-    } on PlatformException catch (e) {
+    } on PlatformException {
       return 'error_start_activity';
     }
   }
@@ -56,7 +56,7 @@ class MethodChannelVpnServicePlugin extends VpnServicePluginPlatform {
         if (type == 'vpn_service_start') {
           _startedController?.add(data);
         } else if (type == 'vpn_service_stop') {
-          _stoppedController?.add(type);
+          _stoppedController?.add(type!);
         }
       }
     });
