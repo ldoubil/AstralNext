@@ -39,4 +39,12 @@ class AppConstants {
 
   // 版本号（TODO: 从 package_info_plus 获取）
   static const String appVersion = '1.0.0';
+
+  // GitHub 更新检测
+  static const String githubOwner = 'ldoubil';
+  static const String githubRepo = 'astral';
+  static const String githubReleasesUrl =
+      'https://api.github.com/repos/$githubOwner/$githubRepo/releases?per_page=20';
+  static const String githubReleasesPage =
+      'https://github.com/$githubOwner/$githubRepo/releases';
 }

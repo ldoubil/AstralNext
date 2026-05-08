@@ -1,4 +1,6 @@
 import 'package:astral_game/data/services/screen_state_service.dart';
+import 'package:astral_game/data/services/update_service.dart';
+import 'package:astral_game/data/state/update_state.dart';
 import 'package:astral_game/di.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
@@ -56,6 +58,23 @@ class _ShellState extends State<Shell> {
       if (mounted) {
         final screenWidth = MediaQuery.of(context).size.width;
         _screenStateService.updateScreenWidth(screenWidth);
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final updateState = getIt<UpdateState>();
+        if (updateState.autoCheckUpdate.value) {
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              getIt<UpdateService>().checkForUpdates(
+                context,
+                showNoUpdateMessage: false,
+                showFailureMessage: false,
+              );
+            }
+          });
+        }
       }
     });
   }

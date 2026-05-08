@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/config/constants.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/firewall_service.dart';
@@ -170,9 +171,11 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final settingsState = getIt<SettingsState>();
-    final disableP2p = settingsState.disableP2p.value;
 
-    return Column(
+    return Watch((context) {
+      final disableP2p = settingsState.disableP2p.value;
+
+      return Column(
       children: [
         const SizedBox(height: 16),
         Row(
@@ -322,6 +325,7 @@ class _DashboardMainCardState extends State<DashboardMainCard> {
 
       ],
     );
+    });
   }
 
   Widget _buildActionSection(BuildContext context) {
