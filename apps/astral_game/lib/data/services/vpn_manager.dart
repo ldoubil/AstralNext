@@ -110,7 +110,6 @@ class VpnManager {
         ipv4Addr: finalIpv4Addr,
         mtu: mtu,
         routes: vpnState.customRoutes.value,
-        disallowedApplications: const ['com.example.astral_game'],
       );
 
       vpnState.setRunning(true);
