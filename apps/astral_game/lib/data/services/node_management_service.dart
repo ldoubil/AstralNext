@@ -118,6 +118,8 @@ class NodeManagementService {
       // 去重主键：peerId（Rust 侧也会去重，但这里兜底保证 UI 列表不出现重复条目）。
       final newNodes = <int, EnhancedNodeInfo>{};
       for (final node in newNodesList) {
+        // 公共服务器仅用于中继/目录，不应出现在“在线用户”列表。
+        if (node.hostname.startsWith(AppConstants.publicServerHostname)) continue;
         final port = _parsePortFromHostname(node.hostname);
         final prev = currentNodes[node.peerId];
         newNodes[node.peerId] = EnhancedNodeInfo(
@@ -140,7 +142,7 @@ class NodeManagementService {
           .map((n) => '${n.peerId}:${n.hostname}:${_normalizeIpv4(n.ipv4)}')
           .join(', ');
       appLogger.d(
-        '[NodeManagementService] poll nodes(total=${normalized.length}) [$nodesPreview]',
+        '[NodeManagementService] poll users(total=${normalized.length}, rawTotal=$newTotalNodes) [$nodesPreview]',
       );
 
       // 同步拉取资料（昵称/头像），不做冷却；不推送自己的资料。
