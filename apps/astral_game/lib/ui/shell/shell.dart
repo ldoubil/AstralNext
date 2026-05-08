@@ -237,6 +237,7 @@ class _ShellState extends State<Shell> with WindowListener, TrayListener {
 
     final hasOverlay = _contentController.hasOverlay;
     final overlayTitle = _contentController.overlayTitle;
+    final isDesktop = _isDesktopPlatform;
 
     return Scaffold(
       backgroundColor: colorScheme.primaryContainer,
@@ -252,7 +253,7 @@ class _ShellState extends State<Shell> with WindowListener, TrayListener {
           Expanded(
             child: Column(
               children: [
-                if (!isCompact)
+                if (isDesktop)
                   _TitleBar(
                     height: 44,
                     title: hasOverlay ? overlayTitle! : 'Astral Game',
@@ -262,18 +263,21 @@ class _ShellState extends State<Shell> with WindowListener, TrayListener {
                         ? () => _contentController.closeOverlay()
                         : null,
                   ),
-                if (isCompact && hasOverlay)
-                  _CompactOverlayAppBar(
-                    title: overlayTitle!,
-                    onBack: () => _contentController.closeOverlay(),
+                if (!isDesktop)
+                  _CompactTopAppBar(
+                    title: hasOverlay
+                        ? overlayTitle!
+                        : _navigationItems[_selectedIndex].label,
+                    showBackButton: hasOverlay,
+                    onBack: hasOverlay ? () => _contentController.closeOverlay() : null,
                   ),
                 Expanded(
                   child: ClipRRect(
-                    borderRadius: isCompact && hasOverlay
-                        ? BorderRadius.zero
-                        : const BorderRadius.only(
+                    borderRadius: !isCompact
+                        ? const BorderRadius.only(
                             topLeft: Radius.circular(18),
-                          ),
+                          )
+                        : BorderRadius.zero,
                     child: Container(
                       color: colorScheme.surface,
                       child: hasOverlay
@@ -422,41 +426,49 @@ class _TitleBarState extends State<_TitleBar> {
   }
 }
 
-class _CompactOverlayAppBar extends StatelessWidget {
+class _CompactTopAppBar extends StatelessWidget {
   final String title;
-  final VoidCallback onBack;
+  final bool showBackButton;
+  final VoidCallback? onBack;
 
-  const _CompactOverlayAppBar({
+  const _CompactTopAppBar({
     required this.title,
-    required this.onBack,
+    this.showBackButton = false,
+    this.onBack,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      height: 56,
-      color: colorScheme.surface,
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        height: 56,
+        color: colorScheme.surface,
+        child: Row(
+          children: [
+            if (showBackButton)
+              IconButton(
+                icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+                onPressed: onBack,
+              )
+            else
+              const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          const SizedBox(width: 16),
-        ],
+            const SizedBox(width: 16),
+          ],
+        ),
       ),
     );
   }
