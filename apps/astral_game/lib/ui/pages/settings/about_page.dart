@@ -135,20 +135,6 @@ class _AboutPageState extends State<AboutPage> {
                 updateService.checkForUpdates(context);
               },
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.description_outlined),
-              title: const Text('开源许可'),
-              subtitle: const Text('查看第三方开源库许可'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                showLicensePage(
-                  context: context,
-                  applicationName: 'Astral Game',
-                  applicationVersion: _currentVersion,
-                );
-              },
-            ),
           ],
         ),
         const SizedBox(height: 16),
