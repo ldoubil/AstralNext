@@ -179,6 +179,45 @@ fn handle_event_with_instance_id(mut events: EventBusSubscriber, instance_id: St
                         let msg = format!("port forward added. cfg: {:?}", cfg);
                         let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
                     }
+                    GlobalCtxEvent::ListenerPortMappingEstablished {
+                        local_listener,
+                        mapped_listener,
+                        backend,
+                    } => {
+                        let msg = format!(
+                            "listener port mapping established. local: {}, mapped: {}, backend: {}",
+                            local_listener, mapped_listener, backend
+                        );
+                        let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
+                    }
+                    GlobalCtxEvent::PublicIpv6Changed(old, new) => {
+                        let msg = format!(
+                            "public ipv6 changed. old: {:?}, new: {:?}",
+                            old, new
+                        );
+                        let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
+                    }
+                    GlobalCtxEvent::PublicIpv6RoutesUpdated(added, removed) => {
+                        let msg = format!(
+                            "public ipv6 routes updated. added: {:?}, removed: {:?}",
+                            added, removed
+                        );
+                        let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
+                    }
+                    GlobalCtxEvent::UdpBroadcastRelayStartResult {
+                        capture_backend,
+                        error,
+                    } => {
+                        let msg = format!(
+                            "udp broadcast relay start result. backend: {:?}, error: {:?}",
+                            capture_backend, error
+                        );
+                        let _ = send_udp_to_localhost_with_instance_id(&instance_id, &msg);
+                    }
+                    GlobalCtxEvent::CredentialChanged => {
+                        let msg = "credential changed";
+                        let _ = send_udp_to_localhost_with_instance_id(&instance_id, msg);
+                    }
                     GlobalCtxEvent::ConfigPatched(_) => {}
                     GlobalCtxEvent::ProxyCidrsUpdated(_, _) => {}
                 },
@@ -303,6 +342,44 @@ pub fn handle_event(mut events: EventBusSubscriber) -> tokio::task::JoinHandle<(
                     GlobalCtxEvent::PortForwardAdded(cfg) => {
                         let msg = format!("port forward added. cfg: {:?}", cfg);
                         let _ = send_udp_to_localhost(&msg);
+                    }
+                    GlobalCtxEvent::ListenerPortMappingEstablished {
+                        local_listener,
+                        mapped_listener,
+                        backend,
+                    } => {
+                        let msg = format!(
+                            "listener port mapping established. local: {}, mapped: {}, backend: {}",
+                            local_listener, mapped_listener, backend
+                        );
+                        let _ = send_udp_to_localhost(&msg);
+                    }
+                    GlobalCtxEvent::PublicIpv6Changed(old, new) => {
+                        let msg = format!(
+                            "public ipv6 changed. old: {:?}, new: {:?}",
+                            old, new
+                        );
+                        let _ = send_udp_to_localhost(&msg);
+                    }
+                    GlobalCtxEvent::PublicIpv6RoutesUpdated(added, removed) => {
+                        let msg = format!(
+                            "public ipv6 routes updated. added: {:?}, removed: {:?}",
+                            added, removed
+                        );
+                        let _ = send_udp_to_localhost(&msg);
+                    }
+                    GlobalCtxEvent::UdpBroadcastRelayStartResult {
+                        capture_backend,
+                        error,
+                    } => {
+                        let msg = format!(
+                            "udp broadcast relay start result. backend: {:?}, error: {:?}",
+                            capture_backend, error
+                        );
+                        let _ = send_udp_to_localhost(&msg);
+                    }
+                    GlobalCtxEvent::CredentialChanged => {
+                        let _ = send_udp_to_localhost("credential changed");
                     }
                     GlobalCtxEvent::ConfigPatched(_) => {}
                     GlobalCtxEvent::ProxyCidrsUpdated(_, _) => {}
@@ -616,7 +693,10 @@ pub fn create_server_with_flags(
         let mut peer_configs = Vec::new();
         for url in severurl {
             match url.parse() {
-                Ok(uri) => peer_configs.push(PeerConfig { uri }),
+                Ok(uri) => peer_configs.push(PeerConfig {
+                    uri,
+                    peer_public_key: None,
+                }),
                 Err(e) => return Err(format!("invalid server url: {}, error: {}", url, e)),
             }
         }
@@ -702,6 +782,8 @@ pub async fn get_peer_route_pairs(instance_id: String) -> Result<Vec<PeerRoutePa
             next_hop_peer_id_latency_first: None,
             cost_latency_first: None,
             path_latency_latency_first: None,
+            public_ipv6_addr: None,
+            ipv6_public_addr_prefix: None,
         };
 
         let my_pair = PeerRoutePair {
