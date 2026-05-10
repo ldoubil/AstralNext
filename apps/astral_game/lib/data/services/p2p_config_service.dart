@@ -2,9 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 
-import 'package:get_it/get_it.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
-import 'package:astral_game/data/services/node_net/node_net_server.dart';
 import 'package:astral_game/data/services/public_server_service.dart';
 import 'package:astral_game/data/state/server_state.dart';
 import 'package:astral_game/data/state/vpn_state.dart';
@@ -148,8 +146,11 @@ class P2PConfigService {
     final disableP2p = _appSettings.isDisableP2p();
     final enabledServers = _serverState.getEnabledServers();
 
-    final nodeNetServer = GetIt.I<NodeNetServer>();
-    final apiPort = nodeNetServer.port;
+    // 旧版本通过 hostname 编码 RPC 端口，迁移到 peer-RPC 之后已经不需要了。
+    // 这里用用户名作为 hostname，便于在路由表/UI 上直接看到对方身份；
+    // 用户没设名字时回退到中性占位 "Astral"。
+    final rawUsername = _appSettings.getUsername().trim();
+    final hostname = rawUsername.isEmpty ? 'Astral' : rawUsername;
 
     String peerBlock = '';
     if (enabledServers.isNotEmpty) {
@@ -182,8 +183,8 @@ class P2PConfigService {
         .join('\n\n');
 
     return '''
-instance_name = "AstralGame_$apiPort"
-hostname = "$apiPort"
+instance_name = "AstralGame"
+hostname = "${_escapeString(hostname)}"
 dhcp = true
 listeners = [
     "tcp://0.0.0.0:0",

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:astral_game/data/services/app_settings_service.dart';
-import 'package:astral_game/data/services/node_net/node_net_server.dart';
+import 'package:astral_game/data/services/peer_rpc/peer_rpc_router.dart';
 
 /// 用户相关方法
 class UserMethods {

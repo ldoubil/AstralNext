@@ -5,8 +5,8 @@ import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/vpn_manager.dart';
-import 'package:astral_game/data/services/node_net/node_net_client.dart';
-import 'package:astral_game/data/services/node_net/node_net_server.dart';
+import 'package:astral_game/data/services/peer_rpc/peer_rpc_client.dart';
+import 'package:astral_game/data/services/peer_rpc/peer_rpc_router.dart';
 import 'package:astral_game/data/state/room_state.dart';
 import 'package:astral_game/data/models/room_mod.dart';
 import 'package:astral_rust_core/p2p_service.dart';
@@ -73,15 +73,11 @@ class ConnectionService {
     _isConnecting = true;
 
     try {
-      // 连接建立前设置本地 RPC 会话鉴权 token（供其他节点调用）
-      GetIt.I<NodeNetServer>().setAuthToken(roomPassword);
-      GetIt.I<NodeNetClient>().setAuthToken(roomPassword);
-
+      // 鉴权由 EasyTier 的 network_secret 在传输层完成，业务侧不再需要 token。
       if (Platform.isAndroid) {
         _vpnManager.startListening();
         if (!await _vpnManager.ensurePermission()) {
           appLogger.w('[ConnectionService] Android VPN 权限未授予，取消连接');
-          _clearNodeNetAuthToken();
           return false;
         }
       }
@@ -101,7 +97,6 @@ class ConnectionService {
           if (vpnIp == null) {
             appLogger.e('[ConnectionService] Android VPN 启动失败：未获取到有效虚拟 IP');
             await _p2pService.closeServer(instanceId);
-            _clearNodeNetAuthToken();
             return false;
           }
 
@@ -111,18 +106,17 @@ class ConnectionService {
           );
           if (!vpnStarted) {
             await _p2pService.closeServer(instanceId);
-            _clearNodeNetAuthToken();
             return false;
           }
         }
 
+        await _bindPeerRpc(instanceId);
         _nodeManagement.setRunning(instanceId);
         _roomState.setConnected(true);
         appLogger.i('[ConnectionService] 连接成功，实例ID: $instanceId');
         return true;
       } else {
         appLogger.e('[ConnectionService] 连接失败：实例启动异常');
-        _clearNodeNetAuthToken();
         return false;
       }
     } catch (e, stackTrace) {
@@ -131,9 +125,7 @@ class ConnectionService {
         error: e,
         stackTrace: stackTrace,
       );
-      // 若连接失败，清除 token，避免残留
-      GetIt.I<NodeNetServer>().setAuthToken(null);
-      GetIt.I<NodeNetClient>().setAuthToken(null);
+      await _unbindPeerRpc();
       return false;
     } finally {
       _isConnecting = false;
@@ -160,7 +152,7 @@ class ConnectionService {
     }
     _nodeManagement.setStopped();
     _roomState.setConnected(false);
-    _clearNodeNetAuthToken();
+    await _unbindPeerRpc();
   }
 
   Future<String?> _waitForVirtualIpv4(String instanceId) async {
@@ -181,9 +173,28 @@ class ConnectionService {
         normalized.split('.').length == 4;
   }
 
-  void _clearNodeNetAuthToken() {
-    GetIt.I<NodeNetServer>().setAuthToken(null);
-    GetIt.I<NodeNetClient>().setAuthToken(null);
+  Future<void> _bindPeerRpc(String instanceId) async {
+    GetIt.I<PeerRpcClient>().bindInstance(instanceId);
+    try {
+      await GetIt.I<PeerRpcRouter>().start(instanceId);
+    } catch (e, stackTrace) {
+      appLogger.e(
+        '[ConnectionService] PeerRpcRouter 启动失败: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // 启动失败不阻断连接，业务侧可以重试拉资料；但路由器没起来意味着对端无法
+      // 调本端的 user.getInfo 等，需要在日志里清晰提示。
+    }
+  }
+
+  Future<void> _unbindPeerRpc() async {
+    GetIt.I<PeerRpcClient>().bindInstance(null);
+    try {
+      await GetIt.I<PeerRpcRouter>().stop();
+    } catch (e) {
+      appLogger.w('[ConnectionService] PeerRpcRouter 停止异常: $e');
+    }
   }
 
   /// 创建新房间

@@ -90,7 +90,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<AppInboundEventC>
+  dco_decode_StreamSink_app_inbound_event_c_Sse(dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
+
+  @protected
+  AppCallResultC dco_decode_app_call_result_c(dynamic raw);
+
+  @protected
+  AppInboundEventC dco_decode_app_inbound_event_c(dynamic raw);
+
+  @protected
+  AppInboundKindC dco_decode_app_inbound_kind_c(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
@@ -112,6 +125,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int dco_decode_i_32(dynamic raw);
+
+  @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
   KVNetworkStatus dco_decode_kv_network_status(dynamic raw);
@@ -144,6 +160,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<NodeHopStats> dco_decode_list_node_hop_stats(dynamic raw);
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
@@ -218,7 +237,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<AppInboundEventC>
+  sse_decode_StreamSink_app_inbound_event_c_Sse(SseDeserializer deserializer);
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  AppCallResultC sse_decode_app_call_result_c(SseDeserializer deserializer);
+
+  @protected
+  AppInboundEventC sse_decode_app_inbound_event_c(SseDeserializer deserializer);
+
+  @protected
+  AppInboundKindC sse_decode_app_inbound_kind_c(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -240,6 +272,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
   KVNetworkStatus sse_decode_kv_network_status(SseDeserializer deserializer);
@@ -276,6 +311,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<NodeHopStats> sse_decode_list_node_hop_stats(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
@@ -361,7 +399,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_app_inbound_event_c_Sse(
+    RustStreamSink<AppInboundEventC> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_app_call_result_c(
+    AppCallResultC self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_app_inbound_event_c(
+    AppInboundEventC self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_app_inbound_kind_c(
+    AppInboundKindC self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
@@ -383,6 +445,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
   void sse_encode_kv_network_status(
@@ -429,6 +494,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     List<NodeHopStats> self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(

@@ -1,4 +1,4 @@
-import 'package:astral_game/data/services/node_net/node_net_server.dart';
+import 'package:astral_game/data/services/peer_rpc/peer_rpc_router.dart';
 import 'package:event_bus/event_bus.dart';
 import 'package:get_it/get_it.dart';
 

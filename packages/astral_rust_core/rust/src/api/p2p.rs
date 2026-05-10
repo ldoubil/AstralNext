@@ -887,3 +887,221 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
 pub fn init_app() {
     lazy_static::initialize(&RT);
 }
+
+// ============================================================================
+// Astral application-level peer RPC bindings.
+//
+// Thin Dart-friendly wrappers around `easytier::peers::astral_app_rpc`. The
+// underlying RPC surface is intentionally tiny (Call / Notify / Ping) and
+// dispatches business flows by `channel` + opaque `payload` bytes; see
+// `easytier/src/proto/astral_rpc.proto` for the wire contract.
+//
+// Multi-instance: every method takes the instance UUID string so several
+// running networks can be addressed independently.
+// ============================================================================
+
+use easytier::peers::astral_app_rpc as app_rpc;
+use crate::frb_generated::StreamSink;
+
+/// Mirrors `easytier::peers::astral_app_rpc::status` so callers don't have to
+/// pull the underlying crate just to read constants.
+pub mod app_rpc_status {
+    pub const OK: i32 = 0;
+    pub const NO_SUBSCRIBER: i32 = -1;
+    pub const REPLY_TIMEOUT: i32 = -2;
+    pub const SERVICE_DROPPED: i32 = -3;
+}
+
+/// Result of [`app_call`] — directly maps `AppCallResponse` to a Dart record.
+#[derive(Debug, Clone)]
+pub struct AppCallResultC {
+    pub status: i32,
+    pub error_msg: String,
+    pub payload: Vec<u8>,
+}
+
+/// Discriminator for [`AppInboundEventC`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppInboundKindC {
+    /// Request expecting a reply. Receiver MUST call [`app_call_reply`] with
+    /// the carried `token`, otherwise the remote caller observes
+    /// `app_rpc_status::REPLY_TIMEOUT` after the receiver-side timeout
+    /// (default 30s, configured in EasyTier).
+    Call,
+    /// Fire-and-forget notification (the sender already received an RPC-layer
+    /// ack; this event is informational on the receiver side). For `Notify`
+    /// events `request_id` and `token` are always 0.
+    Notify,
+}
+
+/// Inbound event delivered through [`subscribe_app_inbound`].
+///
+/// Modelled as a flat struct (rather than a Rust enum with payload variants)
+/// so that the Dart binding stays a plain `dart class`, no `freezed` dep.
+#[derive(Debug, Clone)]
+pub struct AppInboundEventC {
+    pub kind: AppInboundKindC,
+    pub from_peer_id: u32,
+    pub channel: String,
+    /// `request_id` echoed from the caller (0 for `Notify`).
+    pub request_id: u64,
+    /// Reply correlation token (0 for `Notify`). Pass to [`app_call_reply`].
+    pub token: u64,
+    pub payload: Vec<u8>,
+}
+
+fn lookup_app_rpc(
+    instance_id: &str,
+) -> Result<std::sync::Arc<app_rpc::AstralAppRpcService>, String> {
+    let id = parse_instance_id(instance_id)?;
+    app_rpc::get_service(&id)
+        .ok_or_else(|| format!("astral app rpc service not found for instance {}", id))
+}
+
+/// Send a request-response RPC to `dst_peer_id` and await the typed reply.
+pub async fn app_call(
+    instance_id: String,
+    dst_peer_id: u32,
+    channel: String,
+    request_id: u64,
+    payload: Vec<u8>,
+    flags: u32,
+    timeout_ms: i32,
+) -> Result<AppCallResultC, String> {
+    let svc = lookup_app_rpc(&instance_id)?;
+    let resp = svc
+        .call(dst_peer_id, channel, request_id, payload, flags, timeout_ms)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(AppCallResultC {
+        status: resp.status,
+        error_msg: resp.error_msg,
+        payload: resp.payload,
+    })
+}
+
+/// Send a fire-and-forget notification to `dst_peer_id`. The RPC ack is still
+/// awaited so the caller can detect routing failures within `timeout_ms`.
+pub async fn app_notify(
+    instance_id: String,
+    dst_peer_id: u32,
+    channel: String,
+    payload: Vec<u8>,
+    timeout_ms: i32,
+) -> Result<(), String> {
+    let svc = lookup_app_rpc(&instance_id)?;
+    svc.notify(dst_peer_id, channel, payload, timeout_ms)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Round-trip ping. Returns the measured RTT in milliseconds.
+pub async fn peer_ping(
+    instance_id: String,
+    dst_peer_id: u32,
+    timeout_ms: i32,
+) -> Result<i64, String> {
+    let svc = lookup_app_rpc(&instance_id)?;
+    svc.ping(dst_peer_id, timeout_ms)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Stream inbound `Call` and `Notify` events from a running instance into
+/// Dart. The future resolves once the EasyTier instance shuts down (the
+/// underlying broadcast channel is closed); Dart can re-subscribe after a
+/// subsequent `create_server` call.
+pub async fn subscribe_app_inbound(
+    instance_id: String,
+    sink: StreamSink<AppInboundEventC>,
+) -> Result<(), String> {
+    let svc = lookup_app_rpc(&instance_id)?;
+    let mut rx = svc.subscribe_inbound();
+    drop(svc);
+    loop {
+        match rx.recv().await {
+            Ok(evt) => {
+                let mapped = match evt {
+                    app_rpc::AppInboundEvent::Call {
+                        from_peer_id,
+                        channel,
+                        request_id,
+                        token,
+                        payload,
+                    } => AppInboundEventC {
+                        kind: AppInboundKindC::Call,
+                        from_peer_id,
+                        channel,
+                        request_id,
+                        token,
+                        payload,
+                    },
+                    app_rpc::AppInboundEvent::Notify {
+                        from_peer_id,
+                        channel,
+                        payload,
+                    } => AppInboundEventC {
+                        kind: AppInboundKindC::Notify,
+                        from_peer_id,
+                        channel,
+                        request_id: 0,
+                        token: 0,
+                        payload,
+                    },
+                };
+                if sink.add(mapped).is_err() {
+                    // Dart cancelled the stream.
+                    break;
+                }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                tracing_log_lagged(&instance_id, skipped);
+                // Slow consumer; continue draining.
+                continue;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Reply to an inbound `Call` identified by `token`. Returns `true` if the
+/// reply was delivered to the awaiting RPC task, `false` if the token was
+/// already replied to / timed out / never existed.
+///
+/// `status == 0` is convention for "ok"; positive values are application
+/// defined; negative values are reserved for transport-level codes (see
+/// [`app_rpc_status`]).
+pub async fn app_call_reply(
+    instance_id: String,
+    token: u64,
+    status: i32,
+    error_msg: String,
+    payload: Vec<u8>,
+) -> Result<bool, String> {
+    let svc = lookup_app_rpc(&instance_id)?;
+    Ok(svc.reply_call(token, status, error_msg, payload))
+}
+
+/// Number of `Call` events currently awaiting application replies for the
+/// given instance. Useful for diagnostics / liveness checks from Dart.
+pub async fn pending_app_call_count(instance_id: String) -> Result<usize, String> {
+    let svc = lookup_app_rpc(&instance_id)?;
+    Ok(svc.pending_call_count())
+}
+
+/// Local peer id for the given instance, exposed so Dart can label outgoing
+/// traffic (the EasyTier route table uses the same `peer_id` space).
+pub async fn my_peer_id(instance_id: String) -> Result<u32, String> {
+    let svc = lookup_app_rpc(&instance_id)?;
+    Ok(svc.my_peer_id())
+}
+
+fn tracing_log_lagged(instance_id: &str, skipped: u64) {
+    // We don't pull `tracing` into AstralNext; just write to stderr at debug
+    // verbosity since this is a slow-consumer signal and not a hard error.
+    eprintln!(
+        "[astral_app_rpc] inbound stream lagged for instance {} (skipped {} events)",
+        instance_id, skipped
+    );
+}

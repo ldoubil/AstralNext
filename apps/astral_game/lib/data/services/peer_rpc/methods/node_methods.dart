@@ -1,7 +1,12 @@
 import 'package:astral_game/data/services/node_management_service.dart';
-import 'package:astral_game/data/services/node_net/node_net_server.dart';
+import 'package:astral_game/data/services/peer_rpc/peer_rpc_exception.dart';
+import 'package:astral_game/data/services/peer_rpc/peer_rpc_router.dart';
 
 /// 节点相关方法
+///
+/// 注意：迁移到 peer-RPC 之后，节点之间不再通过 IP/端口寻址，所有调用都用
+/// `peerId`。`port` 字段在新版里通常为 `null`（旧版本通过 hostname 编码端口
+/// 的方式已废弃），调用方应优先使用 `peerId`。
 class NodeMethods {
   final NodeManagementService _nodeManagement;
 

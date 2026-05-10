@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -1599641026;
+  int get rustContentHash => -2008553100;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -80,6 +80,32 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  Future<AppCallResultC> crateApiP2PAppCall({
+    required String instanceId,
+    required int dstPeerId,
+    required String channel,
+    required BigInt requestId,
+    required List<int> payload,
+    required int flags,
+    required int timeoutMs,
+  });
+
+  Future<bool> crateApiP2PAppCallReply({
+    required String instanceId,
+    required BigInt token,
+    required int status,
+    required String errorMsg,
+    required List<int> payload,
+  });
+
+  Future<void> crateApiP2PAppNotify({
+    required String instanceId,
+    required int dstPeerId,
+    required String channel,
+    required List<int> payload,
+    required int timeoutMs,
+  });
+
   Future<void> crateApiP2PCloseServer({required String instanceId});
 
   Future<JoinHandleResultStringString> crateApiP2PCreateServer({
@@ -132,6 +158,16 @@ abstract class RustLibApi extends BaseApi {
     required JoinHandleResultStringString handle,
   });
 
+  Future<int> crateApiP2PMyPeerId({required String instanceId});
+
+  Future<PlatformInt64> crateApiP2PPeerPing({
+    required String instanceId,
+    required int dstPeerId,
+    required int timeoutMs,
+  });
+
+  Future<BigInt> crateApiP2PPendingAppCallCount({required String instanceId});
+
   Future<void> crateApiP2PSendUdpToLocalhost({required String message});
 
   Future<void> crateApiFirewallSetFirewallStatus({
@@ -142,6 +178,10 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiP2PSetTunFd({
     required String instanceId,
     required int fd,
+  });
+
+  Stream<AppInboundEventC> crateApiP2PSubscribeAppInbound({
+    required String instanceId,
   });
 
   RustArcIncrementStrongCountFnType
@@ -189,6 +229,146 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
+  Future<AppCallResultC> crateApiP2PAppCall({
+    required String instanceId,
+    required int dstPeerId,
+    required String channel,
+    required BigInt requestId,
+    required List<int> payload,
+    required int flags,
+    required int timeoutMs,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(instanceId, serializer);
+          sse_encode_u_32(dstPeerId, serializer);
+          sse_encode_String(channel, serializer);
+          sse_encode_u_64(requestId, serializer);
+          sse_encode_list_prim_u_8_loose(payload, serializer);
+          sse_encode_u_32(flags, serializer);
+          sse_encode_i_32(timeoutMs, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 1,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_app_call_result_c,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiP2PAppCallConstMeta,
+        argValues: [
+          instanceId,
+          dstPeerId,
+          channel,
+          requestId,
+          payload,
+          flags,
+          timeoutMs,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiP2PAppCallConstMeta => const TaskConstMeta(
+    debugName: "app_call",
+    argNames: [
+      "instanceId",
+      "dstPeerId",
+      "channel",
+      "requestId",
+      "payload",
+      "flags",
+      "timeoutMs",
+    ],
+  );
+
+  @override
+  Future<bool> crateApiP2PAppCallReply({
+    required String instanceId,
+    required BigInt token,
+    required int status,
+    required String errorMsg,
+    required List<int> payload,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(instanceId, serializer);
+          sse_encode_u_64(token, serializer);
+          sse_encode_i_32(status, serializer);
+          sse_encode_String(errorMsg, serializer);
+          sse_encode_list_prim_u_8_loose(payload, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 2,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiP2PAppCallReplyConstMeta,
+        argValues: [instanceId, token, status, errorMsg, payload],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiP2PAppCallReplyConstMeta => const TaskConstMeta(
+    debugName: "app_call_reply",
+    argNames: ["instanceId", "token", "status", "errorMsg", "payload"],
+  );
+
+  @override
+  Future<void> crateApiP2PAppNotify({
+    required String instanceId,
+    required int dstPeerId,
+    required String channel,
+    required List<int> payload,
+    required int timeoutMs,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(instanceId, serializer);
+          sse_encode_u_32(dstPeerId, serializer);
+          sse_encode_String(channel, serializer);
+          sse_encode_list_prim_u_8_loose(payload, serializer);
+          sse_encode_i_32(timeoutMs, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 3,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiP2PAppNotifyConstMeta,
+        argValues: [instanceId, dstPeerId, channel, payload, timeoutMs],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiP2PAppNotifyConstMeta => const TaskConstMeta(
+    debugName: "app_notify",
+    argNames: ["instanceId", "dstPeerId", "channel", "payload", "timeoutMs"],
+  );
+
+  @override
   Future<void> crateApiP2PCloseServer({required String instanceId}) {
     return handler.executeNormal(
       NormalTask(
@@ -198,7 +378,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 1,
+            funcId: 4,
             port: port_,
           );
         },
@@ -230,7 +410,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 2,
+            funcId: 5,
             port: port_,
           );
         },
@@ -281,7 +461,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 6,
             port: port_,
           );
         },
@@ -334,7 +514,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 7,
             port: port_,
           );
         },
@@ -362,7 +542,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 8,
             port: port_,
           );
         },
@@ -393,7 +573,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 9,
             port: port_,
           );
         },
@@ -423,7 +603,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 10,
             port: port_,
           );
         },
@@ -456,7 +636,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 11,
             port: port_,
           );
         },
@@ -488,7 +668,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 12,
             port: port_,
           );
         },
@@ -515,7 +695,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(name, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -546,7 +726,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 14,
             port: port_,
           );
         },
@@ -574,7 +754,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 15,
             port: port_,
           );
         },
@@ -601,7 +781,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 16,
             port: port_,
           );
         },
@@ -629,7 +809,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 17,
             port: port_,
           );
         },
@@ -665,7 +845,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 18,
             port: port_,
           );
         },
@@ -687,6 +867,101 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<int> crateApiP2PMyPeerId({required String instanceId}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(instanceId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 19,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_32,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiP2PMyPeerIdConstMeta,
+        argValues: [instanceId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiP2PMyPeerIdConstMeta =>
+      const TaskConstMeta(debugName: "my_peer_id", argNames: ["instanceId"]);
+
+  @override
+  Future<PlatformInt64> crateApiP2PPeerPing({
+    required String instanceId,
+    required int dstPeerId,
+    required int timeoutMs,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(instanceId, serializer);
+          sse_encode_u_32(dstPeerId, serializer);
+          sse_encode_i_32(timeoutMs, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_i_64,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiP2PPeerPingConstMeta,
+        argValues: [instanceId, dstPeerId, timeoutMs],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiP2PPeerPingConstMeta => const TaskConstMeta(
+    debugName: "peer_ping",
+    argNames: ["instanceId", "dstPeerId", "timeoutMs"],
+  );
+
+  @override
+  Future<BigInt> crateApiP2PPendingAppCallCount({required String instanceId}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(instanceId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 21,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_usize,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiP2PPendingAppCallCountConstMeta,
+        argValues: [instanceId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiP2PPendingAppCallCountConstMeta =>
+      const TaskConstMeta(
+        debugName: "pending_app_call_count",
+        argNames: ["instanceId"],
+      );
+
+  @override
   Future<void> crateApiP2PSendUdpToLocalhost({required String message}) {
     return handler.executeNormal(
       NormalTask(
@@ -696,7 +971,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 22,
             port: port_,
           );
         },
@@ -731,7 +1006,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 23,
             port: port_,
           );
         },
@@ -766,7 +1041,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 24,
             port: port_,
           );
         },
@@ -785,6 +1060,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     debugName: "set_tun_fd",
     argNames: ["instanceId", "fd"],
   );
+
+  @override
+  Stream<AppInboundEventC> crateApiP2PSubscribeAppInbound({
+    required String instanceId,
+  }) {
+    final sink = RustStreamSink<AppInboundEventC>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_String(instanceId, serializer);
+            sse_encode_StreamSink_app_inbound_event_c_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 25,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiP2PSubscribeAppInboundConstMeta,
+          argValues: [instanceId, sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiP2PSubscribeAppInboundConstMeta =>
+      const TaskConstMeta(
+        debugName: "subscribe_app_inbound",
+        argNames: ["instanceId", "sink"],
+      );
 
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_EventBusSubscriber => wire
@@ -901,9 +1214,51 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<AppInboundEventC>
+  dco_decode_StreamSink_app_inbound_event_c_Sse(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
   String dco_decode_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as String;
+  }
+
+  @protected
+  AppCallResultC dco_decode_app_call_result_c(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return AppCallResultC(
+      status: dco_decode_i_32(arr[0]),
+      errorMsg: dco_decode_String(arr[1]),
+      payload: dco_decode_list_prim_u_8_strict(arr[2]),
+    );
+  }
+
+  @protected
+  AppInboundEventC dco_decode_app_inbound_event_c(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return AppInboundEventC(
+      kind: dco_decode_app_inbound_kind_c(arr[0]),
+      fromPeerId: dco_decode_u_32(arr[1]),
+      channel: dco_decode_String(arr[2]),
+      requestId: dco_decode_u_64(arr[3]),
+      token: dco_decode_u_64(arr[4]),
+      payload: dco_decode_list_prim_u_8_strict(arr[5]),
+    );
+  }
+
+  @protected
+  AppInboundKindC dco_decode_app_inbound_kind_c(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return AppInboundKindC.values[raw as int];
   }
 
   @protected
@@ -985,6 +1340,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int dco_decode_i_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
+  }
+
+  @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeI64(raw);
   }
 
   @protected
@@ -1083,6 +1444,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<NodeHopStats> dco_decode_list_node_hop_stats(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_node_hop_stats).toList();
+  }
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as List<int>;
   }
 
   @protected
@@ -1240,10 +1607,58 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<AppInboundEventC>
+  sse_decode_StreamSink_app_inbound_event_c_Sse(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_list_prim_u_8_strict(deserializer);
     return utf8.decoder.convert(inner);
+  }
+
+  @protected
+  AppCallResultC sse_decode_app_call_result_c(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_status = sse_decode_i_32(deserializer);
+    var var_errorMsg = sse_decode_String(deserializer);
+    var var_payload = sse_decode_list_prim_u_8_strict(deserializer);
+    return AppCallResultC(
+      status: var_status,
+      errorMsg: var_errorMsg,
+      payload: var_payload,
+    );
+  }
+
+  @protected
+  AppInboundEventC sse_decode_app_inbound_event_c(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_kind = sse_decode_app_inbound_kind_c(deserializer);
+    var var_fromPeerId = sse_decode_u_32(deserializer);
+    var var_channel = sse_decode_String(deserializer);
+    var var_requestId = sse_decode_u_64(deserializer);
+    var var_token = sse_decode_u_64(deserializer);
+    var var_payload = sse_decode_list_prim_u_8_strict(deserializer);
+    return AppInboundEventC(
+      kind: var_kind,
+      fromPeerId: var_fromPeerId,
+      channel: var_channel,
+      requestId: var_requestId,
+      token: var_token,
+      payload: var_payload,
+    );
+  }
+
+  @protected
+  AppInboundKindC sse_decode_app_inbound_kind_c(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return AppInboundKindC.values[inner];
   }
 
   @protected
@@ -1350,6 +1765,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt32();
+  }
+
+  @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getPlatformInt64();
   }
 
   @protected
@@ -1497,6 +1918,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ans_.add(sse_decode_node_hop_stats(deserializer));
     }
     return ans_;
+  }
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint8List(len_);
   }
 
   @protected
@@ -1670,9 +2098,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_StreamSink_app_inbound_event_c_Sse(
+    RustStreamSink<AppInboundEventC> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_app_inbound_event_c,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
+  }
+
+  @protected
+  void sse_encode_app_call_result_c(
+    AppCallResultC self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.status, serializer);
+    sse_encode_String(self.errorMsg, serializer);
+    sse_encode_list_prim_u_8_strict(self.payload, serializer);
+  }
+
+  @protected
+  void sse_encode_app_inbound_event_c(
+    AppInboundEventC self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_app_inbound_kind_c(self.kind, serializer);
+    sse_encode_u_32(self.fromPeerId, serializer);
+    sse_encode_String(self.channel, serializer);
+    sse_encode_u_64(self.requestId, serializer);
+    sse_encode_u_64(self.token, serializer);
+    sse_encode_list_prim_u_8_strict(self.payload, serializer);
+  }
+
+  @protected
+  void sse_encode_app_inbound_kind_c(
+    AppInboundKindC self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected
@@ -1744,6 +2223,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_i_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
+  }
+
+  @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putPlatformInt64(self);
   }
 
   @protected
@@ -1856,6 +2341,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     for (final item in self) {
       sse_encode_node_hop_stats(item, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(
+    List<int> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint8List(
+      self is Uint8List ? self : Uint8List.fromList(self),
+    );
   }
 
   @protected

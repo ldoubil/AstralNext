@@ -36,3 +36,10 @@ windows = { version = "0.52.0", features = [
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
+# Local development override: pull `easytier` from the working copy under
+# `../../../../EasyTier/easytier` so source-level changes (e.g. the new
+# `astral_app_rpc` module) are picked up without pushing to the fork. Remove
+# this section once the change is merged upstream and the git ref is bumped.
+[patch."https://github.com/EasyTier/EasyTier.git"]
+easytier = { path = "../../../../EasyTier/easytier" }

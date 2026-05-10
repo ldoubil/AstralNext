@@ -6,9 +6,9 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_instance_info`, `handle_event_with_instance_id`, `parse_instance_id`, `peer_conn_info_to_string`, `send_udp_to_localhost_with_instance_id`
+// These functions are ignored because they are not marked as `pub`: `get_instance_info`, `handle_event_with_instance_id`, `lookup_app_rpc`, `parse_instance_id`, `peer_conn_info_to_string`, `send_udp_to_localhost_with_instance_id`, `tracing_log_lagged`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `MANAGER`, `RT`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `deref`, `deref`, `initialize`, `initialize`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `clone`, `clone`, `clone`, `deref`, `deref`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `initialize`, `initialize`
 
 Future<void> sendUdpToLocalhost({required String message}) =>
     RustLib.instance.api.crateApiP2PSendUdpToLocalhost(message: message);
@@ -78,6 +78,90 @@ Future<KVNetworkStatus> getNetworkStatus({required String instanceId}) =>
 
 Future<void> initApp() => RustLib.instance.api.crateApiP2PInitApp();
 
+/// Send a request-response RPC to `dst_peer_id` and await the typed reply.
+Future<AppCallResultC> appCall({
+  required String instanceId,
+  required int dstPeerId,
+  required String channel,
+  required BigInt requestId,
+  required List<int> payload,
+  required int flags,
+  required int timeoutMs,
+}) => RustLib.instance.api.crateApiP2PAppCall(
+  instanceId: instanceId,
+  dstPeerId: dstPeerId,
+  channel: channel,
+  requestId: requestId,
+  payload: payload,
+  flags: flags,
+  timeoutMs: timeoutMs,
+);
+
+/// Send a fire-and-forget notification to `dst_peer_id`. The RPC ack is still
+/// awaited so the caller can detect routing failures within `timeout_ms`.
+Future<void> appNotify({
+  required String instanceId,
+  required int dstPeerId,
+  required String channel,
+  required List<int> payload,
+  required int timeoutMs,
+}) => RustLib.instance.api.crateApiP2PAppNotify(
+  instanceId: instanceId,
+  dstPeerId: dstPeerId,
+  channel: channel,
+  payload: payload,
+  timeoutMs: timeoutMs,
+);
+
+/// Round-trip ping. Returns the measured RTT in milliseconds.
+Future<PlatformInt64> peerPing({
+  required String instanceId,
+  required int dstPeerId,
+  required int timeoutMs,
+}) => RustLib.instance.api.crateApiP2PPeerPing(
+  instanceId: instanceId,
+  dstPeerId: dstPeerId,
+  timeoutMs: timeoutMs,
+);
+
+/// Stream inbound `Call` and `Notify` events from a running instance into
+/// Dart. The future resolves once the EasyTier instance shuts down (the
+/// underlying broadcast channel is closed); Dart can re-subscribe after a
+/// subsequent `create_server` call.
+Stream<AppInboundEventC> subscribeAppInbound({required String instanceId}) =>
+    RustLib.instance.api.crateApiP2PSubscribeAppInbound(instanceId: instanceId);
+
+/// Reply to an inbound `Call` identified by `token`. Returns `true` if the
+/// reply was delivered to the awaiting RPC task, `false` if the token was
+/// already replied to / timed out / never existed.
+///
+/// `status == 0` is convention for "ok"; positive values are application
+/// defined; negative values are reserved for transport-level codes (see
+/// [`app_rpc_status`]).
+Future<bool> appCallReply({
+  required String instanceId,
+  required BigInt token,
+  required int status,
+  required String errorMsg,
+  required List<int> payload,
+}) => RustLib.instance.api.crateApiP2PAppCallReply(
+  instanceId: instanceId,
+  token: token,
+  status: status,
+  errorMsg: errorMsg,
+  payload: payload,
+);
+
+/// Number of `Call` events currently awaiting application replies for the
+/// given instance. Useful for diagnostics / liveness checks from Dart.
+Future<BigInt> pendingAppCallCount({required String instanceId}) =>
+    RustLib.instance.api.crateApiP2PPendingAppCallCount(instanceId: instanceId);
+
+/// Local peer id for the given instance, exposed so Dart can label outgoing
+/// traffic (the EasyTier route table uses the same `peer_id` space).
+Future<int> myPeerId({required String instanceId}) =>
+    RustLib.instance.api.crateApiP2PMyPeerId(instanceId: instanceId);
+
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<EventBusSubscriber>>
 abstract class EventBusSubscriber implements RustOpaqueInterface {}
 
@@ -89,6 +173,92 @@ abstract class JoinHandleResultStringString implements RustOpaqueInterface {}
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PeerRoutePair>>
 abstract class PeerRoutePair implements RustOpaqueInterface {}
+
+/// Result of [`app_call`] — directly maps `AppCallResponse` to a Dart record.
+class AppCallResultC {
+  final int status;
+  final String errorMsg;
+  final Uint8List payload;
+
+  const AppCallResultC({
+    required this.status,
+    required this.errorMsg,
+    required this.payload,
+  });
+
+  @override
+  int get hashCode => status.hashCode ^ errorMsg.hashCode ^ payload.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppCallResultC &&
+          runtimeType == other.runtimeType &&
+          status == other.status &&
+          errorMsg == other.errorMsg &&
+          payload == other.payload;
+}
+
+/// Inbound event delivered through [`subscribe_app_inbound`].
+///
+/// Modelled as a flat struct (rather than a Rust enum with payload variants)
+/// so that the Dart binding stays a plain `dart class`, no `freezed` dep.
+class AppInboundEventC {
+  final AppInboundKindC kind;
+  final int fromPeerId;
+  final String channel;
+
+  /// `request_id` echoed from the caller (0 for `Notify`).
+  final BigInt requestId;
+
+  /// Reply correlation token (0 for `Notify`). Pass to [`app_call_reply`].
+  final BigInt token;
+  final Uint8List payload;
+
+  const AppInboundEventC({
+    required this.kind,
+    required this.fromPeerId,
+    required this.channel,
+    required this.requestId,
+    required this.token,
+    required this.payload,
+  });
+
+  @override
+  int get hashCode =>
+      kind.hashCode ^
+      fromPeerId.hashCode ^
+      channel.hashCode ^
+      requestId.hashCode ^
+      token.hashCode ^
+      payload.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppInboundEventC &&
+          runtimeType == other.runtimeType &&
+          kind == other.kind &&
+          fromPeerId == other.fromPeerId &&
+          channel == other.channel &&
+          requestId == other.requestId &&
+          token == other.token &&
+          payload == other.payload;
+}
+
+/// Discriminator for [`AppInboundEventC`].
+enum AppInboundKindC {
+  /// Request expecting a reply. Receiver MUST call [`app_call_reply`] with
+  /// the carried `token`, otherwise the remote caller observes
+  /// `app_rpc_status::REPLY_TIMEOUT` after the receiver-side timeout
+  /// (default 30s, configured in EasyTier).
+  call,
+
+  /// Fire-and-forget notification (the sender already received an RPC-layer
+  /// ack; this event is informational on the receiver side). For `Notify`
+  /// events `request_id` and `token` are always 0.
+  notify,
+}
 
 class FlagsC {
   final String defaultProtocol;

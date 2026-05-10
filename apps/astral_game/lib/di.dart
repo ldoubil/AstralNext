@@ -2,11 +2,11 @@ import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/firewall_service.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
-import 'package:astral_game/data/services/node_net/methods/message_methods.dart';
-import 'package:astral_game/data/services/node_net/methods/node_methods.dart';
-import 'package:astral_game/data/services/node_net/methods/user_methods.dart';
-import 'package:astral_game/data/services/node_net/node_net_client.dart';
-import 'package:astral_game/data/services/node_net/node_net_server.dart';
+import 'package:astral_game/data/services/peer_rpc/methods/message_methods.dart';
+import 'package:astral_game/data/services/peer_rpc/methods/node_methods.dart';
+import 'package:astral_game/data/services/peer_rpc/methods/user_methods.dart';
+import 'package:astral_game/data/services/peer_rpc/peer_rpc_client.dart';
+import 'package:astral_game/data/services/peer_rpc/peer_rpc_router.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
 import 'package:astral_game/data/services/room_persistence_service.dart';
 import 'package:astral_game/data/services/screen_state_service.dart';
@@ -62,8 +62,8 @@ Future<void> setupDI() async {
   );
   getIt.registerSingleton<VpnState>(VpnState());
 
-  getIt.registerSingleton<NodeNetServer>(NodeNetServer());
-  getIt.registerSingleton<NodeNetClient>(NodeNetClient());
+  getIt.registerSingleton<PeerRpcRouter>(PeerRpcRouter());
+  getIt.registerSingleton<PeerRpcClient>(PeerRpcClient());
 
   getIt.registerLazySingleton<P2PConfigService>(
     () => P2PConfigService(
@@ -124,7 +124,7 @@ Future<void> setupDI() async {
     () => VpnManager(getIt<VpnState>(), getIt<P2PService>()),
   );
 
-  await _initNodeNetServer();
+  await _initPeerRpcRouter();
 }
 
 /// 释放所有服务资源
@@ -132,33 +132,23 @@ void disposeDI() {
   getIt<NodeManagementService>().dispose();
   getIt<ScreenStateService>().dispose();
   getIt<ServerStatusState>().dispose();
-  getIt<NodeNetClient>().dispose();
-  getIt<NodeNetServer>().stop();
+  getIt<PeerRpcClient>().dispose();
+  getIt<PeerRpcRouter>().stop();
 }
 
-/// 初始化 NodeNet 服务端
-Future<void> _initNodeNetServer() async {
-  final server = getIt<NodeNetServer>();
+/// 注册 peer-RPC 路由器的方法集合。真正绑定到 EasyTier instance 的动作发生在
+/// [`ConnectionService.connectToRoom`] 成功后；这里只完成「注册一次，多次连接复用」
+/// 的 handler 装载。
+Future<void> _initPeerRpcRouter() async {
+  final router = getIt<PeerRpcRouter>();
   final appSettings = getIt<AppSettingsService>();
   final nodeManagement = getIt<NodeManagementService>();
 
-  server.registerAll(UserMethods(appSettings).methods);
-  server.registerAll(NodeMethods(nodeManagement).methods);
-  server.registerAll(MessageMethods().methods);
+  router.registerAll(UserMethods(appSettings).methods);
+  router.registerAll(NodeMethods(nodeManagement).methods);
+  router.registerAll(MessageMethods().methods);
 
-  try {
-    await server.start();
-    // 仅输出“服务创建/监听”关键信息，避免每次 RPC 调用刷屏
-    appLogger.i(
-      '[JsonRpc] NodeNetServer ready port=${server.port} methods=${server.methodsCount}',
-    );
-  } catch (e, stackTrace) {
-    // 创建失败必须输出，便于定位端口绑定/权限/Socket 等问题
-    appLogger.e(
-      '[JsonRpc] NodeNetServer create failed: $e',
-      error: e,
-      stackTrace: stackTrace,
-    );
-    rethrow;
-  }
+  appLogger.i(
+    '[PeerRpc] router ready (not yet bound), methods=${router.methodsCount}',
+  );
 }
