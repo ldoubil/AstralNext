@@ -1,0 +1,314 @@
+name: 🚀 Build Flutter Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Select app to build'
+        required: true
+        type: choice
+        options:
+          - astral
+          - astral_game
+          - all
+        default: 'all'
+  workflow_call:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - '!apps/astral_car/**'
+      - '!apps/astral_tv/**'
+      - '.github/workflows/build-apps.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - '!apps/astral_car/**'
+      - '!apps/astral_tv/**'
+
+jobs:
+  # ========== Build Matrix ==========
+  build:
+    name: 🏗️ ${{ matrix.app }} (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    if: ${{ !cancelled() }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Astral App - All Platforms
+          - app: astral
+            platform: android-arm64
+            os: ubuntu-22.04
+            flutter_platform: android
+            rust_target: aarch64-linux-android
+            build_cmd: flutter build apk --release --target-platform android-arm64
+            artifact_path: build/app/outputs/flutter-apk/app-release.apk
+            artifact_name: astral-android-arm64
+            
+          - app: astral
+            platform: android-universal
+            os: ubuntu-22.04
+            flutter_platform: android
+            rust_target: aarch64-linux-android
+            build_cmd: flutter build apk --release
+            artifact_path: build/app/outputs/flutter-apk/app-release.apk
+            artifact_name: astral-android-universal
+            
+          - app: astral
+            platform: linux-x64
+            os: ubuntu-22.04
+            flutter_platform: linux
+            rust_target: x86_64-unknown-linux-gnu
+            build_cmd: flutter build linux --release
+            artifact_path: build/linux/x64/release/bundle
+            artifact_name: astral-linux-x64
+            package: true
+            
+          - app: astral
+            platform: windows-x64
+            os: windows-2022
+            flutter_platform: windows
+            rust_target: x86_64-pc-windows-msvc
+            build_cmd: flutter build windows --release
+            artifact_path: build/windows/x64/runner/Release
+            artifact_name: astral-windows-x64
+            
+          # Astral Game - All Platforms
+          - app: astral_game
+            platform: android-arm64
+            os: ubuntu-22.04
+            flutter_platform: android
+            rust_target: aarch64-linux-android
+            build_cmd: flutter build apk --release --target-platform android-arm64
+            artifact_path: build/app/outputs/flutter-apk/app-release.apk
+            artifact_name: astral-game-android-arm64
+            
+          - app: astral_game
+            platform: android-universal
+            os: ubuntu-22.04
+            flutter_platform: android
+            rust_target: aarch64-linux-android
+            build_cmd: flutter build apk --release
+            artifact_path: build/app/outputs/flutter-apk/app-release.apk
+            artifact_name: astral-game-android-universal
+            
+          - app: astral_game
+            platform: linux-x64
+            os: ubuntu-22.04
+            flutter_platform: linux
+            rust_target: x86_64-unknown-linux-gnu
+            build_cmd: flutter build linux --release
+            artifact_path: build/linux/x64/release/bundle
+            artifact_name: astral-game-linux-x64
+            package: true
+            
+          - app: astral_game
+            platform: windows-x64
+            os: windows-2022
+            flutter_platform: windows
+            rust_target: x86_64-pc-windows-msvc
+            build_cmd: flutter build windows --release
+            artifact_path: build/windows/x64/runner/Release
+            artifact_name: astral-game-windows-x64
+
+    env:
+      FLUTTER_VERSION: '3.41.0'
+      # cargokit 的 RustBuilder 写死了 `rustup run stable cargo build`（见
+      # builder.dart#L142），它只认 stable/beta/nightly 三个 channel，不认具体
+      # 版本号。所以这里只能升级 stable channel 本身，让 rustup install stable
+      # 把 GitHub-hosted runner 上的 1.94.1 替换成最新 stable（≥1.95，满足
+      # easytier 2.6.4 / guarden 0.1.3 的 MSRV）。
+      NDK_VERSION: '28.2.13676358'
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      # ========== Platform-specific Setup ==========
+      - name: ☕ Setup JDK (Android)
+        if: matrix.flutter_platform == 'android'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: 🤖 Setup Android SDK
+        if: matrix.flutter_platform == 'android'
+        uses: android-actions/setup-android@v3
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          cmake-version: '3.22.1'
+
+      - name: 🔧 Setup bindgen for Android
+        if: matrix.flutter_platform == 'android'
+        run: |
+          # Set up clang args for bindgen to use NDK headers
+          NDK_PATH=$ANDROID_HOME/ndk/${{ env.NDK_VERSION }}
+          SYSROOT=$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+          echo "BINDGEN_EXTRA_CLANG_ARGS=--sysroot=$SYSROOT" >> $GITHUB_ENV
+          echo "✅ Configured bindgen for Android NDK"
+
+      - name: 📦 Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ninja-build \
+            libgtk-3-dev \
+            clang \
+            cmake \
+            pkg-config \
+            libcurl4-openssl-dev \
+            protobuf-compiler \
+            libayatana-appindicator3-dev \
+            libnotify-dev \
+            fonts-noto-cjk \
+            fonts-wqy-zenhei \
+            fontconfig
+
+      # ========== Flutter Setup ==========
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: 🎯 Enable desktop platform
+        if: matrix.flutter_platform == 'linux' || matrix.flutter_platform == 'windows'
+        run: flutter config --enable-${{ matrix.flutter_platform }}-desktop
+
+      # ========== Rust Setup ==========
+      # cargokit 用 `rustup run stable cargo`，必须升级 stable channel 本身。
+      # `dtolnay/rust-toolchain@stable` 会执行 `rustup install stable` 拉取
+      # 最新 stable（≥1.95），自动覆盖 runner image 预装的 1.94.1。同时把
+      # matrix.rust_target 这个交叉编译目标安装到 stable 下。
+      - name: 🦀 Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      # Windows：MSBuild 往往只报 MSB8066 / exit -1，真实 cargo 错误被吞掉。
+      # - CARGOKIT_VERBOSE：让 cargokit 打出 rustc/cargo 完整输出。
+      # - protoc / NASM：EasyTier build.rs 会下载 protoc； Chocolatey 安装更稳；
+      #   部分原生依赖在 MSVC 下也会用到 NASM。
+      # - LongPathsEnabled：深层 target 路径避免撞上默认 MAX_PATH。
+      # - CARGO_BUILD_JOBS：降低并行，减轻 7GB runner 上 link 阶段 OOM。
+      - name: 🪟 Windows native build prerequisites
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-Content -Path $env:GITHUB_ENV -Value "CARGOKIT_VERBOSE=1"
+          Add-Content -Path $env:GITHUB_ENV -Value "CARGO_BUILD_JOBS=2"
+          New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' `
+            -Name 'LongPathsEnabled' -Value 1 -PropertyType DWORD -Force | Out-Null
+          choco install protoc nasm --yes --no-progress
+          $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          $env:Path = "$machinePath;$userPath"
+          $nasmDir = 'C:\Program Files\NASM'
+          if (Test-Path $nasmDir) {
+            Add-Content -Path $env:GITHUB_PATH -Value $nasmDir
+            $env:Path = "$nasmDir;$env:Path"
+          }
+          Write-Host '--- toolchain ---'
+          rustc -V
+          rustup show
+          Write-Host '--- protoc / nasm ---'
+          & protoc --version
+          Get-Command nasm -ErrorAction SilentlyContinue | Out-String | Write-Host
+
+      # ========== Build App ==========
+      # 切换 easytier 依赖来源（本地路径 → Git）后，部分场景下 Cargo 会读到带旧
+      # 本地路径的 lockfile / target 缓存而崩溃。CI 上每次都是 fresh runner，
+      # 该步骤通常等同 no-op；保留它是为了兜底"开发机带过来的脏 target/"以及
+      # 后续接入 actions/cache 后可能出现的缓存污染。
+      - name: 🧹 Clean Rust cache
+        working-directory: packages/astral_rust_core/rust
+        run: cargo clean
+        shell: bash
+
+      - name: 📚 Get dependencies
+        working-directory: apps/${{ matrix.app }}
+        run: flutter pub get
+
+      - name: 🛠️ Build ${{ matrix.app }} for ${{ matrix.platform }}
+        working-directory: apps/${{ matrix.app }}
+        run: ${{ matrix.build_cmd }}
+        shell: bash
+
+      # ========== Package Linux Apps ==========
+      - name: 📦 Package Linux app
+        if: matrix.flutter_platform == 'linux' && matrix.package
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          mkdir -p release
+          cd ${{ matrix.artifact_path }}
+          tar -czf $GITHUB_WORKSPACE/apps/${{ matrix.app }}/release/${{ matrix.artifact_name }}.tar.gz *
+        shell: bash
+      
+      # ========== Package Windows Apps ==========
+      - name: 📦 Copy required DLLs
+        if: matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $appDir = "apps/${{ matrix.app }}"
+          $releaseDir = Join-Path $appDir "${{ matrix.artifact_path }}"
+          
+          # Create dlls directory if it doesn't exist
+          $dllSourceDir = Join-Path $env:GITHUB_WORKSPACE "dlls"
+          if (Test-Path $dllSourceDir) {
+            Write-Host "📋 Copying DLL files from dlls directory..."
+            Copy-Item -Path "$dllSourceDir\*.dll" -Destination $releaseDir -Force
+            Write-Host "✅ DLL files copied successfully"
+          } else {
+            Write-Host "⚠️ No dlls directory found, skipping DLL copy"
+          }
+      
+      - name: 📦 Compress Windows app
+        if: matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $appDir = "apps/${{ matrix.app }}"
+          $releaseDir = Join-Path $appDir "release"
+          $buildDir = Join-Path $appDir "${{ matrix.artifact_path }}"
+          $zipPath = Join-Path $releaseDir "${{ matrix.artifact_name }}.zip"
+          
+          # Create release directory
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          
+          # Compress the build output
+          Compress-Archive -Path (Join-Path $buildDir "*") `
+                          -DestinationPath $zipPath `
+                          -Force
+          
+          Write-Host "✅ Created package: $zipPath"
+
+      # ========== Upload Artifacts ==========
+      - name: 📤 Upload Android APK
+        if: matrix.flutter_platform == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: apps/${{ matrix.app }}/${{ matrix.artifact_path }}
+          retention-days: 14
+
+      - name: 📤 Upload Linux package
+        if: matrix.flutter_platform == 'linux' && matrix.package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: apps/${{ matrix.app }}/release/*.tar.gz
+          retention-days: 14
+
+      - name: 📤 Upload Windows package
+        if: matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: apps/${{ matrix.app }}/release/*.zip
+          retention-days: 14
