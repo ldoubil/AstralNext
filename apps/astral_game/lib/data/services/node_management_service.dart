@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:get_it/get_it.dart';
@@ -12,6 +11,7 @@ import 'package:astral_rust_core/src/rust/api/p2p.dart'
 
 import '../models/enhanced_node_info.dart';
 import 'app_settings_service.dart';
+import 'peer_rpc/methods/user_methods.dart';
 import 'peer_rpc/peer_rpc_client.dart';
 import 'peer_rpc/peer_rpc_exception.dart';
 
@@ -252,28 +252,15 @@ class NodeManagementService {
     if (!client.isBound) return;
 
     try {
-      final result = await client.call(node.peerId, 'user.getInfo');
-
-      if (result is Map) {
-        final name = result['name'] as String?;
-        final avatarBytes = result['avatar'] != null
-            ? base64Decode(result['avatar'] as String)
-            : null;
-
-        if (name != null || avatarBytes != null) {
-          _updateNodeInfo(node.peerId, name: name, avatar: avatarBytes);
-        }
+      final profile = await client.invoke(node.peerId, UserRpc.getInfo, null);
+      if (profile.name != null || profile.avatar != null) {
+        _updateNodeInfo(node.peerId, name: profile.name, avatar: profile.avatar);
       }
     } on RpcException catch (e) {
-      // 对端不可达 / 暂未运行 astral_game：每秒轮询很容易刷屏，统一降到 debug。
-      //   -1     NO_SUBSCRIBER：对端跑的不是 astral_game（或 router 还没起）。
-      //   -2     REPLY_TIMEOUT：对端 handler 超时未回复。
-      //   -32000 客户端等待响应超时（PeerRpcClient 翻译过的本端 RPC timeout）。
-      //   -32603 通用内部错误（包括底层 anyhow! 的 Timeout 字符串）。
-      if (e.code == -1 ||
-          e.code == -2 ||
-          e.code == -32000 ||
-          e.code == -32603) {
+      // 对端不可达 / 暂时性失败：每秒轮询很容易刷屏，统一降到 debug。
+      // 永久性失败（method_not_found / parse / not_bound）维持 warn，便于及时发现
+      // channel 未注册之类的程序错误。
+      if (e.isUnreachable) {
         if (_verbosePollLogs) {
           appLogger.d(
             '[NodeManagementService] 拉取节点信息失败(忽略) peer=${node.peerId} code=${e.code}: ${e.message}',

@@ -5,61 +5,101 @@ import 'package:astral_game/utils/logger.dart';
 import 'package:astral_rust_core/src/rust/api/p2p.dart';
 
 import 'peer_rpc_codec.dart';
+import 'peer_rpc_context.dart';
 import 'peer_rpc_exception.dart';
+import 'peer_rpc_method.dart';
+import 'peer_rpc_status.dart';
 
-/// 入站 channel 的 handler 类型。`params` 是 [`decodeRpcPayload`] 解出的 JSON 值
-/// （null / Map / List / num / String / bool）。返回值会经 [`encodeRpcPayload`]
-/// 编回 payload 发给调用方；如果是 notify 调用，返回值会被忽略。
-typedef MethodHandler = FutureOr<dynamic> Function(dynamic params);
+/// 入站 handler：拿到 typed 参数 [P] 与 [`RpcContext`]，返回 typed 结果 [R]。
+typedef RpcHandler<P, R> = FutureOr<R> Function(P params, RpcContext ctx);
 
-/// 入站 notify 监听器：每条收到的通知都会回调一遍。
-typedef NotificationListener = void Function(
-  String channel,
-  dynamic params,
-  int fromPeerId,
+/// 通知监听器：每条 notify 都会被广播一遍（在 method handler 之外，方便业务做埋点）。
+typedef RpcNotifyListener = void Function(RpcContext ctx, Object? rawParams);
+
+/// 服务端中间件：可在 handler 前后做 logging / metrics / rate-limit 等。
+///
+/// `params` 是已经 [`decodeRpcPayload`] 过的 raw JSON（null/Map/List/...），
+/// 链尾会再经 [`RpcMethod.decodeParams`] 解成 typed 值。
+typedef RpcMiddleware = FutureOr<Object?> Function(
+  RpcContext ctx,
+  Object? params,
+  Future<Object?> Function(Object? params) next,
 );
 
-/// 替代旧 `NodeNetServer` 的 peer-RPC 路由器。
+/// peer-RPC 路由器：监听同一 EasyTier instance 上的入站事件，
+/// 按 channel 分发到 [`RpcMethod`] 注册的 handler，并自动回包。
 ///
-/// 通过 [`subscribeAppInbound`] 监听同一 EasyTier instance 上其他节点投递过来的
-/// `Call`/`Notify`，按 `channel` 找到对应 [`MethodHandler`]，并自动调用
-/// [`appCallReply`] 把结果回包给对端。多实例切换：先 [`stop`] 再 [`start`]，
-/// 同一时刻只绑定一个 instanceId。
+/// 用法：
+/// ```dart
+/// final router = PeerRpcRouter()
+///   ..use(accessLogMiddleware())
+///   ..on(UserRpc.getInfo, (params, ctx) => myUserInfo)
+///   ..on(MessageRpc.send, (params, ctx) { /* fire & forget */ });
+/// await router.start(instanceId);
+/// ```
 class PeerRpcRouter {
-  final Map<String, MethodHandler> _methods = {};
-  final List<NotificationListener> _notificationListeners = [];
+  final Map<String, _MethodEntry> _methods = {};
+  final List<RpcMiddleware> _middlewares = [];
+  final List<RpcNotifyListener> _notifyListeners = [];
 
+  // ignore: cancel_subscriptions
   StreamSubscription<AppInboundEventC>? _inboundSub;
   String? _instanceId;
-
-  /// 是否打印每个入站事件的概览。频繁场景下默认关闭，避免刷屏。
-  static const bool _accessLog = false;
 
   bool get isRunning => _instanceId != null;
   String? get instanceId => _instanceId;
   int get methodsCount => _methods.length;
+  Iterable<String> get registeredChannels => _methods.keys;
 
-  /// 注册单个方法。重复注册会覆盖。
-  void register(String channel, MethodHandler handler) {
-    _methods[channel] = handler;
-    appLogger.i('[PeerRpcRouter] 注册方法: $channel');
+  // ---------------- 注册 API ----------------
+
+  /// 注册一个 typed 方法的 handler。重复注册会覆盖，并打印 warn。
+  PeerRpcRouter on<P, R>(RpcMethod<P, R> method, RpcHandler<P, R> handler) {
+    final channel = method.channel;
+    if (_methods.containsKey(channel)) {
+      appLogger.w('[PeerRpcRouter] 覆盖已注册方法: $channel');
+    }
+    _methods[channel] = _MethodEntry(
+      channel: channel,
+      dispatch: (raw, ctx) async {
+        final params = method.decodeParams(raw);
+        final result = await handler(params, ctx);
+        return method.encodeResult(result);
+      },
+    );
+    return this;
   }
 
-  /// 批量注册方法。
-  void registerAll(Map<String, MethodHandler> methods) {
-    _methods.addAll(methods);
-    appLogger.i('[PeerRpcRouter] 批量注册 ${methods.length} 个方法');
+  /// 批量注册：把同一个对象暴露的多个方法一次挂上去。
+  PeerRpcRouter onAll(Iterable<RpcBindingBase> bindings) {
+    for (final b in bindings) {
+      b.attach(this);
+    }
+    return this;
   }
 
-  /// 添加 notify 监听器（不区分 channel）。
-  void addNotificationListener(NotificationListener listener) {
-    _notificationListeners.add(listener);
+  /// 注销指定 channel；从未注册时静默忽略。
+  void off(String channel) {
+    _methods.remove(channel);
   }
 
-  /// 绑定到指定的 EasyTier instance 并开始监听入站事件。
+  /// 装上一个中间件（按顺序生效）。
+  PeerRpcRouter use(RpcMiddleware mw) {
+    _middlewares.add(mw);
+    return this;
+  }
+
+  /// 添加 notify 监听器（在 method handler 之外，所有 notify 都会回调一遍）。
+  PeerRpcRouter addNotifyListener(RpcNotifyListener listener) {
+    _notifyListeners.add(listener);
+    return this;
+  }
+
+  // ---------------- 生命周期 ----------------
+
+  /// 绑定到指定 EasyTier instance，开始监听入站事件。
   ///
-  /// 调用前如已在运行会先静默 [`stop`]。订阅一旦被底层关闭（实例下线），
-  /// 路由器会自动回到 stopped 状态，外部需要重新连接后再 [`start`]。
+  /// 已在运行则会先 [`stop`] 再重新 start，保证同一时刻只绑定一个实例。
   Future<void> start(String instanceId) async {
     if (_instanceId != null) {
       await stop();
@@ -77,7 +117,6 @@ class PeerRpcRouter {
         );
       },
       onDone: () {
-        // 实例下线时底层 broadcast 会被关掉。这里清理一下状态。
         if (_instanceId == instanceId) {
           _instanceId = null;
           _inboundSub = null;
@@ -87,11 +126,10 @@ class PeerRpcRouter {
     );
 
     appLogger.i(
-      '[PeerRpcRouter] 已启动 instance=$instanceId methods=$methodsCount',
+      '[PeerRpcRouter] 已启动 instance=$instanceId methods=$methodsCount middlewares=${_middlewares.length}',
     );
   }
 
-  /// 停止监听并清理状态。
   Future<void> stop() async {
     final sub = _inboundSub;
     final id = _instanceId;
@@ -103,55 +141,54 @@ class PeerRpcRouter {
     }
   }
 
+  // ---------------- 内部分发 ----------------
+
   Future<void> _onEvent(AppInboundEventC evt) async {
-    final channel = evt.channel;
-    dynamic params;
+    final ctx = RpcContext(
+      instanceId: _instanceId ?? '',
+      fromPeerId: evt.fromPeerId,
+      channel: evt.channel,
+      kind: RpcKind.fromInbound(evt.kind),
+      receivedAt: DateTime.now(),
+      token: evt.kind == AppInboundKindC.call ? evt.token : null,
+    );
+
+    Object? rawParams;
     try {
-      params = decodeRpcPayload(evt.payload);
+      rawParams = decodeRpcPayload(evt.payload);
     } catch (e) {
-      appLogger.w('[PeerRpcRouter] payload 解析失败 channel=$channel from=${evt.fromPeerId}: $e');
-      if (evt.kind == AppInboundKindC.call) {
-        await _safeReply(evt.token, -32700, 'Parse error', null);
+      appLogger.w(
+        '[PeerRpcRouter] payload 解析失败 channel=${ctx.channel} from=${ctx.fromPeerId}: $e',
+      );
+      if (ctx.isCall) {
+        await _safeReply(evt.token, RpcStatus.parseError, 'Parse error: $e', null);
       }
       return;
     }
 
-    if (_accessLog) {
-      final kind = evt.kind == AppInboundKindC.call ? 'call' : 'notify';
-      appLogger.d(
-        '[PeerRpcRouter] <- $kind channel=$channel from=${evt.fromPeerId}',
-      );
-    }
-
-    if (evt.kind == AppInboundKindC.notify) {
-      await _dispatchNotify(channel, params, evt.fromPeerId);
+    if (ctx.isNotify) {
+      await _dispatchNotify(ctx, rawParams);
       return;
     }
-
-    await _dispatchCall(channel, params, evt.token);
+    await _dispatchCall(ctx, rawParams, evt.token);
   }
 
-  Future<void> _dispatchNotify(
-    String channel,
-    dynamic params,
-    int fromPeerId,
-  ) async {
-    final handler = _methods[channel];
-    if (handler != null) {
+  Future<void> _dispatchNotify(RpcContext ctx, Object? rawParams) async {
+    final entry = _methods[ctx.channel];
+    if (entry != null) {
       try {
-        await handler(params);
+        await _runWithMiddlewares(entry, ctx, rawParams);
       } catch (e, st) {
-        // notify 没有回包通道，handler 异常只能记录。
         appLogger.e(
-          '[PeerRpcRouter] notify handler 异常 channel=$channel: $e',
+          '[PeerRpcRouter] notify handler 异常 channel=${ctx.channel}: $e',
           error: e,
           stackTrace: st,
         );
       }
     }
-    for (final l in _notificationListeners) {
+    for (final l in _notifyListeners) {
       try {
-        l(channel, params, fromPeerId);
+        l(ctx, rawParams);
       } catch (e) {
         appLogger.w('[PeerRpcRouter] notify listener 抛错: $e');
       }
@@ -159,30 +196,53 @@ class PeerRpcRouter {
   }
 
   Future<void> _dispatchCall(
-    String channel,
-    dynamic params,
+    RpcContext ctx,
+    Object? rawParams,
     BigInt token,
   ) async {
-    final handler = _methods[channel];
-    if (handler == null) {
-      appLogger.w('[PeerRpcRouter] 未注册的 channel: $channel');
-      await _safeReply(token, -32601, 'Method not found', channel);
+    final entry = _methods[ctx.channel];
+    if (entry == null) {
+      appLogger.w('[PeerRpcRouter] 未注册的 channel: ${ctx.channel}');
+      await _safeReply(
+        token,
+        RpcStatus.methodNotFound,
+        'Method not found',
+        ctx.channel,
+      );
       return;
     }
     try {
-      final result = await handler(params);
-      await _safeReply(token, 0, '', result);
+      final encoded = await _runWithMiddlewares(entry, ctx, rawParams);
+      await _safeReply(token, RpcStatus.ok, '', encoded);
     } on RpcException catch (e) {
-      // 业务异常：保留 code（一般 > 0），data 走 payload。
       await _safeReply(token, e.code, e.message, e.data);
     } catch (e, st) {
       appLogger.e(
-        '[PeerRpcRouter] handler 内部错误 channel=$channel: $e',
+        '[PeerRpcRouter] handler 内部错误 channel=${ctx.channel}: $e',
         error: e,
         stackTrace: st,
       );
-      await _safeReply(token, -32603, 'Internal error: $e', null);
+      await _safeReply(
+        token,
+        RpcStatus.internalError,
+        'Internal error: $e',
+        null,
+      );
     }
+  }
+
+  /// 把 middleware 链组合在 method dispatch 外侧。链按注册顺序执行。
+  Future<Object?> _runWithMiddlewares(
+    _MethodEntry entry,
+    RpcContext ctx,
+    Object? rawParams,
+  ) {
+    Future<Object?> Function(Object?) chain = (p) => entry.dispatch(p, ctx);
+    for (final mw in _middlewares.reversed) {
+      final next = chain;
+      chain = (p) async => await mw(ctx, p, next);
+    }
+    return chain(rawParams);
   }
 
   Future<void> _safeReply(
@@ -197,13 +257,12 @@ class PeerRpcRouter {
     try {
       payload = encodeRpcPayload(data);
     } catch (e) {
-      // 编码出错就降级为空 payload + 错误信息。
       appLogger.w('[PeerRpcRouter] 回包编码失败 token=$token: $e');
       try {
         await appCallReply(
           instanceId: id,
           token: token,
-          status: -32603,
+          status: RpcStatus.internalError,
           errorMsg: 'Encode error: $e',
           payload: Uint8List(0),
         );
@@ -221,5 +280,39 @@ class PeerRpcRouter {
     } catch (e) {
       appLogger.w('[PeerRpcRouter] 回包失败 token=$token: $e');
     }
+  }
+}
+
+/// 内部使用的"已类型擦除的 method entry"。
+class _MethodEntry {
+  final String channel;
+  final Future<Object?> Function(Object? raw, RpcContext ctx) dispatch;
+  _MethodEntry({required this.channel, required this.dispatch});
+}
+
+/// 已经类型擦除的 binding 基类。业务一般直接用 [`RpcBinding`]；这层抽象的
+/// 唯一作用是让 [`PeerRpcRouter.onAll`] 能接收一个泛型不一致的 binding 列表。
+abstract class RpcBindingBase {
+  /// 把自身挂到 router 上。
+  void attach(PeerRpcRouter router);
+}
+
+/// 用 [`RpcMethod`] + handler 打包注册项，便于业务把同一类方法集中暴露。
+///
+/// ```dart
+/// router.onAll([
+///   RpcBinding(UserRpc.getInfo, _getInfo),
+///   RpcBinding(UserRpc.update, _update),
+/// ]);
+/// ```
+class RpcBinding<P, R> implements RpcBindingBase {
+  final RpcMethod<P, R> method;
+  final RpcHandler<P, R> handler;
+
+  RpcBinding(this.method, this.handler);
+
+  @override
+  void attach(PeerRpcRouter router) {
+    router.on(method, handler);
   }
 }

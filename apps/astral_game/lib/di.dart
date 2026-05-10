@@ -2,8 +2,12 @@ import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/firewall_service.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
+import 'package:astral_game/data/services/peer_rpc/interceptor/singleflight.dart';
+import 'package:astral_game/data/services/peer_rpc/interceptor/smart_retry.dart';
 import 'package:astral_game/data/services/peer_rpc/methods/message_methods.dart';
 import 'package:astral_game/data/services/peer_rpc/methods/user_methods.dart';
+import 'package:astral_game/data/services/peer_rpc/middleware/access_log.dart';
+import 'package:astral_game/data/services/peer_rpc/middleware/slow_call_warn.dart';
 import 'package:astral_game/data/services/peer_rpc/peer_rpc_client.dart';
 import 'package:astral_game/data/services/peer_rpc/peer_rpc_router.dart';
 import 'package:astral_game/data/services/p2p_config_service.dart';
@@ -135,17 +139,27 @@ void disposeDI() {
   getIt<PeerRpcRouter>().stop();
 }
 
-/// 注册 peer-RPC 路由器的方法集合。真正绑定到 EasyTier instance 的动作发生在
-/// [`ConnectionService.connectToRoom`] 成功后；这里只完成「注册一次，多次连接复用」
-/// 的 handler 装载。
+/// 装配 peer-RPC：
+/// - **服务端**：装上访问日志 + 慢调用告警 middleware，按 typed [`RpcBinding`]
+///   挂载业务方法。
+/// - **客户端**：装上 singleflight（去重并发请求）+ smart_retry（暂时性失败退避）。
+///
+/// 真正绑定到 EasyTier instance 的动作发生在 [`ConnectionService.connectToRoom`]
+/// 成功后；这里只完成「注册一次，多次连接复用」的 handler / interceptor 装载。
 Future<void> _initPeerRpcRouter() async {
   final router = getIt<PeerRpcRouter>();
+  final client = getIt<PeerRpcClient>();
   final appSettings = getIt<AppSettingsService>();
 
-  // 业务级 channel：当前只挂"用户资料"和"消息推送"两类。节点拓扑由 EasyTier
-  // 自己维护（`getNetworkStatus`），不需要再在应用层暴露一份 `node.*` 镜像。
-  router.registerAll(UserMethods(appSettings).methods);
-  router.registerAll(MessageMethods().methods);
+  router
+    ..use(accessLogMiddleware())
+    ..use(slowCallWarnMiddleware())
+    ..onAll(UserMethods(appSettings).bindings())
+    ..onAll(MessageMethods().bindings());
+
+  client
+    ..use(singleflightInterceptor())
+    ..use(smartRetryInterceptor());
 
   appLogger.i(
     '[PeerRpc] router ready (not yet bound), methods=${router.methodsCount}',

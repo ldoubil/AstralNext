@@ -1,22 +1,40 @@
-/// 跨节点 RPC 异常。
-///
-/// 状态码语义（与 EasyTier 的 `astral_app_rpc::status` + 历史 JSON-RPC 错误码兼容）：
-/// - `0`：成功（约定不会以异常形式抛出）。
-/// - `> 0`：业务自定义错误（沿用旧 JSON-RPC 风格的 `-32xxx` 值的正数化版本，
-///   或者业务自己定义；具体语义由 channel 的两端约定）。
-/// - `< 0`：传输/框架级错误，由底层注入：
-///   - `-1` 对端没有订阅入站事件（`NO_SUBSCRIBER`）。
-///   - `-2` 对端业务超时未回复（`REPLY_TIMEOUT`）。
-///   - `-3` 对端服务在回复前被销毁（`SERVICE_DROPPED`）。
-///   - `-32000` 客户端等待响应超时（本端发起方超时）。
-///   - `-32601` 收到了未注册的 channel。
-///   - `-32603` 收端 handler 抛出了非 [`RpcException`] 类型的异常。
+import 'peer_rpc_status.dart';
+
+/// 跨节点 RPC 异常。状态码语义见 [`RpcStatus`]。
 class RpcException implements Exception {
   final int code;
   final String message;
-  final dynamic data;
+  final Object? data;
 
-  RpcException(this.code, this.message, {this.data});
+  const RpcException(this.code, this.message, {this.data});
+
+  // ---------------- 常用构造器（语义化） ----------------
+
+  factory RpcException.timeout([String? detail]) =>
+      RpcException(RpcStatus.requestTimeout,
+          detail == null ? 'Request timeout' : 'Request timeout: $detail');
+
+  factory RpcException.notBound([String? detail]) => RpcException(
+      RpcStatus.notBound,
+      detail ??
+          'PeerRpcClient is not bound to any instance (call bindInstance first)');
+
+  factory RpcException.methodNotFound(String channel) =>
+      RpcException(RpcStatus.methodNotFound, 'Method not found: $channel');
+
+  factory RpcException.parse(String detail) =>
+      RpcException(RpcStatus.parseError, 'Parse error: $detail');
+
+  factory RpcException.internal(Object error) =>
+      RpcException(RpcStatus.internalError, 'Internal error: $error');
+
+  // ---------------- 语义化分类 ----------------
+
+  bool get isTransport => RpcStatus.isTransport(code);
+  bool get isBusiness => RpcStatus.isBusiness(code);
+  bool get isUnreachable => RpcStatus.isUnreachable(code);
+  bool get isPermanent => RpcStatus.isPermanent(code);
+  bool get isLocalTimeout => RpcStatus.isLocalTimeout(code);
 
   @override
   String toString() => 'RpcException($code): $message';
