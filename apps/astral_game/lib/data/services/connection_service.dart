@@ -199,8 +199,8 @@ class ConnectionService {
 
   /// 创建新房间
   ///
-  /// 要求传入房间名，并生成会话 token（用于房间密码与 RPC 鉴权）
-  /// 返回创建的房间信息
+  /// 要求传入房间名，并生成 token 作为 EasyTier `network_secret`（房间密码）。
+  /// 返回创建的房间信息。
   Future<RoomMod> createRoom({required String roomName}) async {
     final fp = _p2pConfig.shareFingerprint();
     final token = _p2pConfig.generateRoomCode();

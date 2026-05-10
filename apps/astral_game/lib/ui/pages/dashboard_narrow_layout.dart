@@ -226,8 +226,8 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
   Widget _buildRightPanelForNarrow(BuildContext context) {
     return Watch((context) {
       final isConnected = widget.nodeManagement.isRunning;
-      final status = widget.nodeManagement.networkStatus.value;
-      final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? AppConstants.defaultVirtualIp;
+      final myIp = widget.nodeManagement.myVirtualIpv4.value;
+      final virtualIp = myIp.isNotEmpty ? myIp : AppConstants.defaultVirtualIp;
       final username = widget.nodeManagement.currentUsername.value;
       final avatar = widget.nodeManagement.currentUserAvatar.value;
 
@@ -369,10 +369,7 @@ class _DashboardNarrowLayoutState extends State<DashboardNarrowLayout> with Sing
         physics: const NeverScrollableScrollPhysics(),
         itemCount: enhancedNodes.length,
         itemBuilder: (context, index) {
-          return DashboardUserItem(
-            node: enhancedNodes[index],
-            p2pStore: widget.nodeManagement,
-          );
+          return DashboardUserItem(node: enhancedNodes[index]);
         },
       );
     });

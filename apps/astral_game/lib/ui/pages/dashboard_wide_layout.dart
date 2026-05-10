@@ -89,7 +89,6 @@ class DashboardWideLayout extends StatelessWidget {
                   ? (isRunning
                         ? UserListWidget(
                             users: nodeManagement.userNodes.value,
-                            p2pStore: nodeManagement,
                             shrinkWrap: true,
                           )
                         : _buildJoinHistory(context, shrinkWrap: true))
@@ -97,7 +96,6 @@ class DashboardWideLayout extends StatelessWidget {
                       child: isRunning
                           ? UserListWidget(
                               users: nodeManagement.userNodes.value,
-                              p2pStore: nodeManagement,
                               physics: const AlwaysScrollableScrollPhysics(),
                             )
                           : _buildJoinHistoryScrollable(context),
@@ -119,8 +117,8 @@ class DashboardWideLayout extends StatelessWidget {
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: Watch((context) {
                 final isConnected = nodeManagement.isRunning;
-                final status = nodeManagement.networkStatus.value;
-                final virtualIp = status?.nodes.firstOrNull?.ipv4 ?? AppConstants.defaultVirtualIp;
+                final myIp = nodeManagement.myVirtualIpv4.value;
+                final virtualIp = myIp.isNotEmpty ? myIp : AppConstants.defaultVirtualIp;
                 final username = nodeManagement.currentUsername.value;
                 final avatar = nodeManagement.currentUserAvatar.value;
 

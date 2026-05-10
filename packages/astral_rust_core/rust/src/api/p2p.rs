@@ -585,6 +585,12 @@ pub fn create_server(config_toml: String, watch_event: bool) -> JoinHandle<Resul
             .run_network_instance(cfg, false, ConfigFileControl::STATIC_CONFIG)
             .map_err(|e| format!("start instance failed: {}", e))?;
 
+        // EasyTier 的 NetworkInstance::start 是 spawn-thread 异步的，`run_network_instance`
+        // 返回时 Instance::run 还没跑到 `astral_app_rpc::install`。如果直接把 instance_id
+        // 交回给 dart，紧跟着的 `subscribeAppInbound` / `myPeerId` 会拿到
+        // "astral app rpc service not found" 报错（broadcast 流立刻 onDone）。
+        wait_for_app_rpc_service(&instance_id, std::time::Duration::from_secs(5)).await;
+
         if watch_event {
             if let Some(instance) = MANAGER.iter().find(|item| *item.key() == instance_id) {
                 if let Some(subscriber) = instance.subscribe_event() {
@@ -720,6 +726,8 @@ pub fn create_server_with_flags(
             .run_network_instance(cfg, false, ConfigFileControl::STATIC_CONFIG)
             .map_err(|e| format!("start instance failed: {}", e))?;
 
+        wait_for_app_rpc_service(&instance_id, std::time::Duration::from_secs(5)).await;
+
         if let Some(instance) = MANAGER.iter().find(|item| *item.key() == instance_id) {
             if let Some(subscriber) = instance.subscribe_event() {
                 handle_event_with_instance_id(subscriber, instance_id_str.clone());
@@ -728,6 +736,28 @@ pub fn create_server_with_flags(
 
         Ok(instance_id_str)
     })
+}
+
+/// 等 `astral_app_rpc::install` 在 `Instance::run` 跑完后把 service 写进 REGISTRY。
+/// `NetworkInstance::start` 是 spawn-thread 异步的，调用方不能在 instance_id 一拿到
+/// 手就立刻去 `subscribe_app_inbound` / `my_peer_id`，否则会拿到
+/// "astral app rpc service not found"。
+async fn wait_for_app_rpc_service(instance_id: &uuid::Uuid, timeout: std::time::Duration) {
+    let step = std::time::Duration::from_millis(50);
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        if app_rpc::get_service(instance_id).is_some() {
+            return;
+        }
+        if std::time::Instant::now() >= deadline {
+            eprintln!(
+                "[astral_rust_core] WARN: astral_app_rpc service did not become ready within {:?} for instance {}",
+                timeout, instance_id,
+            );
+            return;
+        }
+        tokio::time::sleep(step).await;
+    }
 }
 
 pub fn close_server(instance_id: String) -> Result<(), String> {

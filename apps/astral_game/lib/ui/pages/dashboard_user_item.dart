@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/config/constants.dart';
-import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/models/enhanced_node_info.dart';
 import 'package:astral_game/utils/platform_version_parser.dart';
 
 class DashboardUserItem extends StatefulWidget {
   final EnhancedNodeInfo node;
-  final NodeManagementService p2pStore;
 
   const DashboardUserItem({
     super.key,
     required this.node,
-    required this.p2pStore,
   });
 
   @override
@@ -27,8 +24,8 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
     return Watch(
       (context) {
         final node = widget.node;
-        final shouldFetchAvatar = widget.p2pStore.isValidIp(node.ipv4);
-        final ipDisplayText = node.ipv4;
+        final hasIpv4 = node.hasValidIpv4;
+        final ipDisplayText = hasIpv4 ? node.ipv4 : '未分配 IP';
         final isDirect = node.baseInfo.cost <= 1 || node.baseInfo.hops.length <= 1;
         final (platformName, _) = PlatformVersionParser.parsePlatformInfo(node.baseInfo.version);
         final versionNumber = PlatformVersionParser.getVersionNumber(node.baseInfo.version);
@@ -38,7 +35,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
           node,
           platformName,
           versionNumber,
-          shouldFetchAvatar,
+          hasIpv4,
           ipDisplayText,
           isDirect,
         );
@@ -51,7 +48,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
     EnhancedNodeInfo node,
     String platformName,
     String versionNumber,
-    bool shouldFetchAvatar,
+    bool hasIpv4,
     String ipDisplayText,
     bool isDirect,
   ) {
@@ -131,9 +128,9 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                         ipDisplayText,
                         style: TextStyle(
                           fontSize: 12,
-                          color: shouldFetchAvatar
+                          color: hasIpv4
                               ? colorScheme.onSurfaceVariant
-                               : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                              : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                         ),
                       ),
                       if (isDirect)

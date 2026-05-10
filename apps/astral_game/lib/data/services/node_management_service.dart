@@ -44,6 +44,10 @@ class NodeManagementService {
   /// 当前用户名
   final currentUsername = signal<String>('');
 
+  /// 本机的虚拟网 IPv4（不带 CIDR）。轮询时从 `userNodes` 中取 peer_id=0 的
+  /// 哨兵节点的 ipv4。未连接 / 尚未拿到地址 / DHCP 未分配时为空字符串。
+  final myVirtualIpv4 = signal<String>('');
+
   Timer? _pollingTimer;
   int _pollTick = 0;
 
@@ -58,8 +62,6 @@ class NodeManagementService {
 
   /// 轮询间隔（用户列表需要更及时：1 秒）
   static const Duration _pollingInterval = Duration(seconds: 1);
-
-  // 按需求：不做冷却，轮询时直接刷新昵称/头像
 
   String? get instanceId => currentInstanceId.value;
   bool get isRunning => currentInstanceId.value != null;
@@ -81,6 +83,7 @@ class NodeManagementService {
     currentInstanceId.value = null;
     _myPeerId = null;
     userNodes.value = [];
+    myVirtualIpv4.value = '';
     appLogger.i('[NodeManagementService] 已停止');
   }
 
@@ -145,11 +148,9 @@ class NodeManagementService {
       for (final node in newNodesList) {
         // 公共服务器仅用于中继/目录，不应出现在“在线用户”列表。
         if (node.hostname.startsWith(AppConstants.publicServerHostname)) continue;
-        final port = _parsePortFromHostname(node.hostname);
         final prev = currentNodes[node.peerId];
         var enhanced = EnhancedNodeInfo(
           baseInfo: node,
-          port: port,
           // 合并已有用户资料，避免每次重建都丢失 avatar/customName
           customName: prev?.customName,
           avatar: prev?.avatar,
@@ -168,10 +169,18 @@ class NodeManagementService {
 
       userNodes.value = normalized;
 
+      // 本机虚拟 IP：优先取 `astral_rust_core` 合成的本机哨兵节点（peer_id=0）
+      // 的 ipv4；个别状态下 EasyTier 的 routes 表里也可能直接给本机一条
+      // 真实 peer_id 的条目，做一个兜底匹配。任意一种都拿不到时清空。
+      final myIp = _resolveMyVirtualIpv4(normalized);
+      if (myIp != myVirtualIpv4.value) {
+        myVirtualIpv4.value = myIp;
+      }
+
       if (_verbosePollLogs) {
         // 每秒打印“本次实际获取到的节点列表”（非常刷屏）
         final nodesPreview = normalized
-            .map((n) => '${n.peerId}:${n.hostname}:${_normalizeIpv4(n.ipv4)}')
+            .map((n) => '${n.peerId}:${n.hostname}:${n.ipv4.split('/').first}')
             .join(', ');
         appLogger.d(
           '[NodeManagementService] poll users(total=${normalized.length}, rawTotal=$newTotalNodes) [$nodesPreview]',
@@ -190,26 +199,24 @@ class NodeManagementService {
     }
   }
 
-  /// 从主机名解析端口号
-  int? _parsePortFromHostname(String hostname) {
-    try {
-      return int.parse(hostname);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// 规范化节点 IPv4（兼容 CIDR: "x.x.x.x/24" -> "x.x.x.x"）
-  String _normalizeIpv4(String raw) {
-    final trimmed = raw.trim();
-    final slash = trimmed.indexOf('/');
-    return (slash >= 0 ? trimmed.substring(0, slash) : trimmed).trim();
-  }
-
   /// 判断给定 peer_id 是否对应"本机"（合成哨兵或真实本机）。
   bool _isLocalPeer(int peerId) =>
       peerId == _localSyntheticPeerId ||
       (_myPeerId != null && peerId == _myPeerId);
+
+  /// 从节点列表里挑出"本机"的虚拟 IPv4（去掉 CIDR 后缀），找不到返回空串。
+  String _resolveMyVirtualIpv4(List<EnhancedNodeInfo> nodes) {
+    EnhancedNodeInfo? candidate;
+    for (final n in nodes) {
+      if (!_isLocalPeer(n.peerId)) continue;
+      // 优先选有合法 IPv4 的本机条目；若全都没有，至少返回第一条本机
+      if (n.hasValidIpv4) return n.ipv4.split('/').first.trim();
+      candidate ??= n;
+    }
+    if (candidate == null) return '';
+    final raw = candidate.ipv4.split('/').first.trim();
+    return raw == '0.0.0.0' ? '' : raw;
+  }
 
   /// 把本地持久化的用户名/头像盖到一个本机 [`EnhancedNodeInfo`] 上。
   /// 仅当本地有值时覆盖；本地清空（用户重置头像）也会下沉到 UI 上。
@@ -315,13 +322,6 @@ class NodeManagementService {
   /// 设置停止状态
   void setStopped() {
     stop();
-  }
-
-  /// 检查 IP 是否有效
-  bool isValidIp(String ip) {
-    final normalized = _normalizeIpv4(ip);
-    if (normalized.isEmpty) return false;
-    return normalized != '0.0.0.0';
   }
 
   /// 更新当前用户头像

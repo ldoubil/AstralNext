@@ -3,7 +3,6 @@ import 'package:astral_game/data/services/connection_service.dart';
 import 'package:astral_game/data/services/firewall_service.dart';
 import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/services/peer_rpc/methods/message_methods.dart';
-import 'package:astral_game/data/services/peer_rpc/methods/node_methods.dart';
 import 'package:astral_game/data/services/peer_rpc/methods/user_methods.dart';
 import 'package:astral_game/data/services/peer_rpc/peer_rpc_client.dart';
 import 'package:astral_game/data/services/peer_rpc/peer_rpc_router.dart';
@@ -142,10 +141,10 @@ void disposeDI() {
 Future<void> _initPeerRpcRouter() async {
   final router = getIt<PeerRpcRouter>();
   final appSettings = getIt<AppSettingsService>();
-  final nodeManagement = getIt<NodeManagementService>();
 
+  // 业务级 channel：当前只挂"用户资料"和"消息推送"两类。节点拓扑由 EasyTier
+  // 自己维护（`getNetworkStatus`），不需要再在应用层暴露一份 `node.*` 镜像。
   router.registerAll(UserMethods(appSettings).methods);
-  router.registerAll(NodeMethods(nodeManagement).methods);
   router.registerAll(MessageMethods().methods);
 
   appLogger.i(

@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:astral_game/data/services/node_management_service.dart';
 import 'package:astral_game/data/models/enhanced_node_info.dart';
 import 'package:astral_game/ui/pages/dashboard_user_item.dart';
 import 'package:astral_game/ui/widgets/empty_state_widget.dart';
 
 class UserListWidget extends StatelessWidget {
   final List<EnhancedNodeInfo> users;
-  final NodeManagementService p2pStore;
   final bool shrinkWrap;
   final ScrollPhysics? physics;
 
   const UserListWidget({
     super.key,
     required this.users,
-    required this.p2pStore,
     this.shrinkWrap = false,
     this.physics,
   });
@@ -32,10 +29,7 @@ class UserListWidget extends StatelessWidget {
       physics: physics ?? const NeverScrollableScrollPhysics(),
       itemCount: users.length,
       itemBuilder: (context, index) {
-        return DashboardUserItem(
-          node: users[index],
-          p2pStore: p2pStore,
-        );
+        return DashboardUserItem(node: users[index]);
       },
     );
   }
