@@ -24,6 +24,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
   Widget build(BuildContext context) {
     final node = widget.node;
     final hasIpv4 = node.hasValidIpv4;
+    final hasIpv6 = node.hasValidIpv6;
     final ipDisplayText = hasIpv4 ? node.ipv4 : '未分配 IP';
     final isDirect = node.baseInfo.cost <= 1 || node.baseInfo.hops.length <= 1;
     final os = OsPresentation.forNode(node);
@@ -41,6 +42,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
         network,
         versionNumber,
         hasIpv4,
+        hasIpv6,
         ipDisplayText,
         isDirect,
         peerEnvLine,
@@ -56,6 +58,7 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
     NetworkPresentation network,
     String versionNumber,
     bool hasIpv4,
+    bool hasIpv6,
     String ipDisplayText,
     bool isDirect,
     String peerEnvLine,
@@ -128,47 +131,80 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                             foreground: colorScheme.onTertiaryContainer,
                           ),
                         ),
+                      Padding(
+                        padding: EdgeInsets.only(
+                          left: network.hasLabel ? 4 : 6,
+                        ),
+                        child: Text(
+                          '${node.baseInfo.latencyMs.round()}ms',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: node.baseInfo.latencyMs < 100
+                                ? AppColors.online
+                                : node.baseInfo.latencyMs < 300
+                                    ? AppColors.warning
+                                    : AppColors.error,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        ipDisplayText,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: hasIpv4
-                              ? colorScheme.onSurfaceVariant
-                              : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      if (isDirect)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.online,
-                              borderRadius: AppRadius.brSmall,
-                            ),
-                            child: Text(
-                              '直连',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
-                              ),
+                      Row(
+                        children: [
+                          Text(
+                            ipDisplayText,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: hasIpv4
+                                  ? colorScheme.onSurfaceVariant
+                                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                             ),
                           ),
-                        ),
-                      if (versionNumber.isNotEmpty)
+                          if (isDirect)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.online,
+                                  borderRadius: AppRadius.brSmall,
+                                ),
+                                child: Text(
+                                  '直连',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (versionNumber.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                versionNumber,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (hasIpv6)
                         Padding(
-                          padding: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            versionNumber,
+                            node.ipv6,
                             style: TextStyle(
                               fontSize: 11,
-                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
                             ),
                           ),
                         ),
@@ -189,51 +225,21 @@ class _DashboardUserItemState extends State<DashboardUserItem> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: colorScheme.tertiaryContainer,
-                          borderRadius: AppRadius.brSmall,
-                        ),
-                        child: Text(
-                          'ID: ${node.peerId}',
+                  if (node.baseInfo.lossRate > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          '丢包: ${node.baseInfo.lossRate.toStringAsFixed(1)}%',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: colorScheme.onTertiaryContainer,
+                            color: AppColors.error,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${node.baseInfo.latencyMs.round()}ms',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: node.baseInfo.latencyMs < 100
-                              ? AppColors.online
-                              : node.baseInfo.latencyMs < 300
-                                  ? AppColors.warning
-                                  : AppColors.error,
-                        ),
-                      ),
-                      if (node.baseInfo.lossRate > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text(
-                            '丢包: ${node.baseInfo.lossRate.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

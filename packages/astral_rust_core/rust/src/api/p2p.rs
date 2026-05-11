@@ -437,6 +437,8 @@ pub struct KVNodeInfo {
     pub peer_id: u32,
     pub hostname: String,
     pub ipv4: String,
+    /// 虚拟网 IPv6（含前缀长度），与 `Route.ipv6_addr` 一致；无分配时为空串。
+    pub ipv6: String,
     pub latency_ms: f64,
     pub nat: String,
     pub hops: Vec<NodeHopStats>,
@@ -815,10 +817,16 @@ pub async fn get_peer_route_pairs(instance_id: String) -> Result<Vec<PeerRoutePa
         // 本机补齐节点使用稳定哨兵 peer_id，避免因连接角色变化导致 peer_id 抖动后被去重吞掉。
         let my_peer_id = LOCAL_SYNTHETIC_PEER_ID;
 
+        let my_ipv6_from_routes = info
+            .routes
+            .iter()
+            .find(|r| r.peer_id == my_node_info.peer_id)
+            .and_then(|r| r.ipv6_addr.clone());
+
         let my_route = Route {
             peer_id: my_peer_id,
             ipv4_addr: my_node_info.virtual_ipv4.clone(),
-            ipv6_addr: None,
+            ipv6_addr: my_ipv6_from_routes,
             next_hop_peer_id: my_peer_id,
             cost: 0,
             path_latency: 0,
@@ -873,10 +881,17 @@ pub async fn get_network_status(instance_id: String) -> KVNetworkStatus {
             .map(|ip| ip.to_string())
             .unwrap_or_default();
 
+        let ipv6 = route
+            .ipv6_addr
+            .as_ref()
+            .map(|addr| addr.to_string())
+            .unwrap_or_default();
+
         let mut node_info = KVNodeInfo {
             peer_id: route.peer_id,
             hostname: route.hostname.clone(),
             ipv4,
+            ipv6,
             latency_ms: lat_ms,
             nat: p.get_udp_nat_type(),
             hops: vec![],

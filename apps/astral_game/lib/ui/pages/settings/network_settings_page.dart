@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:signals/signals_flutter.dart';
 import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/state/settings_state.dart';
@@ -34,6 +35,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final settingsState = getIt<SettingsState>();
 
     return ListView(
       padding: const EdgeInsets.all(16.0),
@@ -113,15 +115,17 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                   ),
                 const SizedBox(height: 16),
                 const Divider(height: 1),
-                SwitchListTile(
-                  title: const Text('禁用 P2P'),
-                  subtitle: const Text('禁用点对点直连，仅通过中继服务器通信'),
-                  value: getIt<SettingsState>().disableP2p.value,
-                  onChanged: (value) {
-                    getIt<SettingsState>().disableP2p.value = value;
-                    getIt<SettingsState>().saveToPersistence();
-                  },
-                ),
+                Watch((context) {
+                  return SwitchListTile(
+                    title: const Text('禁用 P2P'),
+                    subtitle: const Text('禁用点对点直连，仅通过中继服务器通信'),
+                    value: settingsState.disableP2p.value,
+                    onChanged: (value) {
+                      settingsState.disableP2p.value = value;
+                      settingsState.saveToPersistence();
+                    },
+                  );
+                }),
               ],
             ),
           ),

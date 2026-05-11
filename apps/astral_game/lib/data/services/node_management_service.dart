@@ -267,6 +267,7 @@ class NodeManagementService {
     return a.peerId == b.peerId &&
         a.hostname == b.hostname &&
         a.ipv4 == b.ipv4 &&
+        a.ipv6 == b.ipv6 &&
         a.latencyMs.round() == b.latencyMs.round() &&
         (a.lossRate * 10).round() == (b.lossRate * 10).round() &&
         a.hops.length == b.hops.length &&

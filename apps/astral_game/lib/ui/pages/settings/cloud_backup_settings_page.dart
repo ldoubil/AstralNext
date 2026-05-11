@@ -169,7 +169,7 @@ class _CloudBackupSettingsPageState extends State<CloudBackupSettingsPage> {
             '文件: ${entry.fileName}\n'
             '时间: ${entry.lastModified != null ? _formatDate(entry.lastModified!) : "未知"}\n'
             '大小: ${entry.size != null ? "${entry.size} B" : "未知"}\n\n'
-            '恢复将覆盖本地的房间数据。'),
+            '恢复将覆盖本地的房间列表；若备份中包含服务器列表也会一并覆盖。旧版备份可能仅有房间数据。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

@@ -107,6 +107,9 @@ Future<void> setupDI() async {
     () => WebDavBackupService(
       getIt<AppSettingsService>(),
       getIt<RoomPersistenceService>(),
+      getIt<ServerPersistenceService>(),
+      getIt<RoomState>(),
+      getIt<ServerState>(),
     ),
   );
 

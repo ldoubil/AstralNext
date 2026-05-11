@@ -468,6 +468,7 @@ class KVNodeInfo {
   final int peerId;
   final String hostname;
   final String ipv4;
+  final String ipv6;
   final double latencyMs;
   final String nat;
   final List<NodeHopStats> hops;
@@ -484,6 +485,7 @@ class KVNodeInfo {
     required this.peerId,
     required this.hostname,
     required this.ipv4,
+    required this.ipv6,
     required this.latencyMs,
     required this.nat,
     required this.hops,
@@ -502,6 +504,7 @@ class KVNodeInfo {
       peerId.hashCode ^
       hostname.hashCode ^
       ipv4.hashCode ^
+      ipv6.hashCode ^
       latencyMs.hashCode ^
       nat.hashCode ^
       hops.hashCode ^
@@ -522,6 +525,7 @@ class KVNodeInfo {
           peerId == other.peerId &&
           hostname == other.hostname &&
           ipv4 == other.ipv4 &&
+          ipv6 == other.ipv6 &&
           latencyMs == other.latencyMs &&
           nat == other.nat &&
           hops == other.hops &&

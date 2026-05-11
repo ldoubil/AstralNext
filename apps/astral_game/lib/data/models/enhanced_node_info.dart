@@ -42,6 +42,8 @@ class EnhancedNodeInfo {
   int get peerId => baseInfo.peerId;
   String get hostname => baseInfo.hostname;
   String get ipv4 => baseInfo.ipv4;
+  /// 虚拟网 IPv6（通常带 `/prefix`），无则为空串。
+  String get ipv6 => baseInfo.ipv6;
   String get displayName => customName ?? baseInfo.hostname;
 
   /// 对端 `user.getInfo` 上报的 `os`（如 `windows` / `android`）。
@@ -68,5 +70,15 @@ class EnhancedNodeInfo {
     final slash = raw.indexOf('/');
     final ip = (slash >= 0 ? raw.substring(0, slash) : raw).trim();
     return ip.isNotEmpty && ip != '0.0.0.0';
+  }
+
+  /// 节点是否拥有有效的虚拟网 IPv6（兼容 CIDR）。
+  bool get hasValidIpv6 {
+    final raw = baseInfo.ipv6.trim();
+    if (raw.isEmpty) return false;
+    final slash = raw.indexOf('/');
+    final ip = (slash >= 0 ? raw.substring(0, slash) : raw).trim();
+    if (ip.isEmpty || ip == '::') return false;
+    return true;
   }
 }

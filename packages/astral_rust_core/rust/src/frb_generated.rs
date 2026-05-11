@@ -1330,6 +1330,7 @@ impl SseDecode for crate::api::p2p::KVNodeInfo {
         let mut var_peerId = <u32>::sse_decode(deserializer);
         let mut var_hostname = <String>::sse_decode(deserializer);
         let mut var_ipv4 = <String>::sse_decode(deserializer);
+        let mut var_ipv6 = <String>::sse_decode(deserializer);
         let mut var_latencyMs = <f64>::sse_decode(deserializer);
         let mut var_nat = <String>::sse_decode(deserializer);
         let mut var_hops = <Vec<crate::api::p2p::NodeHopStats>>::sse_decode(deserializer);
@@ -1346,6 +1347,7 @@ impl SseDecode for crate::api::p2p::KVNodeInfo {
             peer_id: var_peerId,
             hostname: var_hostname,
             ipv4: var_ipv4,
+            ipv6: var_ipv6,
             latency_ms: var_latencyMs,
             nat: var_nat,
             hops: var_hops,
@@ -1803,6 +1805,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::p2p::KVNodeInfo {
             self.peer_id.into_into_dart().into_dart(),
             self.hostname.into_into_dart().into_dart(),
             self.ipv4.into_into_dart().into_dart(),
+            self.ipv6.into_into_dart().into_dart(),
             self.latency_ms.into_into_dart().into_dart(),
             self.nat.into_into_dart().into_dart(),
             self.hops.into_into_dart().into_dart(),
@@ -2092,6 +2095,7 @@ impl SseEncode for crate::api::p2p::KVNodeInfo {
         <u32>::sse_encode(self.peer_id, serializer);
         <String>::sse_encode(self.hostname, serializer);
         <String>::sse_encode(self.ipv4, serializer);
+        <String>::sse_encode(self.ipv6, serializer);
         <f64>::sse_encode(self.latency_ms, serializer);
         <String>::sse_encode(self.nat, serializer);
         <Vec<crate::api::p2p::NodeHopStats>>::sse_encode(self.hops, serializer);

@@ -32,14 +32,18 @@ class RoomState {
     }
   }
 
-  /// 恢复选中的房间
+  /// 恢复选中的房间（与 prefs 同步；无效 ID 时清空选中态）
   void restoreSelectedRoom(int? roomId) {
     _selectedRoomId = roomId;
-    if (roomId != null) {
-      final index = _rooms.value.indexWhere((r) => r.id == roomId);
-      if (index != -1) {
-        selectedRoom.value = _rooms.value[index];
-      }
+    if (roomId == null) {
+      selectedRoom.value = null;
+      return;
+    }
+    final index = _rooms.value.indexWhere((r) => r.id == roomId);
+    if (index != -1) {
+      selectedRoom.value = _rooms.value[index];
+    } else {
+      selectedRoom.value = null;
     }
   }
 
