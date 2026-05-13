@@ -171,7 +171,7 @@ abstract class DashboardMainCardBaseState<W extends DashboardMainCardBase>
 
       return Column(
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           Row(
             children: [
               Icon(Icons.tune, color: colorScheme.primary, size: 20),
@@ -184,7 +184,7 @@ abstract class DashboardMainCardBaseState<W extends DashboardMainCardBase>
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
@@ -285,7 +285,7 @@ abstract class DashboardMainCardBaseState<W extends DashboardMainCardBase>
                           ),
                         ),
                         Text(
-                          '将局域网 UDP 广播转发到虚拟网（游戏发现房间等，建议管理员运行）',
+                          '广播转发到虚拟网',
                           style: textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
@@ -384,7 +384,7 @@ abstract class DashboardMainCardBaseState<W extends DashboardMainCardBase>
 
     return Column(
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
         Row(
           children: [
             Icon(Icons.play_circle_outline, color: colorScheme.primary, size: 20),
@@ -397,7 +397,7 @@ abstract class DashboardMainCardBaseState<W extends DashboardMainCardBase>
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
         SizedBox(
           width: double.infinity,
           height: 44,

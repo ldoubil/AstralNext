@@ -132,7 +132,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     return SwitchListTile(
                       title: const Text('UDP 广播转发'),
                       subtitle: const Text(
-                        '将局域网 UDP 广播转发到虚拟网（局域网游戏发现房间等）；'
+                        '广播转发到虚拟网（局域网游戏发现房间等）；'
                         '通常需管理员权限，重新连接房间后生效。',
                       ),
                       value: settingsState.enableUdpBroadcastRelay.value,

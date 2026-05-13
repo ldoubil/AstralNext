@@ -288,6 +288,37 @@ jobs:
           
           Write-Host "✅ Created package: $zipPath"
 
+      # astral_game：在同一 job 内生成 Inno Setup 安装包（与 zip 同源构建输出）
+      - name: 📜 App semver for installer (pubspec, no +build)
+        if: matrix.app == 'astral_game' && matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        shell: pwsh
+        working-directory: apps/astral_game
+        run: |
+          $line = Get-Content "pubspec.yaml" | Where-Object { $_ -match '^\s*version:\s*' } | Select-Object -First 1
+          if (-not $line) { throw "version: not found in pubspec.yaml" }
+          if ($line -match 'version:\s*([\d.]+)') {
+            $v = $Matches[1]
+          } else {
+            throw "Could not parse version from: $line"
+          }
+          Add-Content -Path $env:GITHUB_ENV -Value "APP_VERSION=$v"
+          Write-Host "Installer semver: $v"
+
+      - name: 📦 Install Inno Setup (astral_game)
+        if: matrix.app == 'astral_game' && matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: 📦 Build Windows installer (Inno Setup, astral_game)
+        if: matrix.app == 'astral_game' && matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found: $iscc" }
+          Push-Location apps/astral_game
+          & $iscc "installer/astral_game.iss" "/DMyAppVersion=$env:APP_VERSION"
+          Pop-Location
+
       # ========== Upload Artifacts ==========
       - name: 📤 Upload Android APK
         if: matrix.flutter_platform == 'android'
@@ -311,4 +342,12 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: apps/${{ matrix.app }}/release/*.zip
+          retention-days: 14
+
+      - name: 📤 Upload Windows installer (astral_game)
+        if: matrix.app == 'astral_game' && matrix.flutter_platform == 'windows' && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: astral-game-windows-x64-setup
+          path: apps/astral_game/release_installer/astral-game-*-windows-x64-setup.exe
           retention-days: 14

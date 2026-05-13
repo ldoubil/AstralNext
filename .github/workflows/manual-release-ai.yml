@@ -1,0 +1,220 @@
+# 手动发布 Astral Game（仅 astral_game）
+#
+# 前置：
+# 1. Actions 运行「Build Flutter Apps」→ app 选 astral_game（或 all），生成各平台 Artifact（含 Inno 安装包 astral-game-windows-x64-setup）
+# 2. 仓库 Secret：`GOOGLE` 或 `GOOGLE_API_KEY`（Gemini，与旧 astral 一致）
+#
+# 包命名（Release 附件）：astral-game-<semver>-<platform>-<arch>.<ext>
+# 例如：astral-game-1.0.0-windows-x64.zip、astral-game-1.0.0-windows-x64-setup.exe
+
+name: 手动发布 Astral Game（AI 更新说明 + 贡献者）
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Git 标签（如 v1.0.0），须尚未存在'
+        required: true
+        type: string
+      base_ref:
+        description: 'changelog 对比起点（上一版本 tag 或 commit SHA）'
+        required: true
+        type: string
+      head_ref:
+        description: '对比终点（分支或 ref）'
+        required: false
+        default: 'main'
+        type: string
+      package_version:
+        description: '发布包文件名中的版本号（留空则从 tag 去掉 v，如 v1.0.0 → 1.0.0）'
+        required: false
+        default: ''
+        type: string
+      draft:
+        description: '草稿 Release'
+        required: false
+        default: true
+        type: boolean
+      prerelease:
+        description: '标记为预发布'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 生成说明、规范命名并发布
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_SERVER_URL: ${{ github.server_url }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 计算包版本号
+        id: pkg
+        run: |
+          set -euxo pipefail
+          TAG="${{ inputs.tag_name }}"
+          PV="${{ inputs.package_version }}"
+          if [ -n "$PV" ]; then
+            VER="$PV"
+          else
+            VER="${TAG#v}"
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "PKG_VER=$VER" >> "$GITHUB_ENV"
+
+      - name: 拉取构件 — Build Flutter Apps（astral_game）
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: build-apps.yml
+          name: astral-game-windows-x64
+          path: _dl/astral_game/windows
+          search_artifacts: true
+          if_no_artifact_found: warn
+
+      - name: 拉取构件 — Linux
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: build-apps.yml
+          name: astral-game-linux-x64
+          path: _dl/astral_game/linux
+          search_artifacts: true
+          if_no_artifact_found: warn
+
+      - name: 拉取构件 — Android arm64
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: build-apps.yml
+          name: astral-game-android-arm64
+          path: _dl/astral_game/android-arm64
+          search_artifacts: true
+          if_no_artifact_found: warn
+
+      - name: 拉取构件 — Android universal
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: build-apps.yml
+          name: astral-game-android-universal
+          path: _dl/astral_game/android-universal
+          search_artifacts: true
+          if_no_artifact_found: warn
+
+      - name: 拉取构件 — Windows 安装包（Inno Setup，来自 Build Flutter Apps）
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: build-apps.yml
+          name: astral-game-windows-x64-setup
+          path: _dl/astral_game/installer
+          search_artifacts: true
+          if_no_artifact_found: warn
+
+      - name: 规范命名并整理到 release/ 目录
+        env:
+          PKG_VER: ${{ steps.pkg.outputs.version }}
+        run: |
+          set -euxo pipefail
+          mkdir -p release
+          find _dl -type f | sort || true
+
+          pick() {
+            find _dl -type f -name "$1" | head -1
+          }
+
+          wzip=$(pick '*.zip') || true
+          if [ -n "${wzip:-}" ]; then
+            cp -f "$wzip" "release/astral-game-${PKG_VER}-windows-x64.zip"
+            echo "OK windows zip"
+          fi
+
+          ltar=$(pick '*.tar.gz') || true
+          if [ -n "${ltar:-}" ]; then
+            cp -f "$ltar" "release/astral-game-${PKG_VER}-linux-x64.tar.gz"
+            echo "OK linux tar.gz"
+          fi
+
+          apk64=$(find _dl/astral_game/android-arm64 -type f -name '*.apk' 2>/dev/null | head -1) || true
+          if [ -n "${apk64:-}" ]; then
+            cp -f "$apk64" "release/astral-game-${PKG_VER}-android-arm64.apk"
+            echo "OK android arm64"
+          fi
+
+          apkuni=$(find _dl/astral_game/android-universal -type f -name '*.apk' 2>/dev/null | head -1) || true
+          if [ -n "${apkuni:-}" ]; then
+            cp -f "$apkuni" "release/astral-game-${PKG_VER}-android-universal.apk"
+            echo "OK android universal"
+          fi
+
+          setup=$(find _dl/astral_game/installer -type f -name '*.exe' 2>/dev/null | head -1) || true
+          if [ -n "${setup:-}" ]; then
+            cp -f "$setup" "release/astral-game-${PKG_VER}-windows-x64-setup.exe"
+            echo "OK windows setup"
+          fi
+
+          ls -la release/
+
+      - name: 导出提交记录（含作者、用于 @ 推断）
+        env:
+          BASE: ${{ inputs.base_ref }}
+          HEAD: ${{ inputs.head_ref }}
+        run: |
+          set -euxo pipefail
+          git log --reverse --pretty=format:'%H%x1f%h%x1f%s%x1f%an%x1f%ae%x1f%ci' "${BASE}..${HEAD}" > commits.tsv || true
+          test -f commits.tsv && wc -c commits.tsv || true
+
+      - name: 使用 Gemini 生成 Release 说明（规范提示词 + 贡献者）
+        id: changelog
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE: ${{ secrets.GOOGLE }}
+          REPO_FULL: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          TAG_NAME: ${{ inputs.tag_name }}
+          PKG_VER: ${{ steps.pkg.outputs.version }}
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_REF: ${{ inputs.head_ref }}
+        run: |
+          set -euxo pipefail
+          export GOOGLE_API_KEY="${GOOGLE_API_KEY:-$GOOGLE}"
+          if [ -z "${GOOGLE_API_KEY:-}" ]; then
+            echo "::error::请配置 Secret：GOOGLE 或 GOOGLE_API_KEY（Gemini API Key）"
+            exit 1
+          fi
+
+          pip install --quiet google-generativeai
+          python scripts/ci/build_astral_game_release_notes.py
+
+          DELIM="CHLOG_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          {
+            echo "body<<${DELIM}"
+            cat CHANGELOG.md
+            echo "${DELIM}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Astral Game ${{ inputs.tag_name }}
+          tag_name: ${{ inputs.tag_name }}
+          # 新标签时指向对比终点，避免落在默认分支错误提交上
+          target_commitish: ${{ inputs.head_ref }}
+          body: ${{ steps.changelog.outputs.body }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          fail_on_unmatched_files: false
+          files: |
+            release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
