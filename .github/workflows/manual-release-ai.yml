@@ -7,7 +7,7 @@
 # 包命名（Release 附件）：astral-game-<semver>-<platform>-<arch>.<ext>
 # 例如：astral-game-1.0.0-windows-x64.zip、astral-game-1.0.0-windows-x64-setup.exe
 
-name: 手动发布 Astral Game（AI 更新说明 + 贡献者）
+name: 手动发布
 
 on:
   workflow_dispatch:
