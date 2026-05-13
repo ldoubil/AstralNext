@@ -94,10 +94,17 @@ class AppSettingsService {
   // ---- 网络配置 ----
 
   static const String _keyDisableP2p = 'disable_p2p';
+  static const String _keyEnableUdpBroadcastRelay = 'enable_udp_broadcast_relay';
 
   bool isDisableP2p() => _prefs.getBool(_keyDisableP2p) ?? false;
   Future<void> setDisableP2p(bool value) async =>
       await _prefs.setBool(_keyDisableP2p, value);
+
+  /// Windows：是否启用 EasyTier「UDP 广播转发到虚拟网」。
+  bool isEnableUdpBroadcastRelay() =>
+      _prefs.getBool(_keyEnableUdpBroadcastRelay) ?? false;
+  Future<void> setEnableUdpBroadcastRelay(bool value) async =>
+      await _prefs.setBool(_keyEnableUdpBroadcastRelay, value);
 
   // ---- 用户信息 ----
 

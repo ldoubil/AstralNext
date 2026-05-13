@@ -16,6 +16,8 @@ class SettingsState {
   final enableEncryption = signal(true);
   final latencyFirst = signal(false);
   final disableP2p = signal(false);
+  /// Windows：局域网 UDP 广播转发到虚拟网（EasyTier `enable_udp_broadcast_relay`）。
+  final enableUdpBroadcastRelay = signal(false);
   final dataCompressAlgo = signal(1);
 
   final listenList = signal<List<String>>([
@@ -36,6 +38,7 @@ class SettingsState {
     enableEncryption.value = settings.getEnableEncryption();
     latencyFirst.value = settings.getLatencyFirst();
     disableP2p.value = settings.isDisableP2p();
+    enableUdpBroadcastRelay.value = settings.isEnableUdpBroadcastRelay();
     dataCompressAlgo.value = settings.getDataCompressAlgo();
     listenList.value = settings.getListenList();
   }
@@ -54,6 +57,7 @@ class SettingsState {
       settings.setEnableEncryption(enableEncryption.value),
       settings.setLatencyFirst(latencyFirst.value),
       settings.setDisableP2p(disableP2p.value),
+      settings.setEnableUdpBroadcastRelay(enableUdpBroadcastRelay.value),
       settings.setDataCompressAlgo(dataCompressAlgo.value),
       settings.setListenList(listenList.value),
     ]);

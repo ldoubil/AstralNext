@@ -4,6 +4,7 @@ import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/app_settings_service.dart';
 import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/utils/input_validator.dart';
+import 'package:astral_game/utils/runtime_platform.dart';
 
 class NetworkSettingsPage extends StatefulWidget {
   const NetworkSettingsPage({super.key});
@@ -126,6 +127,21 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     },
                   );
                 }),
+                if (RuntimePlatform.operatingSystem == 'windows')
+                  Watch((context) {
+                    return SwitchListTile(
+                      title: const Text('UDP 广播转发'),
+                      subtitle: const Text(
+                        '将局域网 UDP 广播转发到虚拟网（局域网游戏发现房间等）；'
+                        '通常需管理员权限，重新连接房间后生效。',
+                      ),
+                      value: settingsState.enableUdpBroadcastRelay.value,
+                      onChanged: (value) {
+                        settingsState.enableUdpBroadcastRelay.value = value;
+                        settingsState.saveToPersistence();
+                      },
+                    );
+                  }),
               ],
             ),
           ),

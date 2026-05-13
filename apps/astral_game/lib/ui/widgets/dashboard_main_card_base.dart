@@ -8,6 +8,7 @@ import 'package:astral_game/di.dart';
 import 'package:astral_game/data/services/firewall_service.dart';
 import 'package:astral_game/data/state/settings_state.dart';
 import 'package:astral_game/ui/widgets/avatar_widget.dart';
+import 'package:astral_game/utils/runtime_platform.dart';
 
 /// 仪表盘主卡片公共字段与布局骨架；宽/窄屏子类只覆写 [showNetworkWhenConnected] 与 [buildConnectedActions]。
 abstract class DashboardMainCardBase extends StatefulWidget {
@@ -59,7 +60,7 @@ abstract class DashboardMainCardBaseState<W extends DashboardMainCardBase>
   }
 
   Future<void> _loadFirewallStatus() async {
-    if (!kIsWeb) {
+    if (!kIsWeb && RuntimePlatform.operatingSystem == 'windows') {
       try {
         final firewallService = getIt<FirewallService>();
         final status = await firewallService.getPrivateFirewallStatus();
@@ -165,6 +166,8 @@ abstract class DashboardMainCardBaseState<W extends DashboardMainCardBase>
 
     return Watch((context) {
       final disableP2p = settingsState.disableP2p.value;
+      final udpBroadcastRelay = settingsState.enableUdpBroadcastRelay.value;
+      final isWindows = RuntimePlatform.operatingSystem == 'windows';
 
       return Column(
         children: [
@@ -240,7 +243,68 @@ abstract class DashboardMainCardBaseState<W extends DashboardMainCardBase>
               ],
             ),
           ),
-          if (widget.showFirewall && !kIsWeb) ...[
+          if (isWindows) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: AppRadius.brMedium,
+                border: Border.all(
+                  color: colorScheme.outline.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: udpBroadcastRelay
+                          ? colorScheme.primaryContainer
+                          : colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.podcasts_outlined,
+                      size: 18,
+                      color: udpBroadcastRelay
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'UDP 广播转发',
+                          style: textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        Text(
+                          '将局域网 UDP 广播转发到虚拟网（游戏发现房间等，建议管理员运行）',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: udpBroadcastRelay,
+                    onChanged: (value) {
+                      settingsState.enableUdpBroadcastRelay.value = value;
+                      settingsState.saveToPersistence();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (widget.showFirewall && !kIsWeb && isWindows) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

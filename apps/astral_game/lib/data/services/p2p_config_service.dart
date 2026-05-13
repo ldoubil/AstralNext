@@ -7,6 +7,7 @@ import 'package:astral_game/data/services/public_server_service.dart';
 import 'package:astral_game/data/state/server_state.dart';
 import 'package:astral_game/data/state/vpn_state.dart';
 import 'package:astral_game/utils/logger.dart';
+import 'package:astral_game/utils/runtime_platform.dart';
 import 'package:pointycastle/export.dart';
 
 class RoomShareCodeParts {
@@ -182,6 +183,13 @@ class P2PConfigService {
         .map((route) => '[[proxy_network]]\ncidr = "${_escapeString(route)}"')
         .join('\n\n');
 
+    // 与 EasyTier `TomlConfigLoader::gen_flags` 合并用的 JSON 键一致（Rust 字段 snake_case）。
+    final udpBroadcastFlag =
+        RuntimePlatform.operatingSystem == 'windows' &&
+            _appSettings.isEnableUdpBroadcastRelay()
+        ? 'enable_udp_broadcast_relay = true\n'
+        : '';
+
     return '''
 instance_name = "AstralGame"
 hostname = "${_escapeString(hostname)}"
@@ -197,6 +205,7 @@ network_secret = "${_escapeString(roomPassword)}"
 
 ${peerBlock.isNotEmpty ? '$peerBlock\n\n' : ''}${proxyBlock.isNotEmpty ? '$proxyBlock\n\n' : ''}[flags]
 disable-p2p = $disableP2p
+$udpBroadcastFlag
 ''';
   }
 
